@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+scratch/*.log
+scratch/*.out.log
+scratch/*.err.log
+
