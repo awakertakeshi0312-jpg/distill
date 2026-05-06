@@ -92,6 +92,8 @@ import {
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
 const AUTO_LOCK_MINUTES_KEY = 'distill.autoLockMinutes';
 const SYNC_FOLDER_PATH_KEY = 'distill.syncFolderPath';
+const SYNC_FOLDER_MONITOR_ENABLED_KEY = 'distill.syncFolderMonitor.enabled';
+const SYNC_FOLDER_MONITOR_INTERVAL_MS = 60_000;
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 type VaultStatus = 'checking' | 'locked' | 'setup' | 'unlocked';
 
@@ -146,6 +148,14 @@ function App() {
   });
   const [syncFolderPackets, setSyncFolderPackets] = useState<SyncFolderPacketFile[]>([]);
   const [syncFolderPacketReviews, setSyncFolderPacketReviews] = useState<SyncFolderPacketReview[]>([]);
+  const [syncFolderMonitorEnabled, setSyncFolderMonitorEnabled] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return localStorage.getItem(SYNC_FOLDER_MONITOR_ENABLED_KEY) === 'true';
+  });
+  const [syncFolderLastCheckedAt, setSyncFolderLastCheckedAt] = useState('');
   const [personalKmHandoffStatus, setPersonalKmHandoffStatus] = useState('');
   const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(() => {
     if (typeof window === 'undefined') {
@@ -254,6 +264,10 @@ function App() {
   }, [syncFolderPath]);
 
   useEffect(() => {
+    localStorage.setItem(SYNC_FOLDER_MONITOR_ENABLED_KEY, String(syncFolderMonitorEnabled));
+  }, [syncFolderMonitorEnabled]);
+
+  useEffect(() => {
     if (vaultStatus !== 'unlocked' || autoLockMinutes <= 0) {
       return;
     }
@@ -312,6 +326,25 @@ function App() {
 
     void refreshSyncRecoveryVaultSnapshots(true);
   }, [vaultStatus]);
+
+  useEffect(() => {
+    if (
+      vaultStatus !== 'unlocked' ||
+      !syncFolderMonitorEnabled ||
+      !syncFolderPath.trim() ||
+      !vaultPassphrase ||
+      !isDesktopRuntime()
+    ) {
+      return;
+    }
+
+    void runSyncFolderMonitorTick();
+    const timer = window.setInterval(() => {
+      void runSyncFolderMonitorTick();
+    }, SYNC_FOLDER_MONITOR_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [vaultStatus, syncFolderMonitorEnabled, syncFolderPath, vaultPassphrase, store]);
 
   useEffect(() => {
     function handleGlobalShortcut(event: KeyboardEvent) {
@@ -729,6 +762,8 @@ function App() {
       setSyncRecoveryVaults([]);
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      setSyncFolderMonitorEnabled(false);
+      setSyncFolderLastCheckedAt('');
       setVaultSecurityStatus('');
     }
   }
@@ -808,6 +843,10 @@ function App() {
           syncFolderScanSuccess: (files: number) => `Found ${files} encrypted sync packet files in the folder.`,
           syncFolderReviewSuccess: (files: number, ready: number, risky: number, blocked: number) =>
             `Reviewed ${files} encrypted sync packets: ${ready} ready, ${risky} require risk review, ${blocked} quarantine candidates.`,
+          syncFolderMonitorEnabled: 'Sync folder monitor enabled. Distill will refresh the safety review queue, but will not apply packets automatically.',
+          syncFolderMonitorDisabled: 'Sync folder monitor disabled.',
+          syncFolderMonitorUpdated: (files: number, ready: number, risky: number, blocked: number) =>
+            `Monitor refreshed ${files} packets: ${ready} ready, ${risky} risk review, ${blocked} blocked/invalid.`,
           syncFolderReviewReady: (records: number, deviceId: string) =>
             `Ready: ${records} records from ${deviceId}. Preview before applying.`,
           syncFolderReviewRisky: (destructiveChanges: number, timestampTies: number) =>
@@ -875,6 +914,11 @@ function App() {
           syncFolderScanSuccess: (files: number) => `同期フォルダ内に${files}件の暗号化同期パケットが見つかりました。`,
           syncFolderReviewSuccess: (files: number, ready: number, risky: number, blocked: number) =>
             `${files}件の暗号化同期パケットを安全スキャンしました。安全候補${ready}件、リスク確認${risky}件、隔離候補${blocked}件です。`,
+          syncFolderMonitorEnabled:
+            '同期フォルダ監視を有効にしました。Distillは安全レビューキューを更新しますが、パケットは自動適用しません。',
+          syncFolderMonitorDisabled: '同期フォルダ監視を無効にしました。',
+          syncFolderMonitorUpdated: (files: number, ready: number, risky: number, blocked: number) =>
+            `監視で${files}件を更新しました。安全候補${ready}件、リスク確認${risky}件、ブロック/無効${blocked}件です。`,
           syncFolderReviewReady: (records: number, deviceId: string) =>
             `安全候補: ${deviceId} からの ${records} 件です。適用前にプレビューしてください。`,
           syncFolderReviewRisky: (destructiveChanges: number, timestampTies: number) =>
@@ -1127,6 +1171,52 @@ function App() {
         counts.blocked + counts.checkpointRisk + counts.invalid,
       ),
     );
+  }
+
+  async function runSyncFolderMonitorTick() {
+    const labels = syncLabels();
+    const reviews = await collectSyncFolderPacketReviews();
+
+    if (!reviews) {
+      return;
+    }
+
+    const counts = countSyncFolderPacketReviews(reviews);
+    setSyncFolderLastCheckedAt(new Date().toLocaleString());
+    setSyncStatus(
+      labels.syncFolderMonitorUpdated(
+        reviews.length,
+        counts.ready,
+        counts.risk,
+        counts.blocked + counts.checkpointRisk + counts.invalid,
+      ),
+    );
+  }
+
+  function toggleSyncFolderMonitor(enabled: boolean) {
+    const labels = syncLabels();
+
+    if (enabled && !syncFolderPath.trim()) {
+      setSyncStatus(labels.syncFolderRequired);
+      return;
+    }
+
+    if (enabled && !vaultPassphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    if (enabled && !isDesktopRuntime()) {
+      setSyncStatus(labels.syncFolderDesktopRequired);
+      return;
+    }
+
+    setSyncFolderMonitorEnabled(enabled);
+    setSyncStatus(enabled ? labels.syncFolderMonitorEnabled : labels.syncFolderMonitorDisabled);
+
+    if (!enabled) {
+      setSyncFolderLastCheckedAt('');
+    }
   }
 
   async function previewRecommendedSyncFolderPacket() {
@@ -1864,6 +1954,8 @@ function App() {
             syncPreview={syncPreview}
             syncRiskAccepted={syncRiskAccepted}
             syncFolderPath={syncFolderPath}
+            syncFolderMonitorEnabled={syncFolderMonitorEnabled}
+            syncFolderLastCheckedAt={syncFolderLastCheckedAt}
             syncFolderPackets={syncFolderPackets}
             syncFolderPacketReviews={syncFolderPacketReviews}
             personalKmHandoffStatus={personalKmHandoffStatus}
@@ -1905,6 +1997,7 @@ function App() {
               setSyncFolderPath(path);
               setSyncFolderPacketReviews([]);
             }}
+            onSyncFolderMonitorToggle={toggleSyncFolderMonitor}
             onExportEncryptedSyncPacketToFolder={() => void exportEncryptedSyncPacketToFolder()}
             onRefreshSyncFolderPackets={() => void refreshSyncFolderPackets()}
             onReviewSyncFolderPackets={() => void reviewSyncFolderPackets()}

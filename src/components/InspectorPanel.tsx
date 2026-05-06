@@ -46,6 +46,8 @@ type InspectorPanelProps = {
   syncPreview: SyncPreview | null;
   syncRiskAccepted: boolean;
   syncFolderPath: string;
+  syncFolderMonitorEnabled: boolean;
+  syncFolderLastCheckedAt: string;
   syncFolderPackets: SyncFolderPacketFile[];
   syncFolderPacketReviews: SyncFolderPacketReview[];
   personalKmHandoffStatus: string;
@@ -81,6 +83,7 @@ type InspectorPanelProps = {
   onExportEncryptedSyncPacket: () => void;
   onImportEncryptedSyncPacket: (file: File) => void;
   onSyncFolderPathChange: (path: string) => void;
+  onSyncFolderMonitorToggle: (enabled: boolean) => void;
   onExportEncryptedSyncPacketToFolder: () => void;
   onRefreshSyncFolderPackets: () => void;
   onReviewSyncFolderPackets: () => void;
@@ -117,6 +120,8 @@ export function InspectorPanel({
   syncPreview,
   syncRiskAccepted,
   syncFolderPath,
+  syncFolderMonitorEnabled,
+  syncFolderLastCheckedAt,
   syncFolderPackets,
   syncFolderPacketReviews,
   personalKmHandoffStatus,
@@ -152,6 +157,7 @@ export function InspectorPanel({
   onExportEncryptedSyncPacket,
   onImportEncryptedSyncPacket,
   onSyncFolderPathChange,
+  onSyncFolderMonitorToggle,
   onExportEncryptedSyncPacketToFolder,
   onRefreshSyncFolderPackets,
   onReviewSyncFolderPackets,
@@ -273,6 +279,10 @@ export function InspectorPanel({
           scanFolder: 'Scan sync folder',
           safetyScanFolder: 'Safety scan',
           recommendedPreview: 'Recommended preview',
+          monitorOn: 'Monitor on',
+          monitorOff: 'Monitor off',
+          monitorHint: 'Refreshes the safety review queue every minute. Distill never applies packets automatically.',
+          lastChecked: 'Last checked',
           folderPackets: 'Folder packets',
           noFolderPackets: 'No packet files found yet',
           importFolderPacket: 'Preview',
@@ -309,6 +319,10 @@ export function InspectorPanel({
           scanFolder: '同期フォルダを確認',
           safetyScanFolder: '安全スキャン',
           recommendedPreview: 'おすすめプレビュー',
+          monitorOn: '監視オン',
+          monitorOff: '監視オフ',
+          monitorHint: '1分ごとに安全レビューキューを更新します。Distillはパケットを自動適用しません。',
+          lastChecked: '最終確認',
           folderPackets: 'フォルダ内パケット',
           noFolderPackets: '同期パケットはまだ見つかっていません',
           importFolderPacket: 'プレビュー',
@@ -887,6 +901,22 @@ export function InspectorPanel({
               value={syncFolderPath}
               placeholder={syncLabels.folderPathPlaceholder}
               onChange={(event) => onSyncFolderPathChange(event.target.value)}
+            />
+          </label>
+          <label className="riskGate syncMonitorGate">
+            <span>
+              <strong>{syncFolderMonitorEnabled ? syncLabels.monitorOn : syncLabels.monitorOff}</strong>
+              {syncLabels.monitorHint}
+              {syncFolderLastCheckedAt ? (
+                <small>
+                  {syncLabels.lastChecked}: {syncFolderLastCheckedAt}
+                </small>
+              ) : null}
+            </span>
+            <input
+              type="checkbox"
+              checked={syncFolderMonitorEnabled}
+              onChange={(event) => onSyncFolderMonitorToggle(event.target.checked)}
             />
           </label>
           <div className="exportActions stackedActions">

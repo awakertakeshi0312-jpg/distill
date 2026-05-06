@@ -17,7 +17,20 @@ try {
   Remove-Item Env:\TAURI_SIGNING_PRIVATE_KEY_PATH -ErrorAction SilentlyContinue
   Remove-Item Env:\TAURI_SIGNING_PRIVATE_KEY_PASSWORD -ErrorAction SilentlyContinue
 
-  cmd /c '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\LaunchDevCmd.bat" -arch=x64 -host_arch=x64 && set PATH=%USERPROFILE%\.cargo\bin;%PATH% && npm run tauri:build'
+  $vsDevCmd = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
+  $buildCmd = Join-Path $env:TEMP "distill-tauri-build.cmd"
+  $buildCmdContent = @"
+@echo off
+call "$vsDevCmd" -arch=x64 -host_arch=x64
+if errorlevel 1 exit /b %errorlevel%
+set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
+cd /d "$root"
+npm run tauri:build
+exit /b %errorlevel%
+"@
+  $ascii = New-Object System.Text.ASCIIEncoding
+  [System.IO.File]::WriteAllText($buildCmd, $buildCmdContent, $ascii)
+  cmd /d /s /c "`"$buildCmd`""
   if ($LASTEXITCODE -ne 0) {
     throw "Tauri build failed with exit code $LASTEXITCODE"
   }

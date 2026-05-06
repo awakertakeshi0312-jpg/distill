@@ -62,6 +62,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added recommended preview guard that auto-opens only one unambiguous safe packet and never auto-applies sync.
 - Added encrypted pre-sync recovery snapshots so sync is not applied unless a recovery point is saved first.
 - Added in-app listing and Restore preview for saved encrypted pre-sync recovery snapshots.
+- Added monitor-only sync-folder review refresh that updates safety classifications without auto-preview or auto-apply.
 
 ## Findings
 

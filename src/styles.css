@@ -950,6 +950,15 @@ button:disabled {
   font-size: 0.82rem;
 }
 
+.syncMonitorGate {
+  border-color: rgba(47, 102, 78, 0.26);
+  background: #f5fbf4;
+}
+
+.syncMonitorGate small {
+  color: var(--muted);
+}
+
 .restorePreviewActions {
   display: grid;
   grid-template-columns: 1fr 1fr;
