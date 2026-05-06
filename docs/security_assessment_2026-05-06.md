@@ -59,6 +59,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added sync device trust revocation and revoked-device packet rejection.
 - Added explicit desktop sync-folder packet exchange with Tauri-side file name, schema, and size validation.
 - Added sync-folder safety scan that decrypts packet candidates in memory, classifies revoked-source/checkpoint-risk/invalid packets before preview, and keeps quarantine available.
+- Added recommended preview guard that auto-opens only one unambiguous safe packet and never auto-applies sync.
 
 ## Findings
 

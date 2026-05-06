@@ -79,7 +79,11 @@ import { emitCaptureSaved, emitExportArtifact, emitReviewDecision } from './aiOr
 import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
 import { buildSyncPreview, type SyncPreview } from './syncPreview';
-import { type SyncFolderPacketReview } from './syncFolderReview';
+import {
+  chooseAssistedSyncFolderPreview,
+  countSyncFolderPacketReviews,
+  type SyncFolderPacketReview,
+} from './syncFolderReview';
 
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
 const AUTO_LOCK_MINUTES_KEY = 'distill.autoLockMinutes';
@@ -784,6 +788,12 @@ function App() {
           syncFolderReviewBlocked: (deviceId: string) => `Blocked: source device ${deviceId} is revoked.`,
           syncFolderReviewCheckpointRisk: (status: string) => `Blocked: checkpoint status is ${status}.`,
           syncFolderReviewInvalid: 'Invalid or cannot decrypt with the current vault passphrase.',
+          syncFolderAssistedPreviewReady: (fileName: string) =>
+            `Safety scan selected ${fileName} and opened its preview. Review before applying.`,
+          syncFolderAssistedPreviewChoose: (ready: number, risky: number) =>
+            `Safety scan found ${ready} ready and ${risky} risk-review packets. Choose one manually.`,
+          syncFolderAssistedPreviewNone:
+            'Safety scan did not find an actionable safe packet. Quarantine invalid or blocked packets if needed.',
           syncFolderImportReady: (fileName: string) => `Loaded ${fileName}. Review the sync preview before applying.`,
           syncFolderQuarantineConfirm: (fileName: string) =>
             `Move ${fileName} into the sync folder quarantine? It will no longer appear in normal sync scans.`,
@@ -841,6 +851,12 @@ function App() {
           syncFolderReviewBlocked: (deviceId: string) => `ブロック: 信頼解除済み端末 ${deviceId} からのパケットです。`,
           syncFolderReviewCheckpointRisk: (status: string) => `ブロック: チェックポイント状態が ${status} です。`,
           syncFolderReviewInvalid: '無効、または現在のVaultパスフレーズで復号できません。',
+          syncFolderAssistedPreviewReady: (fileName: string) =>
+            `安全スキャンで ${fileName} を選び、プレビューを開きました。適用前に内容を確認してください。`,
+          syncFolderAssistedPreviewChoose: (ready: number, risky: number) =>
+            `安全スキャンで安全候補${ready}件、リスク確認${risky}件が見つかりました。手動で1件選んでください。`,
+          syncFolderAssistedPreviewNone:
+            '安全スキャンで適用可能な安全候補は見つかりませんでした。必要なら無効・ブロック済みパケットを隔離してください。',
           syncFolderImportReady: (fileName: string) =>
             `${fileName} を読み込みました。同期プレビューを確認してから適用してください。`,
           syncFolderQuarantineConfirm: (fileName: string) =>
@@ -1028,40 +1044,81 @@ function App() {
     }
   }
 
-  async function reviewSyncFolderPackets() {
+  async function collectSyncFolderPacketReviews() {
     const labels = syncLabels();
 
     if (!syncFolderPath.trim()) {
       setSyncStatus(labels.syncFolderRequired);
-      return;
+      return null;
     }
 
     if (!vaultPassphrase) {
       setSyncStatus(labels.passphraseRequired);
-      return;
+      return null;
     }
 
     if (!isDesktopRuntime()) {
       setSyncStatus(labels.syncFolderDesktopRequired);
-      return;
+      return null;
     }
 
     try {
       const files = await listEncryptedSyncPacketFiles(syncFolderPath.trim());
       const reviews = await Promise.all(files.map((packetFile) => createSyncFolderPacketReview(packetFile)));
-      const ready = reviews.filter((review) => review.status === 'ready').length;
-      const risky = reviews.filter((review) => review.status === 'risk').length;
-      const blocked = reviews.filter(
-        (review) => review.status === 'blocked' || review.status === 'checkpoint-risk' || review.status === 'invalid',
-      ).length;
 
       setSyncFolderPackets(files);
       setSyncFolderPacketReviews(reviews);
-      setSyncStatus(labels.syncFolderReviewSuccess(files.length, ready, risky, blocked));
+      return reviews;
     } catch (error) {
       console.warn('Failed to safety scan Distill sync folder.', error);
       setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
+      return null;
     }
+  }
+
+  async function reviewSyncFolderPackets() {
+    const labels = syncLabels();
+    const reviews = await collectSyncFolderPacketReviews();
+
+    if (!reviews) {
+      return;
+    }
+
+    const counts = countSyncFolderPacketReviews(reviews);
+    setSyncStatus(
+      labels.syncFolderReviewSuccess(
+        reviews.length,
+        counts.ready,
+        counts.risk,
+        counts.blocked + counts.checkpointRisk + counts.invalid,
+      ),
+    );
+  }
+
+  async function previewRecommendedSyncFolderPacket() {
+    const labels = syncLabels();
+    const reviews = await collectSyncFolderPacketReviews();
+
+    if (!reviews) {
+      return;
+    }
+
+    const decision = chooseAssistedSyncFolderPreview(reviews);
+
+    if (decision.kind === 'auto-preview') {
+      await importEncryptedSyncPacketFromFolder(
+        decision.candidate,
+        labels.syncFolderAssistedPreviewReady(decision.candidate.fileName),
+      );
+      return;
+    }
+
+    if (decision.kind === 'choose') {
+      setSyncStatus(labels.syncFolderAssistedPreviewChoose(decision.counts.ready, decision.counts.risk));
+      return;
+    }
+
+    setSyncStatus(labels.syncFolderAssistedPreviewNone);
   }
 
   async function exportEncryptedSyncPacketToFolder() {
@@ -1160,7 +1217,7 @@ function App() {
     await previewEncryptedSyncPacketText(await file.text());
   }
 
-  async function importEncryptedSyncPacketFromFolder(packetFile: SyncFolderPacketFile) {
+  async function importEncryptedSyncPacketFromFolder(packetFile: SyncFolderPacketFile, readyMessage?: string) {
     const labels = syncLabels();
 
     if (!vaultPassphrase) {
@@ -1175,7 +1232,7 @@ function App() {
 
     try {
       const packetText = await readEncryptedSyncPacketFile(packetFile.path);
-      await previewEncryptedSyncPacketText(packetText, labels.syncFolderImportReady(packetFile.fileName));
+      await previewEncryptedSyncPacketText(packetText, readyMessage ?? labels.syncFolderImportReady(packetFile.fileName));
     } catch (error) {
       console.warn('Failed to import encrypted Distill sync packet from folder.', error);
       setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
@@ -1740,6 +1797,7 @@ function App() {
             onExportEncryptedSyncPacketToFolder={() => void exportEncryptedSyncPacketToFolder()}
             onRefreshSyncFolderPackets={() => void refreshSyncFolderPackets()}
             onReviewSyncFolderPackets={() => void reviewSyncFolderPackets()}
+            onPreviewRecommendedSyncFolderPacket={() => void previewRecommendedSyncFolderPacket()}
             onImportSyncFolderPacket={(packetFile) => void importEncryptedSyncPacketFromFolder(packetFile)}
             onQuarantineSyncFolderPacket={(packetFile) => void quarantineSyncFolderPacket(packetFile)}
             onApplySyncPreview={applySyncPreview}

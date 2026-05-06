@@ -29,6 +29,11 @@ import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, ren
 import { buildRestorePreview } from '../restorePreview';
 import { buildSyncPreview } from '../syncPreview';
 import {
+  chooseAssistedSyncFolderPreview,
+  countSyncFolderPacketReviews,
+  type SyncFolderPacketReview,
+} from '../syncFolderReview';
+import {
   applyEncryptedSyncPacket,
   applySyncPacket,
   buildEncryptedSyncPacket,
@@ -1043,6 +1048,55 @@ describe('sync packets', () => {
     };
 
     await expect(decryptEncryptedSyncPacket(tampered, 'correct horse battery staple')).rejects.toThrow(/metadata/);
+  });
+});
+
+describe('sync folder review', () => {
+  function review(status: SyncFolderPacketReview['status'], fileName = `distill-sync-${status}.distill-sync.json`) {
+    return {
+      fileName,
+      path: `C:\\Sync\\${fileName}`,
+      bytes: 100,
+      modifiedAt: now,
+      status,
+      reason: status,
+    } satisfies SyncFolderPacketReview;
+  }
+
+  it('counts sync folder safety scan statuses', () => {
+    expect(
+      countSyncFolderPacketReviews([
+        review('ready'),
+        review('risk'),
+        review('stale'),
+        review('blocked'),
+        review('checkpoint-risk'),
+        review('invalid'),
+      ]),
+    ).toEqual({
+      ready: 1,
+      risk: 1,
+      stale: 1,
+      blocked: 1,
+      checkpointRisk: 1,
+      invalid: 1,
+    });
+  });
+
+  it('auto-previews only one unambiguous safe sync folder packet', () => {
+    const safe = review('ready', 'distill-sync-safe.distill-sync.json');
+
+    expect(chooseAssistedSyncFolderPreview([safe, review('stale')])).toMatchObject({
+      kind: 'auto-preview',
+      candidate: safe,
+    });
+    expect(chooseAssistedSyncFolderPreview([safe, review('ready', 'distill-sync-other.distill-sync.json')])).toMatchObject({
+      kind: 'choose',
+    });
+    expect(chooseAssistedSyncFolderPreview([safe, review('invalid')])).toMatchObject({ kind: 'choose' });
+    expect(chooseAssistedSyncFolderPreview([review('stale'), review('blocked')])).toMatchObject({
+      kind: 'no-action',
+    });
   });
 });
 

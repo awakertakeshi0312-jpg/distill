@@ -8,6 +8,7 @@ import {
   RefreshCw,
   ShieldCheck,
   ShieldOff,
+  Sparkles,
   Trash2,
   UserRound,
 } from 'lucide-react';
@@ -80,6 +81,7 @@ type InspectorPanelProps = {
   onExportEncryptedSyncPacketToFolder: () => void;
   onRefreshSyncFolderPackets: () => void;
   onReviewSyncFolderPackets: () => void;
+  onPreviewRecommendedSyncFolderPacket: () => void;
   onImportSyncFolderPacket: (packetFile: SyncFolderPacketFile) => void;
   onQuarantineSyncFolderPacket: (packetFile: SyncFolderPacketFile) => void;
   onApplySyncPreview: () => void;
@@ -147,6 +149,7 @@ export function InspectorPanel({
   onExportEncryptedSyncPacketToFolder,
   onRefreshSyncFolderPackets,
   onReviewSyncFolderPackets,
+  onPreviewRecommendedSyncFolderPacket,
   onImportSyncFolderPacket,
   onQuarantineSyncFolderPacket,
   onApplySyncPreview,
@@ -253,6 +256,7 @@ export function InspectorPanel({
           exportToFolder: 'Export to sync folder',
           scanFolder: 'Scan sync folder',
           safetyScanFolder: 'Safety scan',
+          recommendedPreview: 'Recommended preview',
           folderPackets: 'Folder packets',
           noFolderPackets: 'No packet files found yet',
           importFolderPacket: 'Preview',
@@ -288,6 +292,7 @@ export function InspectorPanel({
           exportToFolder: '同期フォルダへ書き出す',
           scanFolder: '同期フォルダを確認',
           safetyScanFolder: '安全スキャン',
+          recommendedPreview: 'おすすめプレビュー',
           folderPackets: 'フォルダ内パケット',
           noFolderPackets: '同期パケットはまだ見つかっていません',
           importFolderPacket: 'プレビュー',
@@ -841,6 +846,10 @@ export function InspectorPanel({
             <button className="restoreButton" type="button" onClick={onReviewSyncFolderPackets}>
               <ShieldCheck size={16} />
               {syncLabels.safetyScanFolder}
+            </button>
+            <button className="restoreButton" type="button" onClick={onPreviewRecommendedSyncFolderPacket}>
+              <Sparkles size={16} />
+              {syncLabels.recommendedPreview}
             </button>
           </div>
           <span className="storagePath">{syncLabels.folderPackets}</span>

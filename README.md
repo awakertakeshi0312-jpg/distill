@@ -23,7 +23,7 @@ Implemented:
 - Markdown import for bullet-based notes.
 - Manual JSON backup and encrypted vault backup.
 - Manual encrypted sync packet export/import.
-- Desktop sync-folder packet exchange with safety scan, quarantine, and risk acknowledgement before applying destructive packets.
+- Desktop sync-folder packet exchange with safety scan, recommended preview, quarantine, and risk acknowledgement before applying destructive packets.
 - Stable local device identity for sync packet source tracking.
 - Sync deletion tombstones so old packets cannot resurrect permanently deleted archived blocks.
 - Known device registry shown in the sync panel.
@@ -140,19 +140,19 @@ src-tauri/target/release/app.exe
 Current Windows installer output:
 
 ```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.19_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Distill_0.1.20_x64-setup.exe
 ```
 
 Installer SHA256:
 
 ```text
-A77F5FBCB92EDDC8CF5BB675176869962FF8A474E05A4CDD43F2E2DE03AA571B
+92D0E9306F423E22F2049613E85A1EC456446EDBF13EDC0398DC2145EBC98F59
 ```
 
 Signed auto-update flow:
 
 1. Build a signed release with `npm run release:windows`.
-2. Upload `release/Distill_0.1.19_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
+2. Upload `release/Distill_0.1.20_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
 3. Open the installed Distill desktop app.
 4. Click `Check for updates` in the Inspector update section.
 5. Click `Install update` when a newer signed version is available.
