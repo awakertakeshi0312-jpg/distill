@@ -3,6 +3,7 @@ import { exportStoreAsJson, exportStoreAsMarkdown, downloadTextFile } from './ex
 import { createMarkdownImport, parseDistillImport } from './import';
 import { decryptDistillVault, encryptDistillVault } from './vaultCrypto';
 import { getOrCreateDeviceIdentity, renameDeviceIdentity, type DeviceIdentity } from './device';
+import { getOrCreateDeviceSigningKeyPair, reviewSyncPacketSignature, signSyncPacket } from './deviceSigning';
 import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
 import { initialStore, normalizeSyncMetadata, type DistillStore, type Project, type SearchResult } from './model';
 import {
@@ -110,7 +111,15 @@ function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
 }
 
 function syncPreviewRequiresDeviceTrust(preview: SyncPreview | null) {
-  return Boolean(preview && !preview.diff.replay && !preview.diff.sourceDeviceKnown);
+  return Boolean(
+    preview &&
+      !preview.diff.replay &&
+      (preview.signatureReview?.requiresTrust ?? !preview.diff.sourceDeviceKnown),
+  );
+}
+
+function syncPreviewHasBlockingSignature(preview: SyncPreview | null) {
+  return Boolean(preview && !preview.diff.replay && preview.signatureReview?.blocksApply);
 }
 
 function App() {
@@ -903,6 +912,8 @@ function App() {
           revokedSourceRejected: (deviceId: string) => `Blocked a sync packet from revoked device ${deviceId}.`,
           syncDeviceTrustRequired: (deviceName: string) =>
             `This sync packet is from an untrusted device (${deviceName}). Confirm device trust before applying.`,
+          syncSignatureRejected: (status: string) =>
+            `This sync packet failed device signature verification (${status}) and was not applied.`,
           syncFolderRequired: 'Enter a desktop sync folder path first.',
           syncFolderDesktopRequired: 'Desktop app is required to use a sync folder.',
           syncFolderExportSuccess: (records: number, filePath: string) =>
@@ -925,6 +936,10 @@ function App() {
             `Risk review required: ${destructiveChanges} local updates/deletes and ${timestampTies} same-time ties.`,
           syncFolderReviewUnknownDevice: (deviceName: string) =>
             `Risk review required: unknown source device ${deviceName}. Preview it and confirm trust before applying.`,
+          syncFolderReviewSignatureRisk: (status: string) =>
+            `Risk review required: device signature status is ${status}.`,
+          syncFolderReviewSignatureBlocked: (status: string) =>
+            `Blocked: device signature status is ${status}.`,
           syncFolderReviewStale: 'Stale or already imported. Applying will not change the vault.',
           syncFolderReviewBlocked: (deviceId: string) => `Blocked: source device ${deviceId} is revoked.`,
           syncFolderReviewCheckpointRisk: (status: string) => `Blocked: checkpoint status is ${status}.`,
@@ -983,6 +998,8 @@ function App() {
             `信頼解除済み端末 ${deviceId} からの同期パケットを拒否しました。`,
           syncDeviceTrustRequired: (deviceName: string) =>
             `この同期パケットは未信頼の端末（${deviceName}）から届いています。適用前に端末を信頼する確認をしてください。`,
+          syncSignatureRejected: (status: string) =>
+            `端末署名の検証に失敗したため、この同期パケットは適用しませんでした（${status}）。`,
           syncFolderRequired: '同期フォルダのパスを先に入力してください。',
           syncFolderDesktopRequired: '同期フォルダはデスクトップアプリでのみ使えます。',
           syncFolderExportSuccess: (records: number, filePath: string) =>
@@ -1006,6 +1023,10 @@ function App() {
             `リスク確認が必要: ローカル更新・削除${destructiveChanges}件、同時刻の決着${timestampTies}件です。`,
           syncFolderReviewUnknownDevice: (deviceName: string) =>
             `リスク確認が必要: 未知の送信元端末 ${deviceName} からのパケットです。プレビュー後、端末信頼を確認してから適用してください。`,
+          syncFolderReviewSignatureRisk: (status: string) =>
+            `リスク確認が必要: 端末署名の状態が ${status} です。`,
+          syncFolderReviewSignatureBlocked: (status: string) =>
+            `ブロック: 端末署名の状態が ${status} です。`,
           syncFolderReviewStale: '古い、または取り込み済みです。適用してもVaultは変更されません。',
           syncFolderReviewBlocked: (deviceId: string) => `ブロック: 信頼解除済み端末 ${deviceId} からのパケットです。`,
           syncFolderReviewCheckpointRisk: (status: string) => `ブロック: チェックポイント状態が ${status} です。`,
@@ -1068,11 +1089,19 @@ function App() {
 
   async function createCurrentEncryptedSyncPacket() {
     const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
-    const registeredStore = registerSyncDevice(store, identity);
+    const signingKeyPair = await getOrCreateDeviceSigningKeyPair();
+    const signedIdentity = {
+      ...identity,
+      signingKeyAlgorithm: signingKeyPair.algorithm,
+      signingPublicKey: signingKeyPair.publicKey,
+    };
+    const registeredStore = registerSyncDevice(store, signedIdentity);
     const packet = await buildEncryptedSyncPacket(registeredStore, {
       sourceDeviceId: identity.id,
       sourceDeviceName: identity.name,
+      sourceDeviceSigningPublicKey: signingKeyPair.publicKey,
       passphrase: vaultPassphrase,
+      signPacket: (plainPacket) => signSyncPacket(plainPacket, signingKeyPair),
     });
 
     return {
@@ -1168,11 +1197,13 @@ function App() {
       }
 
       const preview = buildSyncPreview(store, packet);
+      const signatureReview = await reviewSyncPacketSignature(store, packet);
       const checkpointStatus = getSyncPacketCheckpointStatus(store, packet);
       const decisionReview = {
         destructiveChanges: preview.diff.destructiveChanges,
         timestampTies: preview.diff.timestampTies,
-        trustRequired: !preview.diff.sourceDeviceKnown,
+        trustRequired: signatureReview.requiresTrust,
+        signatureStatus: signatureReview.status,
         checkpointStatus,
       };
 
@@ -1194,12 +1225,30 @@ function App() {
         };
       }
 
+      if (signatureReview.blocksApply) {
+        return {
+          ...baseReview,
+          ...decisionReview,
+          status: 'checkpoint-risk',
+          reason: labels.syncFolderReviewSignatureBlocked(signatureReview.status),
+        };
+      }
+
       if (!preview.diff.sourceDeviceKnown) {
         return {
           ...baseReview,
           ...decisionReview,
           status: 'risk',
           reason: labels.syncFolderReviewUnknownDevice(sourceDevice),
+        };
+      }
+
+      if (signatureReview.status === 'legacy-trusted') {
+        return {
+          ...baseReview,
+          ...decisionReview,
+          status: 'risk',
+          reason: labels.syncFolderReviewSignatureRisk(signatureReview.status),
         };
       }
 
@@ -1482,7 +1531,11 @@ function App() {
         return;
       }
 
-      const preview = buildSyncPreview(store, packet);
+      const signatureReview = await reviewSyncPacketSignature(store, packet);
+      const preview = {
+        ...buildSyncPreview(store, packet),
+        signatureReview,
+      };
       const checkpointStatus = getSyncPacketCheckpointStatus(store, packet);
 
       if (!preview.diff.replay && checkpointStatus === 'previous-packet-hash-mismatch') {
@@ -1597,6 +1650,13 @@ function App() {
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      return;
+    }
+
+    const signatureReview = await reviewSyncPacketSignature(store, syncPreview.packet);
+
+    if (syncPreviewHasBlockingSignature({ ...syncPreview, signatureReview })) {
+      setSyncStatus(labels.syncSignatureRejected(signatureReview.status));
       return;
     }
 

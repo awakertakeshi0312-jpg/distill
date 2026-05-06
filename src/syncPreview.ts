@@ -1,4 +1,5 @@
 import { normalizeSyncMetadata, type DeletionTombstone, type DistillStore } from './model';
+import type { SyncPacketSignatureReview } from './deviceSigning';
 import {
   isKnownSyncDevice,
   isSyncPacketReplay,
@@ -29,6 +30,7 @@ export type SyncPreviewDiff = {
 export type SyncPreview = {
   packet: DistillSyncPacket;
   diff: SyncPreviewDiff;
+  signatureReview?: SyncPacketSignatureReview;
 };
 
 function acceptsIncomingBlock(

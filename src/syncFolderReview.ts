@@ -1,4 +1,5 @@
 import type { SyncPacketCheckpointStatus } from './sync';
+import type { SyncPacketSignatureStatus } from './deviceSigning';
 import type { SyncFolderPacketFile } from './storage';
 
 export type SyncFolderPacketReviewStatus =
@@ -19,6 +20,7 @@ export type SyncFolderPacketReview = SyncFolderPacketFile & {
   destructiveChanges?: number;
   timestampTies?: number;
   trustRequired?: boolean;
+  signatureStatus?: SyncPacketSignatureStatus;
   checkpointStatus?: SyncPacketCheckpointStatus;
 };
 

@@ -56,6 +56,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added stale sync packet rejection based on known source-device `lastPacketAt`.
 - Added encrypted sync packet apply preview with add/update/skip/delete counts before merging.
 - Added chained sync checkpoint validation using packet hashes.
+- Added signed device checkpoints with per-device ECDSA P-256 keys and trusted-device signature verification.
 - Added unknown-device trust confirmation before applying first-seen source-device sync packets.
 - Added sync device trust revocation and revoked-device packet rejection.
 - Added explicit desktop sync-folder packet exchange with Tauri-side file name, schema, and size validation.
@@ -180,5 +181,5 @@ Before distributing a new public build:
 1. Add device removal and trust revocation flow.
 2. Add OS-native idle/sleep integration and optional keyring convenience unlock.
 3. Add automatic inbound encrypted folder sync only after recovery drills, signed-device assurance, and rollback drills are documented and exercised.
-4. Add signed checkpoint verification for higher assurance sync. Current first-seen device trust confirmation is implemented, but packets are not cryptographically signed yet.
+4. Add QR/fingerprint comparison for new-device public-key verification. Signed checkpoint verification is implemented, but first trust still needs a better out-of-band verification UX.
 5. Add user-selectable vault location and backup rotation.

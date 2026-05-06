@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.25
+- Current version: 0.1.26
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -73,6 +73,8 @@ Implemented app features:
 - In-app listing and restore preview for encrypted pre-sync recovery snapshots
 - Sync-folder packet quarantine into `.distill-quarantine`
 - Manual sync device registry in the Inspector
+- Signed device checkpoints on outbound sync packets
+- Trusted-device signature verification before sync apply
 - Unknown-device trust confirmation before sync apply
 - Sync device trust revocation and revoked-device packet rejection
 - Permanent archive deletion with sync tombstones
@@ -102,7 +104,7 @@ Known remaining security limits:
 - passphrase remains in app memory while unlocked
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - restore preview exists, but restore still replaces the full local store after user approval
-- no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, unknown-device trust confirmation, recovery snapshot gating before apply, and manual recovery preview after apply
+- no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, signed trusted-device verification, unknown-device trust confirmation, recovery snapshot gating before apply, and manual recovery preview after apply
 - browser preview still depends on localStorage for the encrypted envelope
 
 ## Technical Stack
@@ -158,9 +160,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after unknown-device sync trust gate update:
+Latest verification after signed device checkpoint update:
 
-- `npm test`: 47 passed
+- `npm test`: 50 passed
 - `npm run build`: passed
 - `npm run test:rust`: 18 passed
 - `npm run test:e2e`: 10 passed
@@ -256,7 +258,7 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
-Current status: manual encrypted sync packets, apply preview, sync-folder safety scan, monitor-only review queue, outbound auto-export, recommended preview, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation exist. Automatic inbound apply and cloud/background sync are still blocked until background transport, mobile storage, and stronger signed-device assurance are specified.
+Current status: manual encrypted sync packets, signed device checkpoints, apply preview, sync-folder safety scan, monitor-only review queue, outbound auto-export, recommended preview, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation exist. Automatic inbound apply and cloud/background sync are still blocked until background transport, mobile storage, and stronger signed-device assurance are specified.
 
 ## Recommended Next Steps
 
@@ -264,7 +266,7 @@ Current status: manual encrypted sync packets, apply preview, sync-folder safety
 
 1. Add device removal UI beyond trust revocation.
 2. Add guarded inbound folder sync prototype after signed-device assurance.
-3. Add signed checkpoint or trusted-device verification.
+3. Add cross-device public-key verification UX, such as QR/fingerprint comparison.
 4. Add user-selectable vault location.
 5. Add OS-native idle/sleep integration.
 
@@ -285,4 +287,4 @@ Current status: manual encrypted sync packets, apply preview, sync-folder safety
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, sync-folder safety scans, monitor-only review queues, outbound auto-export, recommended previews, unknown-device trust confirmation, apply previews, encrypted pre-sync recovery snapshots with restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation. The next major architecture decision is automatic sync transport and signed-device assurance, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, signed device checkpoints, sync-folder safety scans, monitor-only review queues, outbound auto-export, recommended previews, unknown-device trust confirmation, apply previews, encrypted pre-sync recovery snapshots with restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation. The next major architecture decision is automatic sync transport and signed-device assurance, not more plaintext SQLite indexing.

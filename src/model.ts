@@ -33,6 +33,8 @@ export type SyncDevice = {
   lastSeenAt: string;
   lastPacketAt?: string;
   lastPacketHash?: string;
+  signingKeyAlgorithm?: string;
+  signingPublicKey?: string;
 };
 
 export type RevokedSyncDevice = {
@@ -157,7 +159,9 @@ export function normalizeSyncMetadata(sync?: Partial<SyncMetadata> | null): Sync
           typeof item.firstSeenAt === 'string' &&
           typeof item.lastSeenAt === 'string' &&
           (typeof item.lastPacketAt === 'undefined' || typeof item.lastPacketAt === 'string') &&
-          (typeof item.lastPacketHash === 'undefined' || typeof item.lastPacketHash === 'string'),
+          (typeof item.lastPacketHash === 'undefined' || typeof item.lastPacketHash === 'string') &&
+          (typeof item.signingKeyAlgorithm === 'undefined' || typeof item.signingKeyAlgorithm === 'string') &&
+          (typeof item.signingPublicKey === 'undefined' || typeof item.signingPublicKey === 'string'),
       )
     : [];
   const revokedDevices = Array.isArray(sync?.revokedDevices)
@@ -186,6 +190,14 @@ export function normalizeSyncMetadata(sync?: Partial<SyncMetadata> | null): Sync
       devicesById.set(device.id, {
         ...device,
         firstSeenAt: current && current.firstSeenAt < device.firstSeenAt ? current.firstSeenAt : device.firstSeenAt,
+        signingKeyAlgorithm: current?.signingKeyAlgorithm ?? device.signingKeyAlgorithm,
+        signingPublicKey: current?.signingPublicKey ?? device.signingPublicKey,
+      });
+    } else if (!current.signingPublicKey && device.signingPublicKey) {
+      devicesById.set(device.id, {
+        ...current,
+        signingKeyAlgorithm: device.signingKeyAlgorithm,
+        signingPublicKey: device.signingPublicKey,
       });
     }
   }

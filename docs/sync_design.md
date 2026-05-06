@@ -90,6 +90,7 @@ Implemented:
 - desktop sync-folder path for writing encrypted packet files, scanning packet candidates, safety-scanning candidates, auto-opening exactly one unambiguous known-device safe candidate, and loading a selected packet into the existing preview flow.
 - monitor-only sync-folder review queue that refreshes safety scan results on an interval without starting preview or apply.
 - outbound sync-folder auto-export that writes encrypted packets only when local block/tombstone/revocation content changes, while ignoring source-device checkpoint metadata to avoid export loops.
+- signed device checkpoints: outbound packets are signed with a local per-device ECDSA P-256 key, trusted-device packets must verify against the stored public key, and key mismatch/tampered signatures are blocked.
 - unknown-device trust confirmation: first-seen source devices are classified as risk review and cannot be applied until the user explicitly trusts the source device.
 - desktop sync-folder quarantine for suspicious or unwanted packet files.
 - import preview before applying encrypted sync packets, with add/update/skip/delete counts.
@@ -195,15 +196,16 @@ The current UI supports local manual sync only:
 11. If the recovery snapshot succeeds, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
 12. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
 13. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
-14. Distill rejects packets from devices the user has revoked.
-15. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, safety-classify candidates, and load a selected packet into the same preview/apply flow.
-16. The user can run a safety scan that classifies folder packets as ready, risk review, stale, blocked, checkpoint risk, or invalid before previewing them.
-17. The user can ask Distill to open a recommended preview only when exactly one safe packet is available and no risky/blocked/invalid packet is present.
-18. Unknown source devices are classified as risk review. Applying a first-seen source-device packet requires explicit trust confirmation in the preview.
-19. The user can turn on monitor-only review queue refresh. This periodically scans and classifies folder packets, but never opens a preview or applies a packet automatically.
-20. The user can turn on outbound auto-export. Distill writes an encrypted packet to the sync folder only when local block/tombstone/revocation content changes, and records a content fingerprint to avoid exporting the same payload repeatedly.
-21. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
-22. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
+14. Distill verifies signed packets from trusted devices against the stored public key and blocks key mismatch, missing trusted signatures, unsupported signatures, and tampered signed payloads.
+15. Distill rejects packets from devices the user has revoked.
+16. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, safety-classify candidates, and load a selected packet into the same preview/apply flow.
+17. The user can run a safety scan that classifies folder packets as ready, risk review, stale, blocked, checkpoint risk, or invalid before previewing them.
+18. The user can ask Distill to open a recommended preview only when exactly one safe packet is available and no risky/blocked/invalid packet is present.
+19. Unknown source devices are classified as risk review. Applying a first-seen source-device packet requires explicit trust confirmation in the preview.
+20. The user can turn on monitor-only review queue refresh. This periodically scans and classifies folder packets, but never opens a preview or applies a packet automatically.
+21. The user can turn on outbound auto-export. Distill writes an encrypted packet to the sync folder only when local block/tombstone/revocation content changes, and records a content fingerprint to avoid exporting the same payload repeatedly.
+22. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
+23. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
 
 This is intentionally only partially automatic: outbound write can be automated, but inbound preview/apply remains manual. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
@@ -291,7 +293,7 @@ Encrypted file sync MVP:
 2. Import encrypted `.distill-vault.json` on another device.
 3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
 4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges block records, tombstones, device metadata, and checkpoint state.
-5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, safety scan classifies packet candidates before import, monitor-only review queue refresh can keep the review list current, outbound auto-export can write local changes, recommended preview can open one unambiguous known-device safe candidate without applying it, sync apply first saves an encrypted recovery snapshot, and saved recovery snapshots can be reopened through Restore preview.
+5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, safety scan classifies packet candidates before import, monitor-only review queue refresh can keep the review list current, outbound auto-export can write local changes, recommended preview can open one unambiguous known-device safe candidate without applying it, signed checkpoint verification blocks trusted-device signature failures, sync apply first saves an encrypted recovery snapshot, and saved recovery snapshots can be reopened through Restore preview.
 
 ## Security Gate
 
@@ -299,7 +301,7 @@ Before enabling automatic sync:
 
 - wrong passphrase test
 - corrupted payload test
-- rollback/replay policy. Source-device `lastPacketAt` guard and local chained checkpoint validation are implemented; signed checkpoints remain future work.
+- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, and signed device checkpoints are implemented. Cross-device public-key verification UX remains future work.
 - device removal story beyond local trust revocation
 - backup recovery test. Current status: pre-sync encrypted recovery snapshots are saved before sync apply, and restore-from-recovery now has an in-app preview path.
 - local cache clear test

@@ -13,6 +13,7 @@ import {
 } from './vaultCrypto';
 
 export const SYNC_PACKET_SCHEMA_VERSION = 1;
+export const SYNC_SIGNATURE_ALGORITHM = 'ECDSA-P256-SHA256';
 
 export type SyncRecordKind = 'thought-block' | 'thought-block-deletion';
 
@@ -43,9 +44,16 @@ export type DistillSyncPacket = {
   since?: string;
   previousPacketHash?: string;
   packetHash?: string;
+  signature?: SyncPacketSignature;
   devices?: SyncDevice[];
   revokedDevices?: RevokedSyncDevice[];
   records: SyncRecord[];
+};
+
+export type SyncPacketSignature = {
+  algorithm: typeof SYNC_SIGNATURE_ALGORITHM;
+  publicKey: string;
+  value: string;
 };
 
 export type EncryptedSyncRecord = Omit<SyncRecord, 'value'> & {
@@ -63,6 +71,7 @@ export type DistillEncryptedSyncPacket = Omit<DistillSyncPacket, 'type' | 'recor
 type BuildSyncPacketOptions = {
   sourceDeviceId: string;
   sourceDeviceName?: string;
+  sourceDeviceSigningPublicKey?: string;
   since?: string;
   now?: string;
 };
@@ -70,6 +79,7 @@ type BuildSyncPacketOptions = {
 type BuildEncryptedSyncPacketOptions = BuildSyncPacketOptions &
   EncryptOptions & {
     passphrase: string;
+    signPacket?: (packet: DistillSyncPacket) => Promise<SyncPacketSignature>;
   };
 
 function sortObject(value: unknown): unknown {
@@ -129,7 +139,7 @@ export type SyncPacketCheckpointStatus =
   | 'previous-packet-hash-mismatch';
 
 export function computeSyncPacketHash(packet: Omit<DistillSyncPacket, 'packetHash'> | DistillSyncPacket) {
-  const { packetHash: _packetHash, ...hashInput } = packet as DistillSyncPacket;
+  const { packetHash: _packetHash, signature: _signature, ...hashInput } = packet as DistillSyncPacket;
   return stableHash(hashInput);
 }
 
@@ -211,11 +221,13 @@ function createSourceDevice(options: BuildSyncPacketOptions, timestamp: string):
     firstSeenAt: timestamp,
     lastSeenAt: timestamp,
     lastPacketAt: timestamp,
+    signingKeyAlgorithm: options.sourceDeviceSigningPublicKey ? SYNC_SIGNATURE_ALGORITHM : undefined,
+    signingPublicKey: options.sourceDeviceSigningPublicKey,
   };
 }
 
 function packetSourceDevice(
-  packet: Pick<DistillSyncPacket, 'sourceDeviceId' | 'sourceDeviceName' | 'createdAt' | 'packetHash'>,
+  packet: Pick<DistillSyncPacket, 'sourceDeviceId' | 'sourceDeviceName' | 'createdAt' | 'packetHash' | 'signature'>,
 ) {
   return {
     id: packet.sourceDeviceId,
@@ -224,6 +236,8 @@ function packetSourceDevice(
     lastSeenAt: packet.createdAt,
     lastPacketAt: packet.createdAt,
     lastPacketHash: packet.packetHash,
+    signingKeyAlgorithm: packet.signature?.algorithm,
+    signingPublicKey: packet.signature?.publicKey,
   } satisfies SyncDevice;
 }
 
@@ -251,6 +265,8 @@ export function mergeSyncDevices(...deviceGroups: SyncDevice[][]): SyncDevice[] 
         !current.lastPacketAt || (device.lastPacketAt && device.lastPacketAt >= current.lastPacketAt)
           ? device.lastPacketHash ?? current.lastPacketHash
           : current.lastPacketHash,
+      signingKeyAlgorithm: current.signingKeyAlgorithm ?? device.signingKeyAlgorithm,
+      signingPublicKey: current.signingPublicKey ?? device.signingPublicKey,
     });
   }
 
@@ -277,7 +293,7 @@ export function mergeRevokedSyncDevices(...deviceGroups: RevokedSyncDevice[][]):
 
 export function registerSyncDevice(
   store: DistillStore,
-  device: Pick<SyncDevice, 'id' | 'name'>,
+  device: Pick<SyncDevice, 'id' | 'name'> & Partial<Pick<SyncDevice, 'signingKeyAlgorithm' | 'signingPublicKey'>>,
   timestamp = new Date().toISOString(),
 ): DistillStore {
   const sync = normalizeSyncMetadata(store.sync);
@@ -287,6 +303,8 @@ export function registerSyncDevice(
     firstSeenAt: timestamp,
     lastSeenAt: timestamp,
     lastPacketAt: timestamp,
+    signingKeyAlgorithm: device.signingKeyAlgorithm,
+    signingPublicKey: device.signingPublicKey,
   };
 
   return {
@@ -403,7 +421,25 @@ function isSyncDevice(value: unknown): value is SyncDevice {
     typeof device.firstSeenAt === 'string' &&
     typeof device.lastSeenAt === 'string' &&
     (typeof device.lastPacketAt === 'undefined' || typeof device.lastPacketAt === 'string') &&
-    (typeof device.lastPacketHash === 'undefined' || typeof device.lastPacketHash === 'string')
+    (typeof device.lastPacketHash === 'undefined' || typeof device.lastPacketHash === 'string') &&
+    (typeof device.signingKeyAlgorithm === 'undefined' || typeof device.signingKeyAlgorithm === 'string') &&
+    (typeof device.signingPublicKey === 'undefined' || typeof device.signingPublicKey === 'string')
+  );
+}
+
+function isSyncPacketSignature(value: unknown): value is SyncPacketSignature {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const signature = value as SyncPacketSignature;
+
+  return (
+    signature.algorithm === SYNC_SIGNATURE_ALGORITHM &&
+    typeof signature.publicKey === 'string' &&
+    signature.publicKey.length > 0 &&
+    typeof signature.value === 'string' &&
+    signature.value.length > 0
   );
 }
 
@@ -503,6 +539,7 @@ export function parseSyncPacket(json: string): DistillSyncPacket {
     (typeof parsed.sourceDeviceName !== 'undefined' && typeof parsed.sourceDeviceName !== 'string') ||
     (typeof parsed.previousPacketHash !== 'undefined' && typeof parsed.previousPacketHash !== 'string') ||
     (typeof parsed.packetHash !== 'undefined' && typeof parsed.packetHash !== 'string') ||
+    (typeof parsed.signature !== 'undefined' && !isSyncPacketSignature(parsed.signature)) ||
     (typeof parsed.devices !== 'undefined' && (!Array.isArray(parsed.devices) || !parsed.devices.every(isSyncDevice))) ||
     (typeof parsed.revokedDevices !== 'undefined' &&
       (!Array.isArray(parsed.revokedDevices) || !parsed.revokedDevices.every(isRevokedSyncDevice))) ||
@@ -545,6 +582,7 @@ export function parseEncryptedSyncPacket(json: string): DistillEncryptedSyncPack
     (typeof parsed.sourceDeviceName !== 'undefined' && typeof parsed.sourceDeviceName !== 'string') ||
     (typeof parsed.previousPacketHash !== 'undefined' && typeof parsed.previousPacketHash !== 'string') ||
     (typeof parsed.packetHash !== 'undefined' && typeof parsed.packetHash !== 'string') ||
+    (typeof parsed.signature !== 'undefined' && !isSyncPacketSignature(parsed.signature)) ||
     (typeof parsed.devices !== 'undefined' && (!Array.isArray(parsed.devices) || !parsed.devices.every(isSyncDevice))) ||
     (typeof parsed.revokedDevices !== 'undefined' &&
       (!Array.isArray(parsed.revokedDevices) || !parsed.revokedDevices.every(isRevokedSyncDevice))) ||
@@ -576,7 +614,13 @@ export async function buildEncryptedSyncPacket(
   store: DistillStore,
   options: BuildEncryptedSyncPacketOptions,
 ): Promise<DistillEncryptedSyncPacket> {
-  const plainPacket = buildSyncPacket(store, options);
+  const unsignedPacket = buildSyncPacket(store, options);
+  const plainPacket = options.signPacket
+    ? {
+        ...unsignedPacket,
+        signature: await options.signPacket(unsignedPacket),
+      }
+    : unsignedPacket;
   const records = await Promise.all(
     plainPacket.records.map(async (record): Promise<EncryptedSyncRecord> => ({
       kind: record.kind,
@@ -601,6 +645,7 @@ export async function buildEncryptedSyncPacket(
     since: plainPacket.since,
     previousPacketHash: plainPacket.previousPacketHash,
     packetHash: plainPacket.packetHash,
+    signature: plainPacket.signature,
     devices: plainPacket.devices?.map(cloneDevice),
     revokedDevices: plainPacket.revokedDevices?.map(cloneRevokedDevice),
     records,
@@ -628,6 +673,7 @@ export async function decryptEncryptedSyncPacket(
     since: packet.since,
     previousPacketHash: packet.previousPacketHash,
     packetHash: packet.packetHash,
+    signature: packet.signature,
     devices: packet.devices?.map(cloneDevice),
     revokedDevices: packet.revokedDevices?.map(cloneRevokedDevice),
     records: records.sort(compareRecordOrder),
@@ -798,6 +844,11 @@ export function serializeSyncPacket(packet: DistillSyncPacket) {
 
 export function serializeEncryptedSyncPacket(packet: DistillEncryptedSyncPacket) {
   return `${JSON.stringify(packet, null, 2)}\n`;
+}
+
+export function getSyncPacketSignaturePayload(packet: DistillSyncPacket) {
+  const { signature: _signature, ...payload } = packet;
+  return stableStringify(payload);
 }
 
 export async function applyEncryptedSyncPacket(

@@ -26,6 +26,7 @@ import { createMarkdownImport, parseDistillImport } from '../import';
 import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
+import { createDeviceSigningKeyPair, reviewSyncPacketSignature, signSyncPacket } from '../deviceSigning';
 import { buildRestorePreview } from '../restorePreview';
 import { buildSyncPreview } from '../syncPreview';
 import {
@@ -1066,6 +1067,117 @@ describe('sync packets', () => {
       throw new Error('Expected first encrypted sync record to be a thought block');
     }
     expect(firstRecordValue.content).toBe('Discuss semantic trust with @Aki [[Person: Mina]] #search [[Semantic Retrieval]]');
+  });
+
+  it('signs encrypted sync packets and verifies trusted device signatures', async () => {
+    const signingKeyPair = await createDeviceSigningKeyPair();
+    const packet = await buildEncryptedSyncPacket(store, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      sourceDeviceSigningPublicKey: signingKeyPair.publicKey,
+      now: '2026-05-06T03:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      iterations: 1_000,
+      signPacket: (plainPacket) => signSyncPacket(plainPacket, signingKeyPair),
+    });
+    const decrypted = await decryptEncryptedSyncPacket(packet, 'correct horse battery staple');
+    const untrustedReview = await reviewSyncPacketSignature({ projects: [], blocks: [] }, decrypted);
+    const trustedStore = registerSyncDevice(
+      { projects: [], blocks: [] },
+      {
+        id: 'windows-dev',
+        name: 'Windows desk',
+        signingKeyAlgorithm: signingKeyPair.algorithm,
+        signingPublicKey: signingKeyPair.publicKey,
+      },
+      '2026-05-06T02:00:00.000Z',
+    );
+    const trustedReview = await reviewSyncPacketSignature(trustedStore, decrypted);
+
+    expect(packet.signature).toMatchObject({
+      algorithm: signingKeyPair.algorithm,
+      publicKey: signingKeyPair.publicKey,
+    });
+    expect(decrypted.signature?.publicKey).toBe(signingKeyPair.publicKey);
+    expect(untrustedReview).toMatchObject({
+      status: 'signed-untrusted',
+      blocksApply: false,
+      requiresTrust: true,
+      signatureValid: true,
+    });
+    expect(trustedReview).toMatchObject({
+      status: 'trusted-valid',
+      blocksApply: false,
+      requiresTrust: false,
+      signatureValid: true,
+    });
+  });
+
+  it('blocks signed packets that do not match the trusted source-device key', async () => {
+    const signingKeyPair = await createDeviceSigningKeyPair();
+    const otherSigningKeyPair = await createDeviceSigningKeyPair();
+    const packet = await buildEncryptedSyncPacket(store, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      sourceDeviceSigningPublicKey: signingKeyPair.publicKey,
+      now: '2026-05-06T03:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      iterations: 1_000,
+      signPacket: (plainPacket) => signSyncPacket(plainPacket, signingKeyPair),
+    });
+    const decrypted = await decryptEncryptedSyncPacket(packet, 'correct horse battery staple');
+    const trustedStore = registerSyncDevice(
+      { projects: [], blocks: [] },
+      {
+        id: 'windows-dev',
+        name: 'Windows desk',
+        signingKeyAlgorithm: otherSigningKeyPair.algorithm,
+        signingPublicKey: otherSigningKeyPair.publicKey,
+      },
+      '2026-05-06T02:00:00.000Z',
+    );
+    const review = await reviewSyncPacketSignature(trustedStore, decrypted);
+
+    expect(review).toMatchObject({
+      status: 'trusted-key-mismatch',
+      blocksApply: true,
+      requiresTrust: false,
+      signatureValid: false,
+    });
+  });
+
+  it('blocks tampered signed packet payloads', async () => {
+    const signingKeyPair = await createDeviceSigningKeyPair();
+    const packet = await buildEncryptedSyncPacket(store, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      sourceDeviceSigningPublicKey: signingKeyPair.publicKey,
+      now: '2026-05-06T03:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      iterations: 1_000,
+      signPacket: (plainPacket) => signSyncPacket(plainPacket, signingKeyPair),
+    });
+    const decrypted = await decryptEncryptedSyncPacket(packet, 'correct horse battery staple');
+    const trustedStore = registerSyncDevice(
+      { projects: [], blocks: [] },
+      {
+        id: 'windows-dev',
+        name: 'Windows desk',
+        signingKeyAlgorithm: signingKeyPair.algorithm,
+        signingPublicKey: signingKeyPair.publicKey,
+      },
+      '2026-05-06T02:00:00.000Z',
+    );
+    const review = await reviewSyncPacketSignature(trustedStore, {
+      ...decrypted,
+      createdAt: '2026-05-06T03:00:01.000Z',
+    });
+
+    expect(review).toMatchObject({
+      status: 'trusted-invalid',
+      blocksApply: true,
+      signatureValid: false,
+    });
   });
 
   it('applies encrypted sync packets after decrypting records', async () => {

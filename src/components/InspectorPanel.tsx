@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { UiCopy } from '../i18n';
+import type { SyncPacketSignatureStatus } from '../deviceSigning';
 import type { Project, RevokedSyncDevice, SyncDevice, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
 import type { RestorePreview } from '../restorePreview';
@@ -31,7 +32,11 @@ function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
 }
 
 function syncPreviewRequiresDeviceTrust(preview: SyncPreview | null) {
-  return Boolean(preview && !preview.diff.replay && !preview.diff.sourceDeviceKnown);
+  return Boolean(
+    preview &&
+      !preview.diff.replay &&
+      (preview.signatureReview?.requiresTrust ?? !preview.diff.sourceDeviceKnown),
+  );
 }
 
 type InspectorPanelProps = {
@@ -433,6 +438,15 @@ export function InspectorPanel({
           sourceTrust: 'Source trust',
           sourceKnown: 'Known device',
           sourceUnknown: 'Unknown device',
+          signature: 'Device signature',
+          signatureTrustedValid: 'Trusted signature',
+          signatureTrustedMissing: 'Missing signature from trusted device',
+          signatureTrustedMismatch: 'Trusted device key mismatch',
+          signatureTrustedInvalid: 'Invalid trusted-device signature',
+          signatureSignedUntrusted: 'Valid signature from untrusted device',
+          signatureUnsignedUntrusted: 'Unsigned untrusted device',
+          signatureLegacyTrusted: 'Known device without signing key',
+          signatureUnsupported: 'Unsupported signature',
           created: 'Created',
           incoming: 'Incoming',
           records: 'Records',
@@ -467,6 +481,15 @@ export function InspectorPanel({
           sourceTrust: '送信元の信頼',
           sourceKnown: '既知の端末',
           sourceUnknown: '未知の端末',
+          signature: '端末署名',
+          signatureTrustedValid: '信頼済み署名',
+          signatureTrustedMissing: '信頼済み端末の署名なし',
+          signatureTrustedMismatch: '信頼済み端末の鍵不一致',
+          signatureTrustedInvalid: '信頼済み端末の署名不正',
+          signatureSignedUntrusted: '未信頼端末の有効署名',
+          signatureUnsignedUntrusted: '未信頼端末の未署名',
+          signatureLegacyTrusted: '署名鍵なしの既知端末',
+          signatureUnsupported: '未対応の署名',
           created: '作成日時',
           incoming: '取り込み内容',
           records: 'レコード',
@@ -495,6 +518,25 @@ export function InspectorPanel({
           dismiss: 'パケットを閉じる',
           cancel: 'キャンセル',
         };
+
+  function signatureStatusLabel(status: SyncPacketSignatureStatus | undefined) {
+    if (!status) {
+      return syncPreviewLabels.signatureUnsupported;
+    }
+
+    const labels = {
+      'trusted-valid': syncPreviewLabels.signatureTrustedValid,
+      'trusted-missing-signature': syncPreviewLabels.signatureTrustedMissing,
+      'trusted-key-mismatch': syncPreviewLabels.signatureTrustedMismatch,
+      'trusted-invalid': syncPreviewLabels.signatureTrustedInvalid,
+      'signed-untrusted': syncPreviewLabels.signatureSignedUntrusted,
+      'unsigned-untrusted': syncPreviewLabels.signatureUnsignedUntrusted,
+      'legacy-trusted': syncPreviewLabels.signatureLegacyTrusted,
+      unsupported: syncPreviewLabels.signatureUnsupported,
+    };
+
+    return labels[status];
+  }
 
   function submitPassphraseChange() {
     onChangeVaultPassphrase(currentVaultPassphrase, nextVaultPassphrase, confirmVaultPassphrase);
@@ -1034,6 +1076,11 @@ export function InspectorPanel({
                             : ''}
                         </small>
                       ) : null}
+                      {review?.signatureStatus ? (
+                        <small>
+                          {syncPreviewLabels.signature}: {signatureStatusLabel(review.signatureStatus)}
+                        </small>
+                      ) : null}
                     </div>
                     <div className="deviceActions">
                       <button
@@ -1071,6 +1118,9 @@ export function InspectorPanel({
               <span>
                 {syncPreviewLabels.sourceTrust}:{' '}
                 {syncPreview.diff.sourceDeviceKnown ? syncPreviewLabels.sourceKnown : syncPreviewLabels.sourceUnknown}
+              </span>
+              <span>
+                {syncPreviewLabels.signature}: {signatureStatusLabel(syncPreview.signatureReview?.status)}
               </span>
               <span>
                 {syncPreviewLabels.created}: {syncPreview.packet.createdAt}
