@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.8 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, and the next major work is passphrase lifecycle, restore safety, and record-level encrypted data for future sync.
+Distill 0.1.9 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, and the next major work is passphrase lifecycle, restore safety, and record-level encrypted data for future sync.
 
 ## Phase 1: Desktop MVP
 
@@ -36,7 +36,7 @@ Completed:
 - Manual update launcher for newer setup packages.
 - Installed-app QA on Windows.
 - PWA/mobile preview path.
-- E2E coverage for vault unlock, Japanese UI, MVP flow, restore/import, edit/archive/restore, exports, people/graph, and encrypted persistence.
+- E2E coverage for vault unlock, passphrase change, Japanese UI, MVP flow, restore/import, edit/archive/restore, exports, people/graph, and encrypted persistence.
 
 Remaining polish:
 
@@ -59,8 +59,8 @@ Completed:
 
 Next:
 
-- Passphrase change flow.
-- Lock-on-idle and lock-on-sleep.
+- Passphrase change flow. Complete.
+- Lock-on-idle and lock-on-hidden. Complete.
 - Corrupted/tampered vault tests.
 - Restore preview before replacing vault.
 - User-selectable vault location.
@@ -112,7 +112,7 @@ Status: Not started.
 ## Release Gate For 0.2.0
 
 - Encrypted local vault is stable through multiple installed updates.
-- Passphrase change and restore preview are implemented.
+- Passphrase change is implemented; restore preview is implemented before 0.2.0.
 - No known data-loss path in normal use.
 - Search, edit, project assignment, archive, restore, import, export, people, graph, vault unlock, and encrypted persistence smoke tests are automated.
 - Sync design has record-level encryption and conflict strategy before implementation.

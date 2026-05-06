@@ -2,7 +2,7 @@
 
 ## Current Implementation
 
-Distill 0.1.8 uses an encrypted local vault for normal app persistence.
+Distill 0.1.9 uses an encrypted local vault for normal app persistence.
 
 Implemented:
 
@@ -14,6 +14,8 @@ Implemented:
 - Desktop stores the encrypted envelope in the Tauri SQLite `app_store` table and writes an encrypted latest backup at `backups/distill-encrypted-vault-latest.json`.
 - Browser/PWA preview stores the encrypted envelope in `localStorage:distill.vault.v1`.
 - Search and graph are generated from the decrypted in-memory store after unlock, not from a persistent plaintext SQLite index.
+- Users can change the vault passphrase from the Inspector.
+- Distill can auto-lock after inactivity and locks when the document is hidden.
 
 Vault envelope:
 
@@ -105,8 +107,8 @@ When no encrypted vault exists:
 
 ## Next Vault Milestones
 
-1. Add explicit passphrase change flow.
-2. Add emergency recovery/export guidance in the UI.
+1. Add emergency recovery/export guidance in the UI.
+2. Add restore preview before replacing a vault.
 3. Move from whole-store encryption to record-level encrypted records.
 4. Add encrypted append-only record log for sync.
 5. Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.

@@ -57,6 +57,7 @@ import { VaultGate } from './components/VaultGate';
 import { copy, getInitialLocale, UI_LOCALE_KEY, type Locale } from './i18n';
 
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
+const AUTO_LOCK_MINUTES_KEY = 'distill.autoLockMinutes';
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 type VaultStatus = 'checking' | 'locked' | 'setup' | 'unlocked';
 
@@ -70,6 +71,7 @@ function App() {
   const [vaultError, setVaultError] = useState('');
   const [vaultNotice, setVaultNotice] = useState('');
   const vaultSaveSerial = useRef(0);
+  const lastVaultActivityAt = useRef(Date.now());
   const [captureText, setCaptureText] = useState(copy[getInitialLocale()].initialCapture as string);
   const [query, setQuery] = useState(copy[getInitialLocale()].initialQuery as string);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -92,6 +94,15 @@ function App() {
   const [updateStatus, setUpdateStatus] = useState('');
   const [autoUpdateStatus, setAutoUpdateStatus] = useState('');
   const [isAutoUpdateAvailable, setIsAutoUpdateAvailable] = useState(false);
+  const [vaultSecurityStatus, setVaultSecurityStatus] = useState('');
+  const [autoLockMinutes, setAutoLockMinutes] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 15;
+    }
+
+    const stored = Number(localStorage.getItem(AUTO_LOCK_MINUTES_KEY));
+    return Number.isFinite(stored) ? stored : 15;
+  });
   const [isOnboardingVisible, setIsOnboardingVisible] = useState(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -163,6 +174,46 @@ function App() {
   useEffect(() => {
     localStorage.setItem(UI_LOCALE_KEY, locale);
   }, [locale]);
+
+  useEffect(() => {
+    localStorage.setItem(AUTO_LOCK_MINUTES_KEY, String(autoLockMinutes));
+  }, [autoLockMinutes]);
+
+  useEffect(() => {
+    if (vaultStatus !== 'unlocked' || autoLockMinutes <= 0) {
+      return;
+    }
+
+    function markActivity() {
+      lastVaultActivityAt.current = Date.now();
+    }
+
+    const events = ['keydown', 'pointerdown', 'mousemove', 'touchstart', 'scroll'];
+    events.forEach((eventName) => window.addEventListener(eventName, markActivity, { passive: true }));
+    markActivity();
+
+    const timer = window.setInterval(() => {
+      const idleMs = Date.now() - lastVaultActivityAt.current;
+
+      if (idleMs >= autoLockMinutes * 60 * 1000) {
+        void lockVault(runtimeVaultLabels().autoLocked);
+      }
+    }, 10_000);
+
+    function lockBeforeSleepOrHide() {
+      if (document.visibilityState === 'hidden') {
+        void lockVault(runtimeVaultLabels().autoLocked);
+      }
+    }
+
+    document.addEventListener('visibilitychange', lockBeforeSleepOrHide);
+
+    return () => {
+      events.forEach((eventName) => window.removeEventListener(eventName, markActivity));
+      document.removeEventListener('visibilitychange', lockBeforeSleepOrHide);
+      window.clearInterval(timer);
+    };
+  }, [autoLockMinutes, vaultStatus, vaultPassphrase, hasLoadedStore, store]);
 
   useEffect(() => {
     let isMounted = true;
@@ -401,14 +452,27 @@ function App() {
           createSuccess: 'Encrypted vault created. Active storage is now encrypted at rest.',
           migrationSuccess: 'Existing plaintext store was encrypted and the old plaintext copy was cleared.',
           passphraseRequired: 'Vault passphrase is required before saving.',
+          currentPassphraseInvalid: 'Current vault passphrase is incorrect.',
+          passphraseChanged: 'Vault passphrase changed.',
+          autoLocked: 'Vault locked after inactivity.',
         }
       : {
-          mismatch: 'Vaultパスフレーズが一致しません。',
-          unlockInvalid: 'Vaultを開けませんでした。パスフレーズを確認してください。',
-          missingVault: '暗号化Vaultが見つかりません。先にVaultを作成してください。',
-          createSuccess: '暗号化Vaultを作成しました。通常保存は暗号化保存に切り替わりました。',
-          migrationSuccess: '既存の平文ストアを暗号化し、古い平文コピーを削除しました。',
-          passphraseRequired: '保存前にVaultパスフレーズが必要です。',
+          mismatch: 'Vault\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u304c\u4e00\u81f4\u3057\u307e\u305b\u3093\u3002',
+          unlockInvalid:
+            'Vault\u3092\u958b\u3051\u307e\u305b\u3093\u3067\u3057\u305f\u3002\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002',
+          missingVault:
+            '\u6697\u53f7\u5316Vault\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3002\u5148\u306bVault\u3092\u4f5c\u6210\u3057\u3066\u304f\u3060\u3055\u3044\u3002',
+          createSuccess:
+            '\u6697\u53f7\u5316Vault\u3092\u4f5c\u6210\u3057\u307e\u3057\u305f\u3002\u901a\u5e38\u4fdd\u5b58\u306f\u6697\u53f7\u5316\u4fdd\u5b58\u306b\u5207\u308a\u66ff\u308f\u308a\u307e\u3057\u305f\u3002',
+          migrationSuccess:
+            '\u65e2\u5b58\u306e\u5e73\u6587\u30b9\u30c8\u30a2\u3092\u6697\u53f7\u5316\u3057\u3001\u53e4\u3044\u5e73\u6587\u30b3\u30d4\u30fc\u3092\u524a\u9664\u3057\u307e\u3057\u305f\u3002',
+          passphraseRequired:
+            '\u4fdd\u5b58\u524d\u306bVault\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u304c\u5fc5\u8981\u3067\u3059\u3002',
+          currentPassphraseInvalid:
+            '\u73fe\u5728\u306eVault\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u304c\u6b63\u3057\u304f\u3042\u308a\u307e\u305b\u3093\u3002',
+          passphraseChanged: 'Vault\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u3092\u5909\u66f4\u3057\u307e\u3057\u305f\u3002',
+          autoLocked:
+            '\u4e00\u5b9a\u6642\u9593\u64cd\u4f5c\u304c\u306a\u304b\u3063\u305f\u305f\u3081Vault\u3092\u30ed\u30c3\u30af\u3057\u307e\u3057\u305f\u3002',
         };
   }
 
@@ -484,7 +548,45 @@ function App() {
     }
   }
 
-  async function lockVault() {
+  async function changeVaultPassphrase(currentPassphrase: string, nextPassphrase: string, confirmation: string) {
+    const labels = runtimeVaultLabels();
+    setVaultSecurityStatus('');
+
+    if (nextPassphrase !== confirmation) {
+      setVaultSecurityStatus(labels.mismatch);
+      return;
+    }
+
+    const encryptedVault = await loadEncryptedVault();
+
+    if (!encryptedVault) {
+      setVaultSecurityStatus(labels.missingVault);
+      return;
+    }
+
+    try {
+      await decryptDistillVault(encryptedVault, currentPassphrase);
+    } catch (error) {
+      console.warn('Failed to verify current Distill vault passphrase.', error);
+      setVaultSecurityStatus(labels.currentPassphraseInvalid);
+      return;
+    }
+
+    try {
+      const encrypted = await encryptDistillVault(exportStoreAsJson(store), nextPassphrase);
+
+      // Cancel any pending autosave that may still be using the old passphrase.
+      vaultSaveSerial.current += 1;
+      await saveEncryptedVault(encrypted);
+      setVaultPassphrase(nextPassphrase);
+      setVaultSecurityStatus(labels.passphraseChanged);
+    } catch (error) {
+      console.warn('Failed to change Distill vault passphrase.', error);
+      setVaultSecurityStatus(error instanceof Error ? error.message : labels.unlockInvalid);
+    }
+  }
+
+  async function lockVault(notice = '') {
     try {
       if (hasLoadedStore && vaultPassphrase) {
         await persistEncryptedStore(store);
@@ -497,8 +599,9 @@ function App() {
       setSqliteGraph(null);
       setSelectedBlockId(undefined);
       setVaultStatus('locked');
-      setVaultNotice('');
+      setVaultNotice(notice);
       setRestoreStatus('');
+      setVaultSecurityStatus('');
     }
   }
 
@@ -879,6 +982,8 @@ function App() {
             storagePath={storagePath}
             backupPath={backupPath}
             restoreStatus={restoreStatus}
+            vaultSecurityStatus={vaultSecurityStatus}
+            autoLockMinutes={autoLockMinutes}
             updateInstallerPath={updateInstallerPath}
             updateStatus={updateStatus}
             autoUpdateStatus={autoUpdateStatus}
@@ -900,6 +1005,10 @@ function App() {
             onRestoreJson={restoreJson}
             onRestoreEncryptedVault={restoreEncryptedVault}
             onImportMarkdown={importMarkdown}
+            onChangeVaultPassphrase={(currentPassphrase, nextPassphrase, confirmation) =>
+              void changeVaultPassphrase(currentPassphrase, nextPassphrase, confirmation)
+            }
+            onAutoLockMinutesChange={setAutoLockMinutes}
             onUpdateInstallerPathChange={setUpdateInstallerPath}
             onStartUpdate={startUpdate}
             onCheckForUpdates={checkForUpdates}

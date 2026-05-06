@@ -1,4 +1,5 @@
 import { Database, Download, FileText, FileUp, Link2, Network, RefreshCw, UserRound } from 'lucide-react';
+import { useState } from 'react';
 import type { UiCopy } from '../i18n';
 import type { Project, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
@@ -14,6 +15,8 @@ type InspectorPanelProps = {
   storagePath: string;
   backupPath: string;
   restoreStatus: string;
+  vaultSecurityStatus: string;
+  autoLockMinutes: number;
   updateInstallerPath: string;
   updateStatus: string;
   autoUpdateStatus: string;
@@ -32,6 +35,8 @@ type InspectorPanelProps = {
   onRestoreJson: (file: File) => void;
   onRestoreEncryptedVault: (file: File) => void;
   onImportMarkdown: (file: File) => void;
+  onChangeVaultPassphrase: (currentPassphrase: string, nextPassphrase: string, confirmation: string) => void;
+  onAutoLockMinutesChange: (minutes: number) => void;
   onUpdateInstallerPathChange: (path: string) => void;
   onStartUpdate: () => void;
   onCheckForUpdates: () => void;
@@ -48,6 +53,8 @@ export function InspectorPanel({
   storagePath,
   backupPath,
   restoreStatus,
+  vaultSecurityStatus,
+  autoLockMinutes,
   updateInstallerPath,
   updateStatus,
   autoUpdateStatus,
@@ -66,11 +73,16 @@ export function InspectorPanel({
   onRestoreJson,
   onRestoreEncryptedVault,
   onImportMarkdown,
+  onChangeVaultPassphrase,
+  onAutoLockMinutesChange,
   onUpdateInstallerPathChange,
   onStartUpdate,
   onCheckForUpdates,
   onInstallAutoUpdate,
 }: InspectorPanelProps) {
+  const [currentVaultPassphrase, setCurrentVaultPassphrase] = useState('');
+  const [nextVaultPassphrase, setNextVaultPassphrase] = useState('');
+  const [confirmVaultPassphrase, setConfirmVaultPassphrase] = useState('');
   const updateLabels =
     ui.navInbox === 'Inbox'
       ? {
@@ -105,6 +117,47 @@ export function InspectorPanel({
           backup: '暗号化Vaultをバックアップ',
           restore: '暗号化Vaultを復元',
         };
+  const vaultSecurityLabels =
+    ui.navInbox === 'Inbox'
+      ? {
+          title: 'Vault security',
+          hint: 'Change the passphrase used for local encrypted storage and choose when Distill locks itself.',
+          current: 'Current vault passphrase',
+          next: 'New vault passphrase',
+          confirm: 'Confirm new vault passphrase',
+          change: 'Change passphrase',
+          autoLock: 'Auto-lock',
+          options: [
+            { value: 0, label: 'Off' },
+            { value: 5, label: '5 minutes' },
+            { value: 15, label: '15 minutes' },
+            { value: 30, label: '30 minutes' },
+            { value: 60, label: '60 minutes' },
+          ],
+        }
+      : {
+          title: 'Vaultセキュリティ',
+          hint: 'ローカル暗号化保存のパスフレーズ変更と、自動ロック時間を設定します。',
+          current: '現在のVaultパスフレーズ',
+          next: '新しいVaultパスフレーズ',
+          confirm: '新しいVaultパスフレーズ確認',
+          change: 'パスフレーズを変更',
+          autoLock: '自動ロック',
+          options: [
+            { value: 0, label: 'オフ' },
+            { value: 5, label: '5分' },
+            { value: 15, label: '15分' },
+            { value: 30, label: '30分' },
+            { value: 60, label: '60分' },
+          ],
+        };
+
+  function submitPassphraseChange() {
+    onChangeVaultPassphrase(currentVaultPassphrase, nextVaultPassphrase, confirmVaultPassphrase);
+    setCurrentVaultPassphrase('');
+    setNextVaultPassphrase('');
+    setConfirmVaultPassphrase('');
+  }
 
   return (
     <aside className="panel contextPanel" aria-label="Context inspector">
@@ -296,6 +349,58 @@ export function InspectorPanel({
               }}
             />
           </label>
+        </div>
+
+        <div className="restoreBox vaultSecurityBox">
+          <strong>{vaultSecurityLabels.title}</strong>
+          <span>{vaultSecurityLabels.hint}</span>
+          <label>
+            {vaultSecurityLabels.autoLock}
+            <select value={autoLockMinutes} onChange={(event) => onAutoLockMinutesChange(Number(event.target.value))}>
+              {vaultSecurityLabels.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {vaultSecurityLabels.current}
+            <input
+              autoComplete="current-password"
+              type="password"
+              value={currentVaultPassphrase}
+              onChange={(event) => setCurrentVaultPassphrase(event.target.value)}
+            />
+          </label>
+          <label>
+            {vaultSecurityLabels.next}
+            <input
+              autoComplete="new-password"
+              type="password"
+              value={nextVaultPassphrase}
+              onChange={(event) => setNextVaultPassphrase(event.target.value)}
+            />
+          </label>
+          <label>
+            {vaultSecurityLabels.confirm}
+            <input
+              autoComplete="new-password"
+              type="password"
+              value={confirmVaultPassphrase}
+              onChange={(event) => setConfirmVaultPassphrase(event.target.value)}
+            />
+          </label>
+          <button
+            className="restoreButton"
+            type="button"
+            disabled={!currentVaultPassphrase || !nextVaultPassphrase || !confirmVaultPassphrase}
+            onClick={submitPassphraseChange}
+          >
+            <RefreshCw size={16} />
+            {vaultSecurityLabels.change}
+          </button>
+          {vaultSecurityStatus ? <span className="restoreStatus">{vaultSecurityStatus}</span> : null}
         </div>
 
         <div className="restoreBox">

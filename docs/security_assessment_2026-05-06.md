@@ -31,7 +31,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Export/import is explicit and user-triggered.
 - Tauri updater is registered only for desktop builds.
 
-### Changes Applied In 0.1.8
+### Changes Applied Through 0.1.9
 
 - Added startup vault gate for create/unlock.
 - Added normal encrypted local persistence under `distill.vault.v1`.
@@ -40,6 +40,9 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Removed plaintext save/search/graph commands from the frontend capability allow-list.
 - Switched app search and graph to the unlocked in-memory store.
 - Updated E2E tests to assert encrypted vault persistence does not contain plaintext.
+- Added vault passphrase change flow.
+- Added auto-lock settings and lock-on-hidden behavior.
+- Added E2E coverage proving old passphrase no longer unlocks after passphrase change.
 
 ## Findings
 
@@ -52,7 +55,7 @@ Recommended remediation:
 - Replace passphrase-in-state with a session key model.
 - Derive and hold a non-exportable CryptoKey where possible.
 - Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
-- Add explicit lock-on-idle and lock-on-sleep settings.
+- Keep lock-on-idle defaults conservative and add OS-native idle integration later.
 
 ### P1: Whole-store encryption limits sync and conflict handling
 
@@ -151,8 +154,8 @@ Before distributing a new public build:
 
 ## Next Security Milestones
 
-1. Add passphrase change flow.
-2. Add lock-on-idle and lock-on-sleep.
-3. Add restore preview and corrupted vault tests.
+1. Add restore preview and corrupted vault tests.
+2. Move toward record-level encrypted records.
+3. Add OS-native idle/sleep integration and optional keyring convenience unlock.
 4. Move to record-level encrypted records.
 5. Add sync only after encrypted record format and device identity are complete.

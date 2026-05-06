@@ -10,7 +10,7 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.8
+- Current version: 0.1.9
 - Desktop target: Windows x64
 - Current state: local MVP plus encrypted local vault and signed updater flow
 
@@ -81,8 +81,7 @@ Known remaining security limits:
 
 - passphrase remains in app memory while unlocked
 - whole-store encryption, not record-level encryption
-- no passphrase change flow yet
-- no lock-on-idle yet
+- no restore preview yet
 - no sync yet
 - browser preview still depends on localStorage for the encrypted envelope
 
@@ -139,17 +138,18 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest full verification before 0.1.8 release packaging:
+Latest full verification before 0.1.9 release packaging:
 
 - `npm test`: 19 passed
 - `npm run build`: passed
 - `npm run test:rust`: 10 passed
-- `npm run test:e2e`: 9 passed
+- `npm run test:e2e`: 10 passed
 - `npm run check:all`: passed
 
 E2E coverage includes:
 
 - vault creation/unlock
+- passphrase change and old-passphrase rejection
 - Japanese default UI
 - English MVP flow
 - capture/search/graph/project/archive
@@ -226,9 +226,9 @@ Reason: syncing before the encryption model is stable risks leaking or locking p
 
 ### Trust/Security
 
-1. Add passphrase change flow.
-2. Add lock-on-idle and lock-on-sleep.
-3. Add restore preview before replacing a vault.
+1. Add restore preview before replacing a vault.
+2. Add corrupted/tampered vault tests.
+3. Move toward record-level encrypted records.
 4. Add corrupted vault and tamper tests.
 5. Move toward record-level encrypted records.
 

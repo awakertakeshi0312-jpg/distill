@@ -2,17 +2,17 @@ import { expect, test } from '@playwright/test';
 
 const VAULT_PASSPHRASE = 'correct horse battery staple';
 
-async function openUnlockedVault(page: import('@playwright/test').Page) {
+async function openUnlockedVault(page: import('@playwright/test').Page, passphraseValue = VAULT_PASSPHRASE) {
   await page.goto('/');
 
   const passphrase = page.locator('input[aria-label="Vault passphrase"]');
   await expect(passphrase).toBeVisible();
-  await passphrase.fill(VAULT_PASSPHRASE);
+  await passphrase.fill(passphraseValue);
 
   const confirmation = page.locator('input[aria-label="Confirm vault passphrase"]');
 
   if ((await confirmation.count()) > 0) {
-    await confirmation.fill(VAULT_PASSPHRASE);
+    await confirmation.fill(passphraseValue);
     await page.getByRole('button', { name: /Create vault|Encrypt and migrate|Vaultを作成|暗号化して移行/ }).click();
   } else {
     await page.getByRole('button', { name: /Unlock vault|Vaultを開く/ }).click();
@@ -217,7 +217,7 @@ test('Project assignment persists after reload in browser fallback', async ({ pa
   await page.getByLabel('Capture a thought').fill('Persist assignment [[Persistence]] #state');
   await page.getByRole('button', { name: 'Capture' }).click();
   const vaultBeforeAssignment = await page.evaluate(() => window.localStorage.getItem('distill.vault.v1'));
-  await page.locator('.inspectorControls select').selectOption({ label: 'Persistence Project' });
+  await page.locator('.inspectorControls select').first().selectOption({ label: 'Persistence Project' });
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Persistence Project' })).toBeVisible();
   await page.waitForFunction((previousVault) => {
     const stored = window.localStorage.getItem('distill.vault.v1') ?? '';
@@ -228,4 +228,28 @@ test('Project assignment persists after reload in browser fallback', async ({ pa
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Persist assignment' })).toContainText('Persistence Project');
+});
+
+test('Vault passphrase can be changed and old passphrase stops unlocking', async ({ page }) => {
+  const nextPassphrase = 'new correct horse battery staple';
+  await openUnlockedVault(page);
+  await page.getByRole('button', { name: 'English' }).click();
+
+  await page.locator('.vaultSecurityBox').scrollIntoViewIfNeeded();
+  await page.getByLabel('Current vault passphrase').fill(VAULT_PASSPHRASE);
+  await page.getByLabel('New vault passphrase', { exact: true }).fill(nextPassphrase);
+  await page.getByLabel('Confirm new vault passphrase', { exact: true }).fill(nextPassphrase);
+  await page.getByRole('button', { name: 'Change passphrase' }).click();
+  await expect(page.getByText('Vault passphrase changed.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Lock vault' }).click();
+  await expect(page.locator('input[aria-label="Vault passphrase"]')).toBeVisible();
+
+  await page.locator('input[aria-label="Vault passphrase"]').fill(VAULT_PASSPHRASE);
+  await page.getByRole('button', { name: 'Unlock vault' }).click();
+  await expect(page.getByText('Could not unlock the vault. Check the passphrase.')).toBeVisible();
+
+  await page.locator('input[aria-label="Vault passphrase"]').fill(nextPassphrase);
+  await page.getByRole('button', { name: 'Unlock vault' }).click();
+  await expect(page.locator('.shell')).toBeVisible();
 });
