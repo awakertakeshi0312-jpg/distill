@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.14 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews.
+Distill 0.1.15 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews.
 
 ## Phase 1: Desktop MVP
 

@@ -139,19 +139,19 @@ src-tauri/target/release/app.exe
 Current Windows installer output:
 
 ```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.14_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Distill_0.1.15_x64-setup.exe
 ```
 
 Installer SHA256:
 
 ```text
-22CE76F0F52D7EDEC69A8D7C6D38072B83E4711D61FA83EBAD7C194DEF703ADD
+85DC8D9598DB5777EC163AAE28C40E1D4033EE7A3A5C0546B80031F17D915FA2
 ```
 
 Signed auto-update flow:
 
 1. Build a signed release with `npm run release:windows`.
-2. Upload `release/Distill_0.1.14_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
+2. Upload `release/Distill_0.1.15_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
 3. Open the installed Distill desktop app.
 4. Click `Check for updates` in the Inspector update section.
 5. Click `Install update` when a newer signed version is available.
