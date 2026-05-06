@@ -19,7 +19,8 @@
     "security:audit": "npm audit --audit-level=moderate",
     "tauri:build:signed": "powershell -ExecutionPolicy Bypass -File scripts/build-signed-updater.ps1",
     "release:latest-json": "powershell -ExecutionPolicy Bypass -File scripts/create-latest-json.ps1",
-    "release:windows": "npm run tauri:build:signed"
+    "release:windows": "npm run tauri:build:signed",
+    "org:event": "node scripts/emit-org-event.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
