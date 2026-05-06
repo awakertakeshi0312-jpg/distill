@@ -23,6 +23,7 @@
     "allow-list-encrypted-sync-packet-files",
     "allow-read-encrypted-sync-packet-file",
     "allow-quarantine-encrypted-sync-packet-file",
+    "allow-save-sync-recovery-vault-json",
     "allow-emit-ai-org-event"
   ]
 }

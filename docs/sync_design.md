@@ -92,6 +92,7 @@ Implemented:
 - import preview before applying encrypted sync packets, with add/update/skip/delete counts.
 - decision-review counts in sync previews for remote wins, local wins, same-time tie-breaks, and local changes/deletes.
 - risk acknowledgement before applying packets that update/delete local data or rely on same-time tie-breaks.
+- encrypted pre-sync recovery snapshots saved before applying any sync preview.
 - known device registry persisted in the encrypted vault metadata.
 - revoked device registry and rejection of future packets from locally revoked devices.
 - deletion tombstones for permanent thought-block deletion.
@@ -185,15 +186,16 @@ The current UI supports local manual sync only:
 6. Import the encrypted sync packet.
 7. Distill decrypts records in memory and shows a sync preview before changing the vault.
 8. The preview summarizes incoming records, devices, block additions, block updates, skipped blocks, block deletions, remote wins, local wins, same-time tie-breaks, and local changes/deletes.
-9. If the user applies the preview, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
-10. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
-11. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
-12. Distill rejects packets from devices the user has revoked.
-13. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, safety-classify candidates, and load a selected packet into the same preview/apply flow.
-14. The user can run a safety scan that classifies folder packets as ready, risk review, stale, blocked, checkpoint risk, or invalid before previewing them.
-15. The user can ask Distill to open a recommended preview only when exactly one safe packet is available and no risky/blocked/invalid packet is present.
-16. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
-17. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
+9. Before applying the preview, Distill saves the current encrypted vault as a pre-sync recovery snapshot. If that save fails, sync is not applied.
+10. If the recovery snapshot succeeds, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
+11. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
+12. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
+13. Distill rejects packets from devices the user has revoked.
+14. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, safety-classify candidates, and load a selected packet into the same preview/apply flow.
+15. The user can run a safety scan that classifies folder packets as ready, risk review, stale, blocked, checkpoint risk, or invalid before previewing them.
+16. The user can ask Distill to open a recommended preview only when exactly one safe packet is available and no risky/blocked/invalid packet is present.
+17. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
+18. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
 
 This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
@@ -232,7 +234,7 @@ Later:
 
 - block-level CRDT for simultaneous text editing
 - explicit conflict review screen
-- signed packet checkpoints and device trust revocation
+- signed packet checkpoints and richer device lifecycle management
 
 ## Device Identity
 
@@ -250,7 +252,7 @@ The current registry is local and manual:
 - the current device is registered when exporting a sync packet or renaming the device.
 - imported packets merge `devices` metadata into the encrypted vault.
 - the Inspector shows known devices.
-- there is no device removal or trust revocation flow yet.
+- local device trust revocation exists; full device removal is still not implemented.
 - `lastPacketAt` is used to reject stale imports from known devices.
 - `lastPacketHash` is used to reject disconnected newer packets from known devices.
 
@@ -281,7 +283,7 @@ Encrypted file sync MVP:
 2. Import encrypted `.distill-vault.json` on another device.
 3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
 4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges block records, tombstones, device metadata, and checkpoint state.
-5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, and safety scan classifies packet candidates before import, and recommended preview can open one unambiguous safe candidate without applying it.
+5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, safety scan classifies packet candidates before import, recommended preview can open one unambiguous safe candidate without applying it, and sync apply first saves an encrypted recovery snapshot.
 
 ## Security Gate
 
@@ -289,7 +291,7 @@ Before enabling automatic sync:
 
 - wrong passphrase test
 - corrupted payload test
-- rollback/replay policy. Source-device `lastPacketAt` guard and local chained checkpoint validation are implemented; signed checkpoints and device revocation remain future work.
-- device removal story
-- backup recovery test
+- rollback/replay policy. Source-device `lastPacketAt` guard and local chained checkpoint validation are implemented; signed checkpoints remain future work.
+- device removal story beyond local trust revocation
+- backup recovery test. Current status: pre-sync encrypted recovery snapshots are saved before sync apply; restore-from-recovery UX is still manual.
 - local cache clear test

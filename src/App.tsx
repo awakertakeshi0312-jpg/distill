@@ -45,6 +45,7 @@ import {
   quarantineEncryptedSyncPacketFile,
   readEncryptedSyncPacketFile,
   saveEncryptedVault,
+  saveSyncRecoveryVault,
   searchStore,
   startUpdateInstaller,
   writeEncryptedSyncPacketFile,
@@ -757,6 +758,8 @@ function App() {
             'Sync packet was not imported because it does not continue the known device checkpoint chain.',
           importSuccess: (records: number, deviceId: string) =>
             `Merged ${records} encrypted sync records from device ${deviceId}.`,
+          importSuccessWithRecovery: (records: number, deviceId: string, recoveryPath: string) =>
+            `Merged ${records} encrypted sync records from device ${deviceId}. Recovery snapshot saved at ${recoveryPath}.`,
           importInvalid: 'Could not import that encrypted sync packet. Check the file and vault passphrase.',
           deviceRenamed: 'Device name updated.',
           knownDevices: 'Known devices',
@@ -801,6 +804,8 @@ function App() {
             `Moved ${fileName} to quarantine: ${quarantinePath}`,
           syncRiskAcknowledgementRequired:
             'This sync packet updates or deletes local data. Review the decision counts and confirm the risk before applying.',
+          syncRecoveryFailed:
+            'Sync was not applied because Distill could not save an encrypted recovery snapshot first.',
           deleteConfirm: (content: string) =>
             `Permanently delete this archived block and sync the deletion?\n\n${content}`,
         }
@@ -819,6 +824,8 @@ function App() {
             '既知端末の同期チェックポイントにつながらないため、この同期パケットは取り込みませんでした。',
           importSuccess: (records: number, deviceId: string) =>
             `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しました。`,
+          importSuccessWithRecovery: (records: number, deviceId: string, recoveryPath: string) =>
+            `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しました。復元用スナップショットを ${recoveryPath} に保存しました。`,
           importInvalid: '暗号化同期パケットを取り込めませんでした。ファイルとVaultパスフレーズを確認してください。',
           deviceRenamed: '端末名を更新しました。',
           knownDevices: '同期済み端末',
@@ -865,6 +872,8 @@ function App() {
             `${fileName} を隔離しました: ${quarantinePath}`,
           syncRiskAcknowledgementRequired:
             'この同期パケットはローカルデータを更新または削除します。判定レビューを確認し、リスク確認にチェックしてから適用してください。',
+          syncRecoveryFailed:
+            '暗号化された復元用スナップショットを先に保存できなかったため、同期は適用しませんでした。',
           deleteConfirm: (content: string) =>
             `このアーカイブ済みブロックを完全削除し、削除履歴を同期しますか？\n\n${content}`,
         };
@@ -1271,7 +1280,12 @@ function App() {
     }
   }
 
-  function applySyncPreview() {
+  async function savePreSyncRecoverySnapshot(preview: SyncPreview) {
+    const encrypted = await encryptDistillVault(exportStoreAsJson(store), vaultPassphrase);
+    return await saveSyncRecoveryVault(encrypted, preview.packet.sourceDeviceId);
+  }
+
+  async function applySyncPreview() {
     if (!syncPreview) {
       return;
     }
@@ -1290,11 +1304,27 @@ function App() {
       return;
     }
 
+    let recoveryPath = '';
+
+    try {
+      recoveryPath = await savePreSyncRecoverySnapshot(syncPreview);
+    } catch (error) {
+      console.warn('Failed to save pre-sync Distill recovery snapshot.', error);
+      setSyncStatus(labels.syncRecoveryFailed);
+      return;
+    }
+
     try {
       const mergedStore = applySyncPacket(store, syncPreview.packet);
       setStore(mergedStore);
       setSelectedBlockId(mergedStore.blocks[0]?.id);
-      setSyncStatus(labels.importSuccess(syncPreview.packet.records.length, syncPreview.packet.sourceDeviceId));
+      setSyncStatus(
+        labels.importSuccessWithRecovery(
+          syncPreview.packet.records.length,
+          syncPreview.packet.sourceDeviceId,
+          recoveryPath,
+        ),
+      );
       setSyncPreview(null);
       setSyncRiskAccepted(false);
     } catch (error) {
@@ -1800,7 +1830,7 @@ function App() {
             onPreviewRecommendedSyncFolderPacket={() => void previewRecommendedSyncFolderPacket()}
             onImportSyncFolderPacket={(packetFile) => void importEncryptedSyncPacketFromFolder(packetFile)}
             onQuarantineSyncFolderPacket={(packetFile) => void quarantineSyncFolderPacket(packetFile)}
-            onApplySyncPreview={applySyncPreview}
+            onApplySyncPreview={() => void applySyncPreview()}
             onCancelSyncPreview={cancelSyncPreview}
             onSyncRiskAcceptedChange={setSyncRiskAccepted}
             onRevokeSyncDevice={revokeKnownSyncDevice}

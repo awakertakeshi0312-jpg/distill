@@ -208,6 +208,11 @@ fn encrypted_vault_backup_path(app: &AppHandle) -> Result<std::path::PathBuf, St
   Ok(data_dir.join("backups").join("distill-encrypted-vault-latest.json"))
 }
 
+fn sync_recovery_vault_backup_folder(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+  let data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+  Ok(data_dir.join("backups").join("sync-recovery"))
+}
+
 fn ai_org_kernel_root(app: &AppHandle) -> Result<PathBuf, String> {
   if let Ok(root) = std::env::var("AI_ORG_KERNEL_ROOT") {
     return Ok(PathBuf::from(root));
@@ -288,6 +293,55 @@ fn write_encrypted_vault_backup(app: &AppHandle, value: &str) -> Result<(), Stri
     .ok_or_else(|| "Could not resolve encrypted vault backup directory.".to_string())?;
   std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
   std::fs::write(path, value).map_err(|error| error.to_string())
+}
+
+fn validate_encrypted_vault_json(value: &str) -> Result<(), String> {
+  let parsed = serde_json::from_str::<serde_json::Value>(value).map_err(|error| error.to_string())?;
+
+  if parsed.get("type").and_then(|field| field.as_str()) != Some("distill.encrypted-vault") {
+    return Err("Value is not a Distill encrypted vault.".to_string());
+  }
+
+  Ok(())
+}
+
+fn safe_sync_recovery_label(label: &str) -> String {
+  let safe = label
+    .chars()
+    .map(|character| {
+      if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+        character
+      } else {
+        '-'
+      }
+    })
+    .collect::<String>()
+    .trim_matches('-')
+    .chars()
+    .take(64)
+    .collect::<String>();
+
+  if safe.is_empty() {
+    "sync".to_string()
+  } else {
+    safe
+  }
+}
+
+fn sync_recovery_file_name(label: &str) -> Result<String, String> {
+  let timestamp = SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .map_err(|error| error.to_string())?
+    .as_secs();
+  Ok(format!("distill-pre-sync-{timestamp}-{}.json", safe_sync_recovery_label(label)))
+}
+
+fn write_sync_recovery_vault_backup(app: &AppHandle, value: &str, label: &str) -> Result<PathBuf, String> {
+  let folder = sync_recovery_vault_backup_folder(app)?;
+  std::fs::create_dir_all(&folder).map_err(|error| error.to_string())?;
+  let path = folder.join(sync_recovery_file_name(label)?);
+  std::fs::write(&path, value).map_err(|error| error.to_string())?;
+  Ok(path)
 }
 
 fn validate_update_installer_path(path: &Path) -> Result<PathBuf, String> {
@@ -949,11 +1003,7 @@ fn load_vault_json(app: AppHandle) -> Result<Option<String>, String> {
 #[tauri::command]
 fn save_vault_json(app: AppHandle, value: String) -> Result<(), String> {
   let connection = open_database(&app)?;
-  let parsed = serde_json::from_str::<serde_json::Value>(&value).map_err(|error| error.to_string())?;
-
-  if parsed.get("type").and_then(|field| field.as_str()) != Some("distill.encrypted-vault") {
-    return Err("Value is not a Distill encrypted vault.".to_string());
-  }
+  validate_encrypted_vault_json(&value)?;
 
   connection
     .execute(
@@ -969,6 +1019,12 @@ fn save_vault_json(app: AppHandle, value: String) -> Result<(), String> {
   write_encrypted_vault_backup(&app, &value)?;
 
   Ok(())
+}
+
+#[tauri::command]
+fn save_sync_recovery_vault_json(app: AppHandle, value: String, label: String) -> Result<String, String> {
+  validate_encrypted_vault_json(&value)?;
+  Ok(write_sync_recovery_vault_backup(&app, &value, &label)?.display().to_string())
 }
 
 #[tauri::command]
@@ -1655,6 +1711,19 @@ mod tests {
   }
 
   #[test]
+  fn validates_encrypted_vault_json_shape() {
+    assert!(validate_encrypted_vault_json("{\"type\":\"distill.encrypted-vault\"}").is_ok());
+    assert!(validate_encrypted_vault_json("{\"type\":\"distill.encrypted-sync.packet\"}").is_err());
+  }
+
+  #[test]
+  fn sanitizes_sync_recovery_file_labels() {
+    assert_eq!(safe_sync_recovery_label("phone-dev_1"), "phone-dev_1");
+    assert_eq!(safe_sync_recovery_label("../phone dev!!"), "phone-dev");
+    assert_eq!(safe_sync_recovery_label(""), "sync");
+  }
+
+  #[test]
   fn lists_only_distill_sync_packet_files() {
     let folder = std::env::temp_dir().join(format!(
       "distill-sync-test-{}",
@@ -1748,6 +1817,7 @@ pub fn run() {
       load_store_json,
       load_vault_json,
       save_vault_json,
+      save_sync_recovery_vault_json,
       clear_plain_store,
       load_storage_info_json,
       start_update_installer,

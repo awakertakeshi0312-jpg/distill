@@ -10,6 +10,8 @@ fn main() {
       "write_encrypted_sync_packet_file",
       "list_encrypted_sync_packet_files",
       "read_encrypted_sync_packet_file",
+      "quarantine_encrypted_sync_packet_file",
+      "save_sync_recovery_vault_json",
       "emit_ai_org_event",
     ])),
   )
