@@ -12,6 +12,8 @@ fn main() {
       "read_encrypted_sync_packet_file",
       "quarantine_encrypted_sync_packet_file",
       "save_sync_recovery_vault_json",
+      "list_sync_recovery_vault_files",
+      "read_sync_recovery_vault_file",
       "emit_ai_org_event",
     ])),
   )

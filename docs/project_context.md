@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.21
+- Current version: 0.1.22
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots, desktop sync-folder packet exchange prototype with safety scan, recommended preview, and packet quarantine, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, recommended preview, and packet quarantine, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -68,6 +68,7 @@ Implemented app features:
 - Sync packet decision review with remote wins, local wins, same-time tie-breaks, and local changes/deletes
 - Sync risk acknowledgement gate before applying packets that update/delete local data or rely on same-time tie-breaks
 - Encrypted pre-sync recovery snapshot before any sync preview is applied
+- In-app listing and restore preview for encrypted pre-sync recovery snapshots
 - Sync-folder packet quarantine into `.distill-quarantine`
 - Manual sync device registry in the Inspector
 - Sync device trust revocation and revoked-device packet rejection
@@ -98,7 +99,7 @@ Known remaining security limits:
 - passphrase remains in app memory while unlocked
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - restore preview exists, but restore still replaces the full local store after user approval
-- no automatic/background sync yet; current sync-folder flow is explicit user-triggered packet exchange with local safety classification, recommended preview, and recovery snapshot gating before apply
+- no automatic/background sync yet; current sync-folder flow is explicit user-triggered packet exchange with local safety classification, recommended preview, recovery snapshot gating before apply, and manual recovery preview after apply
 - browser preview still depends on localStorage for the encrypted envelope
 
 ## Technical Stack
@@ -154,11 +155,11 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after encrypted pre-sync recovery snapshot update:
+Latest verification after sync recovery snapshot restore preview update:
 
-- `npm test`: 44 passed
+- `npm test`: 45 passed
 - `npm run build`: passed
-- `npm run test:rust`: 17 passed
+- `npm run test:rust`: 18 passed
 - `npm run test:e2e`: 10 passed
 - `npm run check:all`: passed
 - `npm run security:audit`: 0 vulnerabilities
@@ -194,7 +195,7 @@ Key frontend files:
 - `src/sync.ts`: sync packet build/parse/merge, tombstones, device registry, and record-level encrypted sync packets
 - `src/syncPreview.ts`: sync packet diff calculation before applying encrypted sync imports
 - `src/device.ts`: stable local device identity
-- `src/storage.ts`: encrypted vault, legacy migration, updater, desktop sync-folder adapter, and sync recovery snapshot adapter
+- `src/storage.ts`: encrypted vault, legacy migration, updater, desktop sync-folder adapter, and sync recovery snapshot list/read adapter
 - `src/model.ts`: core types, extraction, local search
 - `src/repository.ts`: immutable mutations
 - `src/graph.ts`: graph modeling and neighbors
@@ -251,7 +252,7 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
-Current status: manual encrypted sync packets, apply preview, sync-folder safety scan, recommended preview, encrypted pre-sync recovery snapshots, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation exist. Automatic cloud/background sync is still blocked until background transport, mobile storage, and stronger signed-device assurance are specified.
+Current status: manual encrypted sync packets, apply preview, sync-folder safety scan, recommended preview, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation exist. Automatic cloud/background sync is still blocked until background transport, mobile storage, and stronger signed-device assurance are specified.
 
 ## Recommended Next Steps
 
@@ -280,4 +281,4 @@ Current status: manual encrypted sync packets, apply preview, sync-folder safety
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, sync-folder safety scans, recommended previews, apply previews, encrypted pre-sync recovery snapshots, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation. The next major architecture decision is automatic sync transport and signed-device assurance, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, sync-folder safety scans, recommended previews, apply previews, encrypted pre-sync recovery snapshots with restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation. The next major architecture decision is automatic sync transport and signed-device assurance, not more plaintext SQLite indexing.

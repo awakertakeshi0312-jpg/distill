@@ -384,6 +384,14 @@ fn is_distill_sync_packet_file_name(file_name: &str) -> bool {
     })
 }
 
+fn is_distill_sync_recovery_file_name(file_name: &str) -> bool {
+  file_name.starts_with("distill-pre-sync-")
+    && file_name.ends_with(".json")
+    && file_name.chars().all(|character| {
+      character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+    })
+}
+
 fn validate_sync_packet_file_name(file_name: &str) -> Result<(), String> {
   if file_name.is_empty() || Path::new(file_name).components().count() != 1 {
     return Err("Sync packet file name must not include directories.".to_string());
@@ -502,6 +510,77 @@ fn list_sync_packet_files(folder_path: &Path) -> Result<Vec<SyncPacketFileInfo>,
 
   files.sort_by(|a, b| b.modified_at.cmp(&a.modified_at).then_with(|| a.file_name.cmp(&b.file_name)));
   Ok(files)
+}
+
+fn list_sync_recovery_vault_files_in_folder(folder_path: &Path) -> Result<Vec<SyncPacketFileInfo>, String> {
+  if !folder_path.exists() {
+    return Ok(Vec::new());
+  }
+
+  let folder = folder_path.canonicalize().map_err(|error| error.to_string())?;
+
+  if !folder.is_dir() {
+    return Err("Sync recovery folder path must point to a directory.".to_string());
+  }
+
+  let mut files = Vec::new();
+
+  for entry in std::fs::read_dir(folder).map_err(|error| error.to_string())? {
+    let entry = entry.map_err(|error| error.to_string())?;
+    let metadata = entry.metadata().map_err(|error| error.to_string())?;
+
+    if !metadata.is_file() || metadata.len() > MAX_SYNC_PACKET_BYTES {
+      continue;
+    }
+
+    let file_name = entry.file_name().to_string_lossy().to_string();
+
+    if !is_distill_sync_recovery_file_name(&file_name) {
+      continue;
+    }
+
+    files.push(SyncPacketFileInfo {
+      file_name,
+      path: entry.path().display().to_string(),
+      bytes: metadata.len(),
+      modified_at: sync_packet_modified_at(&metadata),
+    });
+  }
+
+  files.sort_by(|a, b| b.modified_at.cmp(&a.modified_at).then_with(|| a.file_name.cmp(&b.file_name)));
+  Ok(files)
+}
+
+fn read_sync_recovery_vault_file_from_folder(folder_path: &Path, file_path: &Path) -> Result<String, String> {
+  let folder = folder_path.canonicalize().map_err(|error| error.to_string())?;
+  let canonical = file_path.canonicalize().map_err(|error| error.to_string())?;
+
+  if !canonical.starts_with(&folder) {
+    return Err("Sync recovery snapshot must stay inside the recovery backup folder.".to_string());
+  }
+
+  let metadata = canonical.metadata().map_err(|error| error.to_string())?;
+
+  if !metadata.is_file() {
+    return Err("Sync recovery snapshot path must point to a file.".to_string());
+  }
+
+  if metadata.len() > MAX_SYNC_PACKET_BYTES {
+    return Err("Sync recovery snapshot is too large.".to_string());
+  }
+
+  let file_name = canonical
+    .file_name()
+    .and_then(|value| value.to_str())
+    .ok_or_else(|| "Sync recovery snapshot path must point to a file.".to_string())?;
+
+  if !is_distill_sync_recovery_file_name(file_name) {
+    return Err("Sync recovery snapshot file name must match distill-pre-sync-*.json.".to_string());
+  }
+
+  let value = std::fs::read_to_string(canonical).map_err(|error| error.to_string())?;
+  validate_encrypted_vault_json(&value)?;
+  Ok(value)
 }
 
 fn normalized_store_exists(connection: &Connection) -> Result<bool, String> {
@@ -1025,6 +1104,17 @@ fn save_vault_json(app: AppHandle, value: String) -> Result<(), String> {
 fn save_sync_recovery_vault_json(app: AppHandle, value: String, label: String) -> Result<String, String> {
   validate_encrypted_vault_json(&value)?;
   Ok(write_sync_recovery_vault_backup(&app, &value, &label)?.display().to_string())
+}
+
+#[tauri::command]
+fn list_sync_recovery_vault_files(app: AppHandle) -> Result<String, String> {
+  serde_json::to_string(&list_sync_recovery_vault_files_in_folder(&sync_recovery_vault_backup_folder(&app)?))
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn read_sync_recovery_vault_file(app: AppHandle, file_path: String) -> Result<String, String> {
+  read_sync_recovery_vault_file_from_folder(&sync_recovery_vault_backup_folder(&app)?, Path::new(&file_path))
 }
 
 #[tauri::command]
@@ -1724,6 +1814,35 @@ mod tests {
   }
 
   #[test]
+  fn lists_and_reads_only_sync_recovery_vault_files() {
+    let folder = std::env::temp_dir().join(format!(
+      "distill-sync-recovery-test-{}",
+      SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos()
+    ));
+    std::fs::create_dir_all(&folder).expect("create temp recovery folder");
+    let recovery_path = folder.join("distill-pre-sync-1778078860-phone.json");
+    let recovery_json = "{\"type\":\"distill.encrypted-vault\"}";
+    std::fs::write(&recovery_path, recovery_json).expect("write recovery vault");
+    std::fs::write(folder.join("distill-sync-not-recovery.distill-sync.json"), recovery_json)
+      .expect("write ignored sync packet");
+    std::fs::write(folder.join("notes.txt"), recovery_json).expect("write ignored file");
+
+    let files = list_sync_recovery_vault_files_in_folder(&folder).expect("list recovery vaults");
+
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].file_name, "distill-pre-sync-1778078860-phone.json");
+    assert_eq!(
+      read_sync_recovery_vault_file_from_folder(&folder, &recovery_path).expect("read recovery vault"),
+      recovery_json
+    );
+
+    std::fs::remove_dir_all(folder).expect("remove temp recovery folder");
+  }
+
+  #[test]
   fn lists_only_distill_sync_packet_files() {
     let folder = std::env::temp_dir().join(format!(
       "distill-sync-test-{}",
@@ -1818,6 +1937,8 @@ pub fn run() {
       load_vault_json,
       save_vault_json,
       save_sync_recovery_vault_json,
+      list_sync_recovery_vault_files,
+      read_sync_recovery_vault_file,
       clear_plain_store,
       load_storage_info_json,
       start_update_installer,

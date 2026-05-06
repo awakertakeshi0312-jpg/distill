@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-list-sync-recovery-vault-files"
+description = "Enables the list_sync_recovery_vault_files command without any pre-configured scope."
+commands.allow = ["list_sync_recovery_vault_files"]
+
+[[permission]]
+identifier = "deny-list-sync-recovery-vault-files"
+description = "Denies the list_sync_recovery_vault_files command without any pre-configured scope."
+commands.deny = ["list_sync_recovery_vault_files"]

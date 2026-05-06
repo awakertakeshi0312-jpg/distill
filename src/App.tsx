@@ -38,18 +38,21 @@ import {
   isDesktopRuntime,
   installPendingAppUpdate,
   listEncryptedSyncPacketFiles,
+  listSyncRecoveryVaults,
   loadGraph,
   loadEncryptedVault,
   loadLegacyPlainStore,
   loadStorageInfo,
   quarantineEncryptedSyncPacketFile,
   readEncryptedSyncPacketFile,
+  readSyncRecoveryVault,
   saveEncryptedVault,
   saveSyncRecoveryVault,
   searchStore,
   startUpdateInstaller,
   writeEncryptedSyncPacketFile,
   type SyncFolderPacketFile,
+  type SyncRecoveryVaultFile,
 } from './storage';
 import { buildKnowledgeGraph, filterKnowledgeGraph, getGraphNeighbors, layoutKnowledgeGraph, type GraphEdgeType, type GraphSnapshot } from './graph';
 import {
@@ -130,6 +133,7 @@ function App() {
   const [backupPath, setBackupPath] = useState('');
   const [restoreStatus, setRestoreStatus] = useState('');
   const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
+  const [syncRecoveryVaults, setSyncRecoveryVaults] = useState<SyncRecoveryVaultFile[]>([]);
   const [syncStatus, setSyncStatus] = useState('');
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
   const [syncRiskAccepted, setSyncRiskAccepted] = useState(false);
@@ -299,6 +303,15 @@ function App() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (vaultStatus !== 'unlocked') {
+      setSyncRecoveryVaults([]);
+      return;
+    }
+
+    void refreshSyncRecoveryVaultSnapshots(true);
+  }, [vaultStatus]);
 
   useEffect(() => {
     function handleGlobalShortcut(event: KeyboardEvent) {
@@ -713,6 +726,7 @@ function App() {
       setVaultNotice(notice);
       setRestoreStatus('');
       setRestorePreview(null);
+      setSyncRecoveryVaults([]);
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setVaultSecurityStatus('');
@@ -727,6 +741,11 @@ function App() {
           mismatch: 'Vault passphrases did not match.',
           encryptedBackupSuccess: 'Encrypted vault backup created.',
           encryptedRestoreSuccess: (blocks: number, projects: number) => `Restored encrypted vault with ${blocks} blocks and ${projects} projects.`,
+          syncRecoveryListSuccess: (snapshots: number) => `Found ${snapshots} encrypted sync recovery snapshots.`,
+          syncRecoveryRestoreSuccess: (blocks: number, projects: number) =>
+            `Restored sync recovery snapshot with ${blocks} blocks and ${projects} projects.`,
+          syncRecoveryRestoreInvalid:
+            'Could not decrypt or preview that sync recovery snapshot. Check the passphrase and snapshot file.',
           encryptedRestoreInvalid: 'Could not decrypt or restore that encrypted vault. Check the passphrase and file.',
           fileTooLarge: 'Import file is too large. Keep imports under 5 MB for this MVP.',
         }
@@ -736,6 +755,12 @@ function App() {
           mismatch: 'Vaultパスフレーズが一致しません。',
           encryptedBackupSuccess: '暗号化Vaultバックアップを作成しました。',
           encryptedRestoreSuccess: (blocks: number, projects: number) => `暗号化Vaultから${blocks}件のブロックと${projects}件のプロジェクトを復元しました。`,
+          syncRecoveryListSuccess: (snapshots: number) =>
+            `暗号化された同期リカバリスナップショットが${snapshots}件見つかりました。`,
+          syncRecoveryRestoreSuccess: (blocks: number, projects: number) =>
+            `同期リカバリスナップショットから${blocks}件のブロックと${projects}件のプロジェクトを復元しました。`,
+          syncRecoveryRestoreInvalid:
+            '同期リカバリスナップショットを復号またはプレビューできませんでした。パスフレーズとファイルを確認してください。',
           encryptedRestoreInvalid: '暗号化Vaultを復号または復元できませんでした。パスフレーズとファイルを確認してください。',
           fileTooLarge: 'インポートファイルが大きすぎます。このMVPでは5 MB未満にしてください。',
         };
@@ -1327,6 +1352,7 @@ function App() {
       );
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      void refreshSyncRecoveryVaultSnapshots(true);
     } catch (error) {
       console.warn('Failed to apply encrypted Distill sync preview.', error);
       setSyncStatus(labels.checkpointRejected);
@@ -1424,6 +1450,56 @@ function App() {
     }
   }
 
+  async function refreshSyncRecoveryVaultSnapshots(silent = false) {
+    const labels = vaultLabels();
+
+    try {
+      const snapshots = await listSyncRecoveryVaults();
+      setSyncRecoveryVaults(snapshots);
+
+      if (!silent) {
+        setRestoreStatus(labels.syncRecoveryListSuccess(snapshots.length));
+      }
+    } catch (error) {
+      console.warn('Failed to list Distill sync recovery snapshots.', error);
+      setSyncRecoveryVaults([]);
+
+      if (!silent) {
+        setRestoreStatus(error instanceof Error ? error.message : labels.syncRecoveryRestoreInvalid);
+      }
+    }
+  }
+
+  async function previewSyncRecoveryVaultSnapshot(snapshot: SyncRecoveryVaultFile) {
+    const labels = vaultLabels();
+
+    setRestoreStatus('');
+    setRestorePreview(null);
+
+    if (snapshot.bytes > MAX_IMPORT_FILE_BYTES) {
+      setRestoreStatus(labels.fileTooLarge);
+      return;
+    }
+
+    const passphrase = window.prompt(labels.passphrase);
+
+    if (!passphrase) {
+      return;
+    }
+
+    try {
+      const encrypted = await readSyncRecoveryVault(snapshot.path);
+      const decrypted = await decryptDistillVault(encrypted, passphrase);
+      const importedStore = parseDistillImport(decrypted);
+      setRestorePreview(buildRestorePreview(store, importedStore, 'sync-recovery'));
+      setRestoreStatus(restorePreviewLabels().previewReady(importedStore.blocks.length, importedStore.projects.length));
+    } catch (error) {
+      console.warn('Failed to preview Distill sync recovery snapshot.', error);
+      setRestoreStatus(labels.syncRecoveryRestoreInvalid);
+      setRestorePreview(null);
+    }
+  }
+
   async function restoreEncryptedVault(file: File) {
     const labels = vaultLabels();
 
@@ -1485,9 +1561,11 @@ function App() {
     setStore(incomingStore);
     setSelectedBlockId(incomingStore.blocks[0]?.id);
     setRestoreStatus(
-      restorePreview.kind === 'encrypted-vault'
-        ? labels.encryptedSuccess(incomingStore.blocks.length, incomingStore.projects.length)
-        : labels.jsonSuccess(incomingStore.blocks.length, incomingStore.projects.length),
+      restorePreview.kind === 'sync-recovery'
+        ? vaultLabels().syncRecoveryRestoreSuccess(incomingStore.blocks.length, incomingStore.projects.length)
+        : restorePreview.kind === 'encrypted-vault'
+          ? labels.encryptedSuccess(incomingStore.blocks.length, incomingStore.projects.length)
+          : labels.jsonSuccess(incomingStore.blocks.length, incomingStore.projects.length),
     );
     setRestorePreview(null);
   }
@@ -1781,6 +1859,7 @@ function App() {
             backupPath={backupPath}
             restoreStatus={restoreStatus}
             restorePreview={restorePreview}
+            syncRecoveryVaults={syncRecoveryVaults}
             syncStatus={syncStatus}
             syncPreview={syncPreview}
             syncRiskAccepted={syncRiskAccepted}
@@ -1814,6 +1893,8 @@ function App() {
             onExportJson={exportJson}
             onRestoreJson={restoreJson}
             onRestoreEncryptedVault={restoreEncryptedVault}
+            onRefreshSyncRecoveryVaults={() => void refreshSyncRecoveryVaultSnapshots()}
+            onPreviewSyncRecoveryVault={(snapshot) => void previewSyncRecoveryVaultSnapshot(snapshot)}
             onApplyRestorePreview={applyRestorePreview}
             onCancelRestorePreview={cancelRestorePreview}
             onImportMarkdown={importMarkdown}

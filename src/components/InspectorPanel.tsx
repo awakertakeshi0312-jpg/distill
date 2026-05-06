@@ -17,7 +17,7 @@ import type { UiCopy } from '../i18n';
 import type { Project, RevokedSyncDevice, SyncDevice, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
 import type { RestorePreview } from '../restorePreview';
-import type { SyncFolderPacketFile } from '../storage';
+import type { SyncFolderPacketFile, SyncRecoveryVaultFile } from '../storage';
 import type { SyncPreview } from '../syncPreview';
 import { isBlockedSyncFolderPacketReview, type SyncFolderPacketReview } from '../syncFolderReview';
 import { HelpNote } from './HelpNote';
@@ -41,6 +41,7 @@ type InspectorPanelProps = {
   backupPath: string;
   restoreStatus: string;
   restorePreview: RestorePreview | null;
+  syncRecoveryVaults: SyncRecoveryVaultFile[];
   syncStatus: string;
   syncPreview: SyncPreview | null;
   syncRiskAccepted: boolean;
@@ -71,6 +72,8 @@ type InspectorPanelProps = {
   onExportJson: () => void;
   onRestoreJson: (file: File) => void;
   onRestoreEncryptedVault: (file: File) => void;
+  onRefreshSyncRecoveryVaults: () => void;
+  onPreviewSyncRecoveryVault: (snapshot: SyncRecoveryVaultFile) => void;
   onApplyRestorePreview: () => void;
   onCancelRestorePreview: () => void;
   onImportMarkdown: (file: File) => void;
@@ -109,6 +112,7 @@ export function InspectorPanel({
   backupPath,
   restoreStatus,
   restorePreview,
+  syncRecoveryVaults,
   syncStatus,
   syncPreview,
   syncRiskAccepted,
@@ -139,6 +143,8 @@ export function InspectorPanel({
   onExportJson,
   onRestoreJson,
   onRestoreEncryptedVault,
+  onRefreshSyncRecoveryVaults,
+  onPreviewSyncRecoveryVault,
   onApplyRestorePreview,
   onCancelRestorePreview,
   onImportMarkdown,
@@ -200,12 +206,22 @@ export function InspectorPanel({
           hint: 'Create or restore a passphrase-protected vault backup. Active local storage is encrypted after vault unlock.',
           backup: 'Backup encrypted vault',
           restore: 'Restore encrypted vault',
+          recoveryTitle: 'Sync recovery snapshots',
+          recoveryHint: 'These encrypted snapshots are saved before sync apply. Preview one before replacing the current vault.',
+          recoveryRefresh: 'Refresh snapshots',
+          recoveryPreview: 'Preview recovery',
+          noRecoverySnapshots: 'No sync recovery snapshots found yet',
         }
       : {
-          title: '暗号化Vault',
-          hint: 'Vault解除後の通常保存は暗号化されています。パスフレーズ付きVaultバックアップの作成・復元もできます。',
-          backup: '暗号化Vaultをバックアップ',
-          restore: '暗号化Vaultを復元',
+          title: '\u6697\u53f7\u5316Vault',
+          hint: 'Vault\u89e3\u9664\u5f8c\u306e\u901a\u5e38\u4fdd\u5b58\u306f\u6697\u53f7\u5316\u3055\u308c\u3066\u3044\u307e\u3059\u3002\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u4ed8\u304dVault\u30d0\u30c3\u30af\u30a2\u30c3\u30d7\u306e\u4f5c\u6210\u30fb\u5fa9\u5143\u3082\u3067\u304d\u307e\u3059\u3002',
+          backup: '\u6697\u53f7\u5316Vault\u3092\u30d0\u30c3\u30af\u30a2\u30c3\u30d7',
+          restore: '\u6697\u53f7\u5316Vault\u3092\u5fa9\u5143',
+          recoveryTitle: '\u540c\u671f\u30ea\u30ab\u30d0\u30ea\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8',
+          recoveryHint: '\u540c\u671f\u9069\u7528\u524d\u306b\u4fdd\u5b58\u3055\u308c\u305f\u6697\u53f7\u5316\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u3067\u3059\u3002\u73fe\u5728\u306eVault\u3092\u7f6e\u304d\u63db\u3048\u308b\u524d\u306b\u5fc5\u305a\u30d7\u30ec\u30d3\u30e5\u30fc\u3057\u307e\u3059\u3002',
+          recoveryRefresh: '\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u66f4\u65b0',
+          recoveryPreview: '\u5fa9\u5143\u30d7\u30ec\u30d3\u30e5\u30fc',
+          noRecoverySnapshots: '\u540c\u671f\u30ea\u30ab\u30d0\u30ea\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u306f\u307e\u3060\u3042\u308a\u307e\u305b\u3093',
         };
   const vaultSecurityLabels =
     ui.navInbox === 'Inbox'
@@ -331,6 +347,7 @@ export function InspectorPanel({
           source: 'Source',
           json: 'JSON backup',
           encrypted: 'Encrypted vault',
+          syncRecovery: 'Sync recovery snapshot',
           incoming: 'Incoming',
           blocks: 'Blocks',
           projects: 'Projects',
@@ -350,6 +367,7 @@ export function InspectorPanel({
           source: '種類',
           json: 'JSONバックアップ',
           encrypted: '暗号化Vault',
+          syncRecovery: '\u540c\u671f\u30ea\u30ab\u30d0\u30ea\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8',
           incoming: '読み込み内容',
           blocks: 'ブロック',
           projects: 'プロジェクト',
@@ -604,7 +622,11 @@ export function InspectorPanel({
               <strong>{restorePreviewLabels.title}</strong>
               <span>
                 {restorePreviewLabels.source}:{' '}
-                {restorePreview.kind === 'encrypted-vault' ? restorePreviewLabels.encrypted : restorePreviewLabels.json}
+                {restorePreview.kind === 'sync-recovery'
+                  ? restorePreviewLabels.syncRecovery
+                  : restorePreview.kind === 'encrypted-vault'
+                    ? restorePreviewLabels.encrypted
+                    : restorePreviewLabels.json}
               </span>
               <span>
                 {restorePreviewLabels.incoming}: {restorePreview.store.blocks.length} {restorePreviewLabels.blocks} /{' '}
@@ -679,6 +701,39 @@ export function InspectorPanel({
               }}
             />
           </label>
+          <span className="storagePath">{vaultLabels.recoveryTitle}</span>
+          <span>{vaultLabels.recoveryHint}</span>
+          <button className="restoreButton" type="button" onClick={onRefreshSyncRecoveryVaults}>
+            <RefreshCw size={16} />
+            {vaultLabels.recoveryRefresh}
+          </button>
+          {syncRecoveryVaults.length > 0 ? (
+            <div className="deviceList">
+              {syncRecoveryVaults.map((snapshot) => (
+                <div className="deviceRow" key={snapshot.path}>
+                  <div className="deviceDetails">
+                    <b>{snapshot.fileName}</b>
+                    <small>{snapshot.path}</small>
+                    <small>
+                      {snapshot.bytes} bytes / {snapshot.modifiedAt}
+                    </small>
+                  </div>
+                  <div className="deviceActions">
+                    <button
+                      className="restoreButton inlineActionButton"
+                      type="button"
+                      onClick={() => onPreviewSyncRecoveryVault(snapshot)}
+                    >
+                      <FileUp size={14} />
+                      {vaultLabels.recoveryPreview}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="storagePath">{vaultLabels.noRecoverySnapshots}</span>
+          )}
         </div>
 
         <div className="restoreBox vaultSecurityBox">

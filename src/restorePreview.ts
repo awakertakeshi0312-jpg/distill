@@ -1,6 +1,6 @@
 import type { DistillStore, Project, ThoughtBlock } from './model';
 
-export type RestorePreviewKind = 'json' | 'encrypted-vault';
+export type RestorePreviewKind = 'json' | 'encrypted-vault' | 'sync-recovery';
 
 export type RestoreDiff = {
   addedBlocks: number;

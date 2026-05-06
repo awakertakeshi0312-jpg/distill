@@ -360,6 +360,13 @@ describe('portable imports', () => {
       devices: 1,
     });
   });
+
+  it('tracks sync recovery snapshots as a restore preview source', () => {
+    const preview = buildRestorePreview(store, store, 'sync-recovery');
+
+    expect(preview.kind).toBe('sync-recovery');
+    expect(preview.diff.unchangedBlocks).toBe(store.blocks.length);
+  });
 });
 
 describe('encrypted vault backups', () => {

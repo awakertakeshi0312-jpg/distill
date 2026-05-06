@@ -31,6 +31,8 @@ export type SyncFolderPacketFile = {
   modifiedAt: string;
 };
 
+export type SyncRecoveryVaultFile = SyncFolderPacketFile;
+
 let pendingUpdate: Update | null = null;
 
 function isTauriRuntime() {
@@ -81,6 +83,44 @@ export async function saveSyncRecoveryVault(value: string, label: string): Promi
 
   localStorage.setItem(SYNC_RECOVERY_KEY, value);
   return `localStorage:${SYNC_RECOVERY_KEY}`;
+}
+
+export async function listSyncRecoveryVaults(): Promise<SyncRecoveryVaultFile[]> {
+  if (isTauriRuntime()) {
+    const value = await invoke<string>('list_sync_recovery_vault_files');
+    return JSON.parse(value) as SyncRecoveryVaultFile[];
+  }
+
+  const recovery = localStorage.getItem(SYNC_RECOVERY_KEY);
+
+  return recovery
+    ? [
+        {
+          fileName: 'browser-latest-sync-recovery.json',
+          path: `localStorage:${SYNC_RECOVERY_KEY}`,
+          bytes: recovery.length,
+          modifiedAt: 'browser-latest',
+        },
+      ]
+    : [];
+}
+
+export async function readSyncRecoveryVault(filePath: string): Promise<string> {
+  if (isTauriRuntime()) {
+    return await invoke<string>('read_sync_recovery_vault_file', { filePath });
+  }
+
+  if (filePath !== `localStorage:${SYNC_RECOVERY_KEY}`) {
+    throw new Error('Unknown browser sync recovery snapshot.');
+  }
+
+  const recovery = localStorage.getItem(SYNC_RECOVERY_KEY);
+
+  if (!recovery) {
+    throw new Error('No browser sync recovery snapshot was found.');
+  }
+
+  return recovery;
 }
 
 export async function loadLegacyPlainStore(): Promise<DistillStore | null> {

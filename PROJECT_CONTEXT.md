@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-06)
 
-- Current version: 0.1.21.
+- Current version: 0.1.22.
 - Current phase: Trust Layer / Phase 6 Sync hardening.
-- Current completion estimate: 53% overall; this phase advanced +2pt in this pass.
-- Implemented in this pass: encrypted pre-sync recovery snapshots. Distill now refuses to apply a sync preview if it cannot first save a recovery point for the current encrypted vault.
-- Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Recommended preview never auto-applies, and sync apply is gated by a local encrypted recovery snapshot.
+- Current completion estimate: 55% overall; this phase advanced +2pt in this pass.
+- Implemented in this pass: in-app sync recovery snapshot listing, reading, and restore preview. Users can now preview a saved encrypted pre-sync recovery snapshot before replacing the current vault.
+- Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Recommended preview never auto-applies, sync apply is gated by a local encrypted recovery snapshot, and saved recovery snapshots can be reopened through Restore preview.
 - Still not implemented: automatic/background sync, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.21.md`.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.22.md`.
 ## 役割
 
 思考の断片を捕まえ、タグ・リンク・検索・グラフ・レビューを通じて、判断や知識に蒸留するローカルファーストのデスクトップアプリ。

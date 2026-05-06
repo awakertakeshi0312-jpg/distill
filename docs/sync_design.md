@@ -93,6 +93,7 @@ Implemented:
 - decision-review counts in sync previews for remote wins, local wins, same-time tie-breaks, and local changes/deletes.
 - risk acknowledgement before applying packets that update/delete local data or rely on same-time tie-breaks.
 - encrypted pre-sync recovery snapshots saved before applying any sync preview.
+- in-app recovery snapshot listing, reading, and restore preview for saved pre-sync snapshots.
 - known device registry persisted in the encrypted vault metadata.
 - revoked device registry and rejection of future packets from locally revoked devices.
 - deletion tombstones for permanent thought-block deletion.
@@ -187,15 +188,16 @@ The current UI supports local manual sync only:
 7. Distill decrypts records in memory and shows a sync preview before changing the vault.
 8. The preview summarizes incoming records, devices, block additions, block updates, skipped blocks, block deletions, remote wins, local wins, same-time tie-breaks, and local changes/deletes.
 9. Before applying the preview, Distill saves the current encrypted vault as a pre-sync recovery snapshot. If that save fails, sync is not applied.
-10. If the recovery snapshot succeeds, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
-11. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
-12. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
-13. Distill rejects packets from devices the user has revoked.
-14. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, safety-classify candidates, and load a selected packet into the same preview/apply flow.
-15. The user can run a safety scan that classifies folder packets as ready, risk review, stale, blocked, checkpoint risk, or invalid before previewing them.
-16. The user can ask Distill to open a recommended preview only when exactly one safe packet is available and no risky/blocked/invalid packet is present.
-17. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
-18. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
+10. The user can refresh the recovery snapshot list later, open a saved encrypted snapshot, decrypt it with a vault passphrase, and route it through the same Restore preview before replacing the current vault.
+11. If the recovery snapshot succeeds, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
+12. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
+13. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
+14. Distill rejects packets from devices the user has revoked.
+15. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, safety-classify candidates, and load a selected packet into the same preview/apply flow.
+16. The user can run a safety scan that classifies folder packets as ready, risk review, stale, blocked, checkpoint risk, or invalid before previewing them.
+17. The user can ask Distill to open a recommended preview only when exactly one safe packet is available and no risky/blocked/invalid packet is present.
+18. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
+19. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
 
 This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
@@ -283,7 +285,7 @@ Encrypted file sync MVP:
 2. Import encrypted `.distill-vault.json` on another device.
 3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
 4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges block records, tombstones, device metadata, and checkpoint state.
-5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, safety scan classifies packet candidates before import, recommended preview can open one unambiguous safe candidate without applying it, and sync apply first saves an encrypted recovery snapshot.
+5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, safety scan classifies packet candidates before import, recommended preview can open one unambiguous safe candidate without applying it, sync apply first saves an encrypted recovery snapshot, and saved recovery snapshots can be reopened through Restore preview.
 
 ## Security Gate
 
@@ -293,5 +295,5 @@ Before enabling automatic sync:
 - corrupted payload test
 - rollback/replay policy. Source-device `lastPacketAt` guard and local chained checkpoint validation are implemented; signed checkpoints remain future work.
 - device removal story beyond local trust revocation
-- backup recovery test. Current status: pre-sync encrypted recovery snapshots are saved before sync apply; restore-from-recovery UX is still manual.
+- backup recovery test. Current status: pre-sync encrypted recovery snapshots are saved before sync apply, and restore-from-recovery now has an in-app preview path.
 - local cache clear test
