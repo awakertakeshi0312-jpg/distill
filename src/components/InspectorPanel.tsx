@@ -1,7 +1,7 @@
 import { Database, Download, FileText, FileUp, Link2, Network, RefreshCw, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { UiCopy } from '../i18n';
-import type { Project, ThoughtBlock } from '../model';
+import type { Project, SyncDevice, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
 import { HelpNote } from './HelpNote';
 
@@ -18,6 +18,7 @@ type InspectorPanelProps = {
   syncStatus: string;
   deviceId: string;
   deviceName: string;
+  syncDevices: SyncDevice[];
   vaultSecurityStatus: string;
   autoLockMinutes: number;
   updateInstallerPath: string;
@@ -62,6 +63,7 @@ export function InspectorPanel({
   syncStatus,
   deviceId,
   deviceName,
+  syncDevices,
   vaultSecurityStatus,
   autoLockMinutes,
   updateInstallerPath,
@@ -178,6 +180,9 @@ export function InspectorPanel({
           rename: 'Save device name',
           export: 'Export sync packet',
           import: 'Import sync packet',
+          knownDevices: 'Known devices',
+          noKnownDevices: 'No synced devices yet',
+          thisDevice: 'This device',
         }
       : {
           title: '暗号化同期パケット',
@@ -187,6 +192,9 @@ export function InspectorPanel({
           rename: '端末名を保存',
           export: '同期パケットを書き出す',
           import: '同期パケットを取り込む',
+          knownDevices: '同期済み端末',
+          noKnownDevices: '同期済み端末はまだありません',
+          thisDevice: 'この端末',
         };
 
   function submitPassphraseChange() {
@@ -458,6 +466,19 @@ export function InspectorPanel({
           <span className="storagePath">
             {syncLabels.deviceId}: {deviceId}
           </span>
+          <span className="storagePath">{syncLabels.knownDevices}</span>
+          {syncDevices.length > 0 ? (
+            <div className="deviceList">
+              {syncDevices.map((device) => (
+                <span className="deviceRow" key={device.id}>
+                  <b>{device.name}</b>
+                  <small>{device.id === deviceId ? syncLabels.thisDevice : device.id}</small>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className="storagePath">{syncLabels.noKnownDevices}</span>
+          )}
           <button className="restoreButton" type="button" onClick={onExportEncryptedSyncPacket}>
             <Download size={16} />
             {syncLabels.export}

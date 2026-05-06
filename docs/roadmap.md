@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.9 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, and record-level encrypted sync packets now have a manual export/import path.
+Distill 0.1.10 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, and record-level encrypted sync packets now have manual export/import, device registry, and deletion tombstones.
 
 ## Phase 1: Desktop MVP
 
@@ -64,7 +64,7 @@ Next:
 - Corrupted/tampered vault tests.
 - Restore preview before replacing vault.
 - User-selectable vault location.
-- Record-level encrypted records. Complete for manual sync packet export/import; automatic file sync is not enabled yet.
+- Record-level encrypted records. Complete for manual sync packet export/import with deletion tombstones and device registry; automatic file sync is not enabled yet.
 - Optional platform keyring or Tauri Stronghold convenience unlock.
 
 ## Phase 4: Retrieval Upgrade
@@ -95,6 +95,8 @@ Status: Foundation in code.
 
 - Record-level encrypted packet records.
 - Device identity.
+- Known device registry.
+- Deletion tombstones for permanent block deletion.
 - Manual encrypted file sync first.
 - Conflict handling.
 - Optional E2EE hosted sync after record format is stable.
@@ -115,4 +117,4 @@ Status: Not started.
 - Passphrase change is implemented; restore preview is implemented before 0.2.0.
 - No known data-loss path in normal use.
 - Search, edit, project assignment, archive, restore, import, export, people, graph, vault unlock, and encrypted persistence smoke tests are automated.
-- Sync design has record-level encryption and conflict strategy before implementation.
+- Sync design has record-level encryption, device registry, deletion tombstones, and deterministic conflict strategy before automatic transport.

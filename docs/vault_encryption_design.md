@@ -2,7 +2,7 @@
 
 ## Current Implementation
 
-Distill 0.1.9 uses an encrypted local vault for normal app persistence.
+Distill 0.1.10 uses an encrypted local vault for normal app persistence.
 
 Implemented:
 
@@ -16,6 +16,7 @@ Implemented:
 - Search and graph are generated from the decrypted in-memory store after unlock, not from a persistent plaintext SQLite index.
 - Users can change the vault passphrase from the Inspector.
 - Distill can auto-lock after inactivity and locks when the document is hidden.
+- Manual sync packets use record-level encrypted records, device registry metadata, and deletion tombstones.
 
 Vault envelope:
 
@@ -54,8 +55,8 @@ This is acceptable for the current local MVP, but it is not equivalent to a hard
 
 - If the user forgets the passphrase, Distill cannot recover the vault.
 - The passphrase is held in the React app session while unlocked so autosave and updates can persist the encrypted vault.
-- The current format encrypts the whole store as one envelope, not individual records.
-- Sync is not implemented yet.
+- Normal vault persistence encrypts the whole store as one envelope, while manual sync packets encrypt individual records.
+- Automatic/background sync is not implemented yet.
 - Browser/PWA mode still depends on browser localStorage for the encrypted envelope, so browser profile compromise can delete or replace data even though content is encrypted.
 - Old plaintext copies outside known Distill paths, such as OS backups or manually exported JSON, cannot be erased by the app.
 
@@ -109,8 +110,8 @@ When no encrypted vault exists:
 
 1. Add emergency recovery/export guidance in the UI.
 2. Add restore preview before replacing a vault.
-3. Move from whole-store encryption to record-level encrypted records.
-4. Add encrypted append-only record log for sync.
+3. Move normal persistence from whole-store encryption to record-level encrypted records if automatic sync requires it.
+4. Add encrypted append-only record log for automatic sync.
 5. Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
 6. Add tamper/corruption test cases for modified vault envelopes.
 
@@ -121,7 +122,7 @@ Do not ship automatic sync until:
 - encrypted local persistence is stable
 - wrong passphrase tests pass
 - corrupted payload tests pass
-- record-level merge format is finalized
-- device identity is designed
+- record-level merge format is finalized beyond manual packets
+- device identity, registry, and removal flows are designed
 - rollback/replay handling is defined
 - recovery and device-loss scenarios are documented

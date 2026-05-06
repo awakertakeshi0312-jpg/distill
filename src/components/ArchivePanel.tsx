@@ -1,4 +1,4 @@
-﻿import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Trash2 } from 'lucide-react';
 import type { Locale, UiCopy } from '../i18n';
 import { formatBlockMeta, type Project, type ThoughtBlock } from '../model';
 import { HelpNote } from './HelpNote';
@@ -9,9 +9,12 @@ type ArchivePanelProps = {
   projects: Project[];
   archivedBlocks: ThoughtBlock[];
   onRestoreBlock: (blockId: string) => void;
+  onDeleteBlock: (blockId: string) => void;
 };
 
-export function ArchivePanel({ ui, locale, projects, archivedBlocks, onRestoreBlock }: ArchivePanelProps) {
+export function ArchivePanel({ ui, locale, projects, archivedBlocks, onRestoreBlock, onDeleteBlock }: ArchivePanelProps) {
+  const deleteLabel = locale === 'ja' ? '完全削除' : 'Delete permanently';
+
   return (
     <section className="panel archivePanel" id="archive">
       <div className="panelHeader">
@@ -33,10 +36,16 @@ export function ArchivePanel({ ui, locale, projects, archivedBlocks, onRestoreBl
                 <strong>{block.content}</strong>
                 <span>{formatBlockMeta(block, projects, locale)}</span>
               </div>
-              <button type="button" onClick={() => onRestoreBlock(block.id)}>
-                <RotateCcw size={15} />
-                {ui.restoreBlock as string}
-              </button>
+              <div className="archiveActions">
+                <button type="button" onClick={() => onRestoreBlock(block.id)}>
+                  <RotateCcw size={15} />
+                  {ui.restoreBlock as string}
+                </button>
+                <button className="dangerButton" type="button" onClick={() => onDeleteBlock(block.id)}>
+                  <Trash2 size={15} />
+                  {deleteLabel}
+                </button>
+              </div>
             </article>
           ))
         ) : (

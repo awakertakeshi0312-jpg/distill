@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.9
+- Current version: 0.1.10
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, and manual encrypted sync packet flow
+- Current state: local MVP plus encrypted local vault, signed updater flow, manual encrypted sync packet flow, device registry, and deletion tombstones
 
 ## Product Direction
 
@@ -62,6 +62,8 @@ Implemented app features:
 - Manual update launcher fallback for newer Distill setup packages
 - Stable local device identity for sync packet source tracking
 - Manual encrypted sync packet export/import using record-level encrypted records
+- Manual sync device registry in the Inspector
+- Permanent archive deletion with sync tombstones
 
 ## Current Persistence Boundary
 
@@ -140,13 +142,14 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest full verification after manual encrypted sync UI:
+Latest full verification after deletion tombstones and device registry:
 
-- `npm test`: 26 passed
+- `npm test`: 29 passed
 - `npm run build`: passed
-- `npm run test:rust`: 10 passed
+- `npm run test:rust`: 11 passed
 - `npm run test:e2e`: 10 passed
 - `npm run check:all`: passed
+- `npm run security:audit`: 0 vulnerabilities
 
 E2E coverage includes:
 
@@ -164,6 +167,7 @@ E2E coverage includes:
 - graph neighbors
 - encrypted vault persistence after reload with no plaintext in localStorage
 - encrypted sync packet export download
+- permanent archive deletion with confirmation
 
 ## Source Map
 
@@ -172,7 +176,7 @@ Key frontend files:
 - `src/App.tsx`: app orchestration, vault lifecycle, autosave, imports/exports, updater flows
 - `src/components/VaultGate.tsx`: vault setup/unlock UI
 - `src/vaultCrypto.ts`: PBKDF2/AES-GCM vault encryption
-- `src/sync.ts`: sync packet build/parse/merge and record-level encrypted sync packets
+- `src/sync.ts`: sync packet build/parse/merge, tombstones, device registry, and record-level encrypted sync packets
 - `src/device.ts`: stable local device identity
 - `src/storage.ts`: encrypted vault and legacy migration adapter
 - `src/model.ts`: core types, extraction, local search
@@ -227,7 +231,7 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
-Current status: manual encrypted sync packets exist. Automatic cloud/background sync is still blocked until device registry, deletion tombstones, and recovery behavior are specified.
+Current status: manual encrypted sync packets, device registry, and deletion tombstones exist. Automatic cloud/background sync is still blocked until replay policy, recovery behavior, and mobile storage are specified.
 
 ## Recommended Next Steps
 
@@ -235,9 +239,9 @@ Current status: manual encrypted sync packets exist. Automatic cloud/background 
 
 1. Add restore preview before replacing a vault.
 2. Add corrupted/tampered vault tests.
-3. Add sync deletion tombstones.
+3. Add sync replay/rollback policy.
 4. Add corrupted vault and tamper tests.
-5. Add multi-device sync registry.
+5. Add automatic encrypted folder sync prototype.
 
 ### Product Quality
 
@@ -256,4 +260,4 @@ Current status: manual encrypted sync packets exist. Automatic cloud/background 
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence and manual encrypted sync packets. The next major architecture decision is deletion/device lifecycle for sync, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, device registry, and deletion tombstones. The next major architecture decision is automatic sync transport and replay/recovery behavior, not more plaintext SQLite indexing.

@@ -79,3 +79,21 @@ Completion evidence:
 - `decision.created` can be emitted with `npm run org:decision`.
 - `artifact.ready` can be emitted with `npm run org:ready`.
 - payloads are summary-only unless the user explicitly attaches a safe artifact path.
+
+## App Event Hooks
+
+The desktop app also emits summary-only events through the Tauri command `emit_ai_org_event`.
+
+Current hooks:
+
+- capture saved -> `memory.save_requested`
+- review item marked processed -> `decision.created`
+- Markdown/JSON/backup export generated -> `artifact.ready`
+
+The hook module is:
+
+```text
+src\aiOrg.ts
+```
+
+It sends block IDs, note IDs, state, counts, and project IDs only. It does not send note body text, vault payloads, export contents, passphrases, or secrets.

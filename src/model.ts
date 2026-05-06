@@ -19,6 +19,26 @@ export type Project = {
   status: 'Active' | 'Design' | 'Next';
 };
 
+export type DeletionTombstone = {
+  kind: 'thought-block';
+  id: string;
+  deletedAt: string;
+  deletedByDeviceId?: string;
+};
+
+export type SyncDevice = {
+  id: string;
+  name: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  lastPacketAt?: string;
+};
+
+export type SyncMetadata = {
+  tombstones: DeletionTombstone[];
+  devices: SyncDevice[];
+};
+
 export type SearchResult = {
   block: ThoughtBlock;
   score: number;
@@ -30,6 +50,7 @@ export type SearchResult = {
 export type DistillStore = {
   blocks: ThoughtBlock[];
   projects: Project[];
+  sync?: SyncMetadata;
 };
 
 export const projectsSeed: Project[] = [
@@ -94,7 +115,75 @@ export const blocksSeed: ThoughtBlock[] = [
 export const initialStore: DistillStore = {
   blocks: blocksSeed,
   projects: projectsSeed,
+  sync: {
+    tombstones: [],
+    devices: [],
+  },
 };
+
+export function createEmptySyncMetadata(): SyncMetadata {
+  return {
+    tombstones: [],
+    devices: [],
+  };
+}
+
+export function normalizeSyncMetadata(sync?: Partial<SyncMetadata> | null): SyncMetadata {
+  const tombstones = Array.isArray(sync?.tombstones)
+    ? sync.tombstones.filter(
+        (item): item is DeletionTombstone =>
+          item?.kind === 'thought-block' &&
+          typeof item.id === 'string' &&
+          typeof item.deletedAt === 'string' &&
+          (typeof item.deletedByDeviceId === 'undefined' || typeof item.deletedByDeviceId === 'string'),
+      )
+    : [];
+  const devices = Array.isArray(sync?.devices)
+    ? sync.devices.filter(
+        (item): item is SyncDevice =>
+          typeof item?.id === 'string' &&
+          typeof item.name === 'string' &&
+          typeof item.firstSeenAt === 'string' &&
+          typeof item.lastSeenAt === 'string' &&
+          (typeof item.lastPacketAt === 'undefined' || typeof item.lastPacketAt === 'string'),
+      )
+    : [];
+  const tombstonesById = new Map<string, DeletionTombstone>();
+  const devicesById = new Map<string, SyncDevice>();
+
+  for (const tombstone of tombstones) {
+    const current = tombstonesById.get(tombstone.id);
+    if (!current || tombstone.deletedAt > current.deletedAt) {
+      tombstonesById.set(tombstone.id, tombstone);
+    }
+  }
+
+  for (const device of devices) {
+    const current = devicesById.get(device.id);
+    if (!current || device.lastSeenAt > current.lastSeenAt) {
+      devicesById.set(device.id, {
+        ...device,
+        firstSeenAt: current && current.firstSeenAt < device.firstSeenAt ? current.firstSeenAt : device.firstSeenAt,
+      });
+    }
+  }
+
+  return {
+    tombstones: Array.from(tombstonesById.values()).sort(
+      (a, b) => b.deletedAt.localeCompare(a.deletedAt) || a.id.localeCompare(b.id),
+    ),
+    devices: Array.from(devicesById.values()).sort(
+      (a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+    ),
+  };
+}
+
+export function normalizeDistillStore(store: DistillStore): DistillStore {
+  return {
+    ...store,
+    sync: normalizeSyncMetadata(store.sync),
+  };
+}
 
 export function extractBlockSignals(content: string) {
   return {

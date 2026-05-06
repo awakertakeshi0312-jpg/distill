@@ -4,11 +4,12 @@ import { createMarkdownImport, parseDistillImport } from './import';
 import { decryptDistillVault, encryptDistillVault } from './vaultCrypto';
 import { getOrCreateDeviceIdentity, renameDeviceIdentity, type DeviceIdentity } from './device';
 import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
-import { initialStore, type DistillStore, type Project, type SearchResult } from './model';
+import { initialStore, normalizeSyncMetadata, type DistillStore, type Project, type SearchResult } from './model';
 import {
   applyEncryptedSyncPacket,
   buildEncryptedSyncPacket,
   parseEncryptedSyncPacket,
+  registerSyncDevice,
   serializeEncryptedSyncPacket,
 } from './sync';
 import {
@@ -20,6 +21,7 @@ import {
   getBlock,
   getPeopleIndex,
   getRelatedBlocks,
+  permanentlyDeleteBlock,
   restoreBlock,
   toggleProcessed,
   updateBlockContent,
@@ -62,6 +64,7 @@ import { TodayPanel } from './components/TodayPanel';
 import { Topbar } from './components/Topbar';
 import { VaultGate } from './components/VaultGate';
 import { copy, getInitialLocale, UI_LOCALE_KEY, type Locale } from './i18n';
+import { emitCaptureSaved, emitExportArtifact, emitReviewDecision } from './aiOrg';
 
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
 const AUTO_LOCK_MINUTES_KEY = 'distill.autoLockMinutes';
@@ -316,6 +319,7 @@ function App() {
   const relatedBlocks = useMemo(() => getRelatedBlocks(store, selectedBlockId), [store, selectedBlockId]);
   const selectedPeople = selectedBlock ? extractPeople(selectedBlock) : [];
   const peopleIndex = useMemo(() => getPeopleIndex(store), [store]);
+  const syncDevices = useMemo(() => normalizeSyncMetadata(store.sync).devices, [store.sync]);
   const projectCounts = useMemo(() => getProjectCounts(store, activeBlocks), [store, activeBlocks]);
   const todayNoteId = useMemo(() => getTodayNoteId(), []);
   const todayBlocks = useMemo(() => getTodayBlocks(activeBlocks, todayNoteId), [activeBlocks, todayNoteId]);
@@ -449,19 +453,25 @@ function App() {
     setStore(nextStore);
     setSelectedBlockId(block?.id);
     setCaptureText('');
+    if (block) {
+      void emitCaptureSaved(block, nextStore);
+    }
   }
 
   function exportMarkdown() {
     downloadTextFile('distill-export.md', exportStoreAsMarkdown(store), 'text/markdown');
+    void emitExportArtifact('markdown', store);
   }
 
   function exportJson() {
     downloadTextFile('distill-export.json', exportStoreAsJson(store), 'application/json');
+    void emitExportArtifact('json', store);
   }
 
   function backupJson() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     downloadTextFile(`distill-backup-${timestamp}.json`, exportStoreAsJson(store), 'application/json');
+    void emitExportArtifact('backup-json', store);
   }
 
   function runtimeVaultLabels() {
@@ -660,6 +670,8 @@ function App() {
             `Merged ${records} encrypted sync records from device ${deviceId}.`,
           importInvalid: 'Could not import that encrypted sync packet. Check the file and vault passphrase.',
           deviceRenamed: 'Device name updated.',
+          deleteConfirm: (content: string) =>
+            `Permanently delete this archived block and sync the deletion?\n\n${content}`,
         }
       : {
           passphraseRequired: '暗号化Vaultを開いてから同期パケットを出力・取り込みしてください。',
@@ -671,12 +683,17 @@ function App() {
             `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しました。`,
           importInvalid: '暗号化同期パケットを取り込めませんでした。ファイルとVaultパスフレーズを確認してください。',
           deviceRenamed: '端末名を更新しました。',
+          deleteConfirm: (content: string) =>
+            `このアーカイブ済みブロックを完全削除し、削除履歴を同期しますか？\n\n${content}`,
         };
   }
 
   function renameCurrentDevice(name: string) {
     const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
-    setDeviceIdentity(renameDeviceIdentity(identity, name));
+    const renamed = renameDeviceIdentity(identity, name);
+
+    setDeviceIdentity(renamed);
+    setStore((current) => registerSyncDevice(current, renamed));
     setSyncStatus(syncLabels().deviceRenamed);
   }
 
@@ -690,8 +707,12 @@ function App() {
     }
 
     try {
-      const packet = await buildEncryptedSyncPacket(store, {
+      const registeredStore = registerSyncDevice(store, identity);
+      setStore(registeredStore);
+
+      const packet = await buildEncryptedSyncPacket(registeredStore, {
         sourceDeviceId: identity.id,
+        sourceDeviceName: identity.name,
         passphrase: vaultPassphrase,
       });
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -739,6 +760,28 @@ function App() {
       console.warn('Failed to import encrypted Distill sync packet.', error);
       setSyncStatus(labels.importInvalid);
     }
+  }
+
+  function permanentlyDeleteArchivedBlock(blockId: string) {
+    const labels = syncLabels();
+    const block = store.blocks.find((item) => item.id === blockId);
+
+    if (!block) {
+      return;
+    }
+
+    const confirmed = window.confirm(labels.deleteConfirm(block.content));
+
+    if (!confirmed) {
+      return;
+    }
+
+    const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
+    const nextStore = registerSyncDevice(permanentlyDeleteBlock(blockId, identity.id)(store), identity);
+
+    setDeviceIdentity(identity);
+    setStore(nextStore);
+    setSelectedBlockId(nextStore.blocks[0]?.id);
   }
 
   async function backupEncryptedVault() {
@@ -838,6 +881,7 @@ function App() {
       const importedStore = createMarkdownImport(await file.text());
 
       setStore((current) => ({
+        ...current,
         projects: [...current.projects, ...importedStore.projects],
         blocks: [...importedStore.blocks, ...current.blocks],
       }));
@@ -980,6 +1024,17 @@ function App() {
     setEditingText(content);
   }
 
+  function toggleBlockProcessed(blockId: string) {
+    const previousBlock = store.blocks.find((item) => item.id === blockId);
+    const nextStore = toggleProcessed(blockId)(store);
+    const nextBlock = nextStore.blocks.find((item) => item.id === blockId);
+
+    setStore(nextStore);
+    if (nextBlock && previousBlock?.state !== 'processed' && nextBlock.state === 'processed') {
+      void emitReviewDecision(nextBlock, nextStore);
+    }
+  }
+
   function cancelEditing() {
     setEditingBlockId(undefined);
     setEditingText('');
@@ -1073,7 +1128,7 @@ function App() {
             editingBlockId={editingBlockId}
             editingText={editingText}
             onSelectBlock={setSelectedBlockId}
-            onToggleProcessed={(blockId) => setStore(toggleProcessed(blockId))}
+            onToggleProcessed={toggleBlockProcessed}
             onStartEditing={startEditing}
             onEditingTextChange={setEditingText}
             onSaveEditing={saveEditing}
@@ -1099,6 +1154,7 @@ function App() {
             syncStatus={syncStatus}
             deviceId={deviceIdentity?.id ?? ''}
             deviceName={deviceIdentity?.name ?? ''}
+            syncDevices={syncDevices}
             vaultSecurityStatus={vaultSecurityStatus}
             autoLockMinutes={autoLockMinutes}
             updateInstallerPath={updateInstallerPath}
@@ -1195,6 +1251,7 @@ function App() {
               setStore(restoreBlock(blockId));
               setSelectedBlockId(blockId);
             }}
+            onDeleteBlock={permanentlyDeleteArchivedBlock}
           />
         </div>
       </section>

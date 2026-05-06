@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-emit-ai-org-event"
+description = "Enables the emit_ai_org_event command without any pre-configured scope."
+commands.allow = ["emit_ai_org_event"]
+
+[[permission]]
+identifier = "deny-emit-ai-org-event"
+description = "Denies the emit_ai_org_event command without any pre-configured scope."
+commands.deny = ["emit_ai_org_event"]

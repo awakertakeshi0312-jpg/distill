@@ -18,6 +18,7 @@
     "allow-save-vault-json",
     "allow-clear-plain-store",
     "allow-load-storage-info-json",
-    "allow-start-update-installer"
+    "allow-start-update-installer",
+    "allow-emit-ai-org-event"
   ]
 }

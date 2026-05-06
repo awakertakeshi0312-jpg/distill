@@ -6,13 +6,13 @@
 
 ## 現在の状態
 
-- 現在の公開版は `0.1.9`。
+- 現在の公開版は `0.1.10`。
 - Project ID は `distill`、AI Org 上の役割は Thinking Core。
 - Kernel API は `http://localhost:3001/api/org`。
 - React + TypeScript + Vite + Tauri。
 - ブラウザ開発ポートは `4173`。
 - encrypted local vault gate、パスフレーズ変更、自動ロック、ローカル保存を持つ。
-- 手動の暗号化sync packet export/importと端末IDを持つ。
+- 手動の暗号化sync packet export/import、端末ID、端末レジストリ、削除tombstoneを持つ。
 - Inbox、Today、Search、Graph、Projects、Archive、Export/Import、言語切替を実装済み。
 - MVP は Windows で buildable。
 

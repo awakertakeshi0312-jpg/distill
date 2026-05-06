@@ -1,6 +1,9 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 
 const STORE_KEY: &str = "distill.store.v1";
@@ -79,6 +82,16 @@ struct StorageInfo {
   mode: String,
   path: String,
   backup_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AiOrgEventInput {
+  event_type: String,
+  summary: String,
+  payload: serde_json::Value,
+  work_packet_id: Option<String>,
+  timestamp: String,
 }
 
 fn initialize_database(connection: &Connection) -> Result<(), String> {
@@ -183,6 +196,79 @@ fn backup_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
 fn encrypted_vault_backup_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
   let data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
   Ok(data_dir.join("backups").join("distill-encrypted-vault-latest.json"))
+}
+
+fn ai_org_kernel_root(app: &AppHandle) -> Result<PathBuf, String> {
+  if let Ok(root) = std::env::var("AI_ORG_KERNEL_ROOT") {
+    return Ok(PathBuf::from(root));
+  }
+
+  Ok(app.path().home_dir().map_err(|error| error.to_string())?.join("dev").join("active").join("ai-org-kernel"))
+}
+
+fn ai_org_event_path(app: &AppHandle) -> Result<PathBuf, String> {
+  Ok(ai_org_kernel_root(app)?.join("backend").join("org").join("event-bus").join("events.jsonl"))
+}
+
+fn org_event_actor() -> String {
+  std::env::var("USERNAME")
+    .or_else(|_| std::env::var("USER"))
+    .unwrap_or_else(|_| "awake".to_string())
+}
+
+fn is_allowed_ai_org_event_type(event_type: &str) -> bool {
+  matches!(
+    event_type,
+    "memory.save_requested" | "decision.created" | "artifact.ready"
+  )
+}
+
+fn is_forbidden_ai_org_payload_key(key: &str) -> bool {
+  matches!(
+    key.to_ascii_lowercase().as_str(),
+    "content"
+      | "body"
+      | "note_body"
+      | "note_content"
+      | "vault"
+      | "vault_payload"
+      | "encrypted_vault"
+      | "passphrase"
+      | "password"
+      | "secret"
+      | "token"
+      | "export_content"
+      | "export_contents"
+  )
+}
+
+fn validate_ai_org_payload(value: &serde_json::Value) -> Result<(), String> {
+  match value {
+    serde_json::Value::Object(fields) => {
+      for (key, child) in fields {
+        if is_forbidden_ai_org_payload_key(key) {
+          return Err(format!("AI Org event payload must not include private field `{key}`."));
+        }
+        validate_ai_org_payload(child)?;
+      }
+      Ok(())
+    }
+    serde_json::Value::Array(items) => {
+      for item in items {
+        validate_ai_org_payload(item)?;
+      }
+      Ok(())
+    }
+    _ => Ok(()),
+  }
+}
+
+fn new_ai_org_event_id() -> String {
+  let epoch_nanos = SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .map(|duration| duration.as_nanos())
+    .unwrap_or_default();
+  format!("evt_{epoch_nanos}_{}", std::process::id())
 }
 
 fn write_encrypted_vault_backup(app: &AppHandle, value: &str) -> Result<(), String> {
@@ -1056,6 +1142,56 @@ fn start_update_installer(app: AppHandle, installer_path: String) -> Result<(), 
   Ok(())
 }
 
+#[tauri::command]
+fn emit_ai_org_event(app: AppHandle, event: AiOrgEventInput) -> Result<(), String> {
+  if !is_allowed_ai_org_event_type(&event.event_type) {
+    return Err("Unsupported AI Org event type.".to_string());
+  }
+
+  let summary = event.summary.trim();
+  if summary.is_empty() {
+    return Err("AI Org event summary is required.".to_string());
+  }
+  if summary.len() > 240 {
+    return Err("AI Org event summary must be 240 characters or less.".to_string());
+  }
+  validate_ai_org_payload(&event.payload)?;
+
+  let event_path = ai_org_event_path(&app)?;
+  if let Some(parent) = event_path.parent() {
+    std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+  }
+
+  let source = std::env::current_dir()
+    .map(|path| path.display().to_string())
+    .unwrap_or_else(|_| "distill".to_string());
+  let mut payload = serde_json::Map::new();
+  if let serde_json::Value::Object(fields) = event.payload {
+    payload.extend(fields);
+  }
+  if let Some(work_packet_id) = event.work_packet_id {
+    payload.insert("work_packet_id".to_string(), json!(work_packet_id));
+  }
+
+  let record = json!({
+    "id": new_ai_org_event_id(),
+    "timestamp": event.timestamp,
+    "type": event.event_type,
+    "project": "distill",
+    "summary": summary,
+    "source": source,
+    "actor": org_event_actor(),
+    "payload": serde_json::Value::Object(payload),
+  });
+
+  let mut file = std::fs::OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open(event_path)
+    .map_err(|error| error.to_string())?;
+  writeln!(file, "{record}").map_err(|error| error.to_string())
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -1309,6 +1445,31 @@ mod tests {
     assert!(!is_distill_setup_file_name("distill_0.1_x64-setup.exe"));
     assert!(!is_distill_setup_file_name("other_0.1.5_x64-setup.exe"));
   }
+
+  #[test]
+  fn validates_summary_only_ai_org_payloads() {
+    assert!(is_allowed_ai_org_event_type("memory.save_requested"));
+    assert!(is_allowed_ai_org_event_type("decision.created"));
+    assert!(is_allowed_ai_org_event_type("artifact.ready"));
+    assert!(!is_allowed_ai_org_event_type("thought.captured"));
+
+    let safe = json!({
+      "block": {
+        "block_id": "b-1",
+        "note_id": "daily-2026-05-06",
+        "content_length": 42
+      },
+      "privacy": "summary_only_no_note_body"
+    });
+    let unsafe_payload = json!({
+      "block": {
+        "content": "Private note body must not be emitted"
+      }
+    });
+
+    assert!(validate_ai_org_payload(&safe).is_ok());
+    assert!(validate_ai_org_payload(&unsafe_payload).is_err());
+  }
 }
 
 
@@ -1334,7 +1495,8 @@ pub fn run() {
       save_vault_json,
       clear_plain_store,
       load_storage_info_json,
-      start_update_installer
+      start_update_installer,
+      emit_ai_org_event
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

@@ -852,6 +852,29 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.deviceList {
+  display: grid;
+  gap: 6px;
+}
+
+.deviceRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  background: rgba(237, 242, 236, 0.68);
+}
+
+.deviceRow b {
+  color: var(--ink);
+}
+
+.deviceRow small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .updateDiagnostics {
   display: grid;
   gap: 5px;
@@ -894,6 +917,18 @@ button:disabled {
 
 .restoreButton input {
   display: none;
+}
+
+.archiveActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dangerButton {
+  border-color: rgba(132, 54, 37, 0.32);
+  color: #843625;
 }
 
 .resultRow,
@@ -981,6 +1016,13 @@ button.resultRow:hover {
   background: #f7f8f0;
   color: var(--ink);
   white-space: nowrap;
+}
+
+.archiveActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .todayGrid {

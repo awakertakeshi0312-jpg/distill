@@ -1,4 +1,4 @@
-import { createBlock, DistillStore, extractBlockSignals, Project, ThoughtBlock } from './model';
+import { createBlock, DistillStore, extractBlockSignals, normalizeSyncMetadata, Project, ThoughtBlock } from './model';
 
 export type StoreUpdater = (current: DistillStore) => DistillStore;
 
@@ -83,6 +83,30 @@ export function restoreBlock(blockId: string): StoreUpdater {
         : block,
     ),
   });
+}
+
+export function permanentlyDeleteBlock(blockId: string, deletedByDeviceId?: string): StoreUpdater {
+  return (current) => {
+    const timestamp = new Date().toISOString();
+    const sync = normalizeSyncMetadata(current.sync);
+
+    return {
+      ...current,
+      blocks: current.blocks.filter((block) => block.id !== blockId),
+      sync: normalizeSyncMetadata({
+        ...sync,
+        tombstones: [
+          ...sync.tombstones,
+          {
+            kind: 'thought-block',
+            id: blockId,
+            deletedAt: timestamp,
+            deletedByDeviceId,
+          },
+        ],
+      }),
+    };
+  };
 }
 
 export function assignProject(blockId: string, projectId: string): StoreUpdater {

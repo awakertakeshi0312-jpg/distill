@@ -1,4 +1,11 @@
-import { extractBlockSignals, type BlockState, type DistillStore, type Project, type ThoughtBlock } from './model';
+import {
+  extractBlockSignals,
+  normalizeDistillStore,
+  type BlockState,
+  type DistillStore,
+  type Project,
+  type ThoughtBlock,
+} from './model';
 
 type ImportEnvelope = Partial<DistillStore> & {
   exportedAt?: string;
@@ -63,6 +70,7 @@ export function parseDistillImport(json: string): DistillStore {
   return {
     blocks: parsed.blocks,
     projects: parsed.projects,
+    sync: normalizeDistillStore(parsed as DistillStore).sync,
   };
 }
 
@@ -107,5 +115,9 @@ export function createMarkdownImport(markdown: string): DistillStore {
   return {
     projects: [project],
     blocks,
+    sync: {
+      tombstones: [],
+      devices: [],
+    },
   };
 }

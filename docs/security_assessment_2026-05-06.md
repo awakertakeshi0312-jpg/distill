@@ -11,6 +11,7 @@ This assessment covers the current local-first Distill MVP:
 - browser/PWA preview
 - signed Windows updater
 - GitHub Releases updater feed
+- manual encrypted sync packet export/import
 
 It does not certify the app for regulated data, medical data, legal privilege, or enterprise compliance.
 
@@ -28,10 +29,11 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Tauri command exposure is explicitly limited through capabilities.
 - Signed updater is configured with Tauri updater signatures.
 - Release feed is HTTPS-hosted on GitHub Releases.
-- Export/import is explicit and user-triggered.
+- Export/import and sync packet exchange are explicit and user-triggered.
 - Tauri updater is registered only for desktop builds.
+- Manual sync packets use record-level encrypted records and deletion tombstones.
 
-### Changes Applied Through 0.1.9
+### Changes Applied Through 0.1.10
 
 - Added startup vault gate for create/unlock.
 - Added normal encrypted local persistence under `distill.vault.v1`.
@@ -43,6 +45,9 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added vault passphrase change flow.
 - Added auto-lock settings and lock-on-hidden behavior.
 - Added E2E coverage proving old passphrase no longer unlocks after passphrase change.
+- Added manual encrypted sync packet export/import.
+- Added local device identity and known-device registry.
+- Added deletion tombstones so stale packets cannot resurrect permanently deleted archived blocks.
 
 ## Findings
 
@@ -57,14 +62,14 @@ Recommended remediation:
 - Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
 - Keep lock-on-idle defaults conservative and add OS-native idle integration later.
 
-### P1: Whole-store encryption limits sync and conflict handling
+### P1: Whole-store vault persistence still limits automatic sync
 
-The current encrypted vault protects local data at rest, but the whole store is encrypted as one envelope. This is simple and safe for local MVP use, but not ideal for multi-device sync.
+The current encrypted vault protects local data at rest, and manual sync packets use record-level encrypted records. Normal vault persistence is still a whole-store envelope, which is simple and safe for local MVP use but not ideal for automatic multi-device sync.
 
 Recommended remediation:
 
-- Move to record-level encrypted blocks/projects.
-- Add encrypted append-only sync records.
+- Move normal persistence toward record-level encrypted blocks/projects.
+- Add encrypted append-only sync logs.
 - Keep plaintext sync metadata minimal.
 - Define rollback/replay protection before automatic sync.
 
@@ -155,7 +160,7 @@ Before distributing a new public build:
 ## Next Security Milestones
 
 1. Add restore preview and corrupted vault tests.
-2. Move toward record-level encrypted records.
+2. Define replay/rollback protection for sync packets.
 3. Add OS-native idle/sleep integration and optional keyring convenience unlock.
-4. Move to record-level encrypted records.
-5. Add sync only after encrypted record format and device identity are complete.
+4. Add automatic encrypted folder sync only after replay/recovery behavior is documented.
+5. Add device removal and trust revocation flow.

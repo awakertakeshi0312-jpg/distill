@@ -158,6 +158,15 @@ test('Edit, archive, and restore keep a block usable', async ({ page }) => {
   await page.locator('#archive .archiveRow').filter({ hasText: 'Edited archive workflow' }).getByRole('button', { name: 'Restore' }).click();
   await page.locator('a[href="#inbox"]').click();
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Edited archive workflow' })).toBeVisible();
+
+  await page.locator('#inbox .thoughtBlock').filter({ hasText: 'Edited archive workflow' }).getByRole('button', { name: 'Archive' }).click();
+  await page.locator('a[href="#archive"]').click();
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toContain('Permanently delete this archived block');
+    await dialog.accept();
+  });
+  await page.locator('#archive .archiveRow').filter({ hasText: 'Edited archive workflow' }).getByRole('button', { name: 'Delete permanently' }).click();
+  await expect(page.locator('#archive')).not.toContainText('Edited archive workflow');
 });
 
 test('Markdown, JSON, and backup exports download files', async ({ page }) => {

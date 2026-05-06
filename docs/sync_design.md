@@ -87,18 +87,22 @@ Implemented:
 - metadata tamper detection between encrypted wrappers and decrypted records.
 - stable per-device identity stored locally as `distill.device.v1`.
 - manual encrypted sync packet export/import UI.
+- known device registry persisted in the encrypted vault metadata.
+- deletion tombstones for permanent thought-block deletion.
 - deterministic merge rule:
   - accept a remote block when the local block is missing.
   - accept a remote block when `remote.updatedAt` is newer.
   - keep the local block when `local.updatedAt` is newer.
+  - reject stale incoming blocks when a newer deletion tombstone exists.
+  - apply incoming tombstones when they are newer than local block state.
   - use hash order only when timestamps are equal.
 - parser validation for unsupported sync packet files.
 
 Not implemented yet:
 
 - project record sync.
-- deletion tombstones.
-- multi-device registry UI.
+- automatic device removal.
+- replay/rollback protection beyond last-writer-wins timestamps.
 - automatic network or cloud sync.
 
 This keeps the risky part small: the app can prove merge behavior before any private data is sent to a network or cloud provider.
@@ -110,7 +114,17 @@ This keeps the risky part small: the app can prove merge behavior before any pri
   "type": "distill.encrypted-sync.packet",
   "schemaVersion": 1,
   "sourceDeviceId": "device-windows",
+  "sourceDeviceName": "Windows desk",
   "createdAt": "2026-05-06T00:00:00.000Z",
+  "devices": [
+    {
+      "id": "device-windows",
+      "name": "Windows desk",
+      "firstSeenAt": "2026-05-06T00:00:00.000Z",
+      "lastSeenAt": "2026-05-06T00:00:00.000Z",
+      "lastPacketAt": "2026-05-06T00:00:00.000Z"
+    }
+  ],
   "records": [
     {
       "kind": "thought-block",
@@ -121,12 +135,22 @@ This keeps the risky part small: the app can prove merge behavior before any pri
         "type": "distill.encrypted-sync-record",
         "value": "{...AES-GCM envelope...}"
       }
+    },
+    {
+      "kind": "thought-block-deletion",
+      "id": "b-124",
+      "updatedAt": "2026-05-06T01:00:00.000Z",
+      "hash": "fnv1a32:...",
+      "encrypted": {
+        "type": "distill.encrypted-sync-record",
+        "value": "{...AES-GCM envelope containing the tombstone...}"
+      }
     }
   ]
 }
 ```
 
-The outer wrapper contains only the fields required for sync routing, ordering, and deterministic tie-breaking. The decrypted record contains the full `ThoughtBlock` payload. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging.
+The outer wrapper contains only the fields required for sync routing, ordering, and deterministic tie-breaking. The decrypted record contains either the full `ThoughtBlock` payload or a deletion tombstone. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging.
 
 ## Manual Sync Workflow
 
@@ -138,7 +162,7 @@ The current UI supports local manual sync only:
 4. Move the `.distill-sync.json` file to another device manually.
 5. Unlock the other device with the same vault passphrase.
 6. Import the encrypted sync packet.
-7. Distill decrypts records in memory, verifies wrapper metadata, and applies the deterministic merge.
+7. Distill decrypts records in memory, verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
 
 This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
@@ -189,6 +213,13 @@ Each device gets:
 
 Do not use hardware identifiers.
 
+The current registry is local and manual:
+
+- the current device is registered when exporting a sync packet or renaming the device.
+- imported packets merge `devices` metadata into the encrypted vault.
+- the Inspector shows known devices.
+- there is no device removal or trust revocation flow yet.
+
 ## Key Handling
 
 The server or cloud storage must never receive:
@@ -215,7 +246,7 @@ Encrypted file sync MVP:
 1. Export encrypted `.distill-vault.json`.
 2. Import encrypted `.distill-vault.json` on another device.
 3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
-4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import merges block records.
+4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import merges block records, tombstones, and device metadata.
 5. Automate file read/write through a user-selected folder later.
 
 ## Security Gate

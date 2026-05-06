@@ -6,6 +6,7 @@ import {
   extractPeople,
   getPeopleIndex,
   getRelatedBlocks,
+  permanentlyDeleteBlock,
   restoreBlock,
   updateBlockContent,
 } from '../repository';
@@ -32,6 +33,7 @@ import {
   decryptEncryptedSyncPacket,
   parseEncryptedSyncPacket,
   parseSyncPacket,
+  registerSyncDevice,
   serializeEncryptedSyncPacket,
   serializeSyncPacket,
 } from '../sync';
@@ -135,6 +137,17 @@ describe('repository', () => {
     const restored = restoreBlock('archived')(archivedWithLink).blocks[0];
 
     expect(restored.state).toBe('linked');
+  });
+
+  it('permanently deletes blocks by writing a sync tombstone', () => {
+    const next = permanentlyDeleteBlock('b-3', 'windows-dev')(store);
+
+    expect(next.blocks.find((item) => item.id === 'b-3')).toBeUndefined();
+    expect(next.sync?.tombstones[0]).toMatchObject({
+      kind: 'thought-block',
+      id: 'b-3',
+      deletedByDeviceId: 'windows-dev',
+    });
   });
 
   it('extracts and indexes people while excluding archived blocks', () => {
@@ -336,6 +349,45 @@ describe('sync packets', () => {
     expect(packet.records[0].hash).toMatch(/^fnv1a32:/);
   });
 
+  it('includes deletion tombstones and device registry records in sync packets', () => {
+    const deletedStore = registerSyncDevice(
+      {
+        projects: [],
+        blocks: [],
+        sync: {
+          tombstones: [
+            {
+              kind: 'thought-block',
+              id: 'deleted-block',
+              deletedAt: '2026-05-06T04:00:00.000Z',
+              deletedByDeviceId: 'windows-dev',
+            },
+          ],
+          devices: [],
+        },
+      },
+      { id: 'windows-dev', name: 'Windows desk' },
+      '2026-05-06T05:00:00.000Z',
+    );
+
+    const packet = buildSyncPacket(deletedStore, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      now: '2026-05-06T06:00:00.000Z',
+    });
+
+    expect(packet.records).toHaveLength(1);
+    expect(packet.records[0]).toMatchObject({
+      kind: 'thought-block-deletion',
+      id: 'deleted-block',
+      updatedAt: '2026-05-06T04:00:00.000Z',
+    });
+    expect(packet.devices?.find((device) => device.id === 'windows-dev')).toMatchObject({
+      name: 'Windows desk',
+      lastPacketAt: '2026-05-06T06:00:00.000Z',
+    });
+  });
+
   it('applies newer incoming blocks while keeping newer local edits', () => {
     const localStore: DistillStore = {
       projects: [],
@@ -388,6 +440,49 @@ describe('sync packets', () => {
     expect(merged.blocks.find((item) => item.id === 'remote-only')?.content).toBe('Remote only text');
   });
 
+  it('applies tombstones and prevents stale block resurrection', () => {
+    const tombstoneStore: DistillStore = {
+      projects: [],
+      blocks: [],
+      sync: {
+        tombstones: [
+          {
+            kind: 'thought-block',
+            id: 'deleted-block',
+            deletedAt: '2026-05-06T05:00:00.000Z',
+            deletedByDeviceId: 'windows-dev',
+          },
+        ],
+        devices: [],
+      },
+    };
+    const staleStore: DistillStore = {
+      projects: [],
+      blocks: [
+        block({
+          id: 'deleted-block',
+          content: 'Stale remote copy',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T04:00:00.000Z',
+        }),
+      ],
+    };
+
+    const stalePacket = buildSyncPacket(staleStore, {
+      sourceDeviceId: 'mobile-dev',
+      sourceDeviceName: 'Phone',
+      now: '2026-05-06T06:00:00.000Z',
+    });
+    const tombstonePacket = buildSyncPacket(tombstoneStore, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      now: '2026-05-06T07:00:00.000Z',
+    });
+
+    expect(applySyncPacket(tombstoneStore, stalePacket).blocks).toEqual([]);
+    expect(applySyncPacket(staleStore, tombstonePacket).blocks).toEqual([]);
+  });
+
   it('parses serialized sync packets and rejects unsupported files', () => {
     const packet = buildSyncPacket(store, { sourceDeviceId: 'windows-dev', now: '2026-05-06T03:00:00.000Z' });
 
@@ -421,7 +516,11 @@ describe('sync packets', () => {
     );
 
     expect(decrypted.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
-    expect(decrypted.records[0].value.content).toBe('Discuss semantic trust with @Aki [[Person: Mina]] #search [[Semantic Retrieval]]');
+    const firstRecordValue = decrypted.records[0].value;
+    if (!('content' in firstRecordValue)) {
+      throw new Error('Expected first encrypted sync record to be a thought block');
+    }
+    expect(firstRecordValue.content).toBe('Discuss semantic trust with @Aki [[Person: Mina]] #search [[Semantic Retrieval]]');
   });
 
   it('applies encrypted sync packets after decrypting records', async () => {
