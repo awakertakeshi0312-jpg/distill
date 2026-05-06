@@ -1,5 +1,14 @@
 # Distill Project Context
 
+## Current Status (2026-05-06)
+
+- Current version: 0.1.19.
+- Current phase: Trust Layer / Phase 6 Sync hardening.
+- Current completion estimate: 49% overall; this phase advanced +2pt in this pass.
+- Implemented in this pass: desktop sync-folder safety scan that classifies encrypted packet candidates before preview/apply.
+- Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid.
+- Still not implemented: automatic/background sync, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.19.md`.
 ## 役割
 
 思考の断片を捕まえ、タグ・リンク・検索・グラフ・レビューを通じて、判断や知識に蒸留するローカルファーストのデスクトップアプリ。

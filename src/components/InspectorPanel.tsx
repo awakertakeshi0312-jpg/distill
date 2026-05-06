@@ -1,4 +1,16 @@
-import { Database, Download, FileText, FileUp, Link2, Network, RefreshCw, ShieldOff, Trash2, UserRound } from 'lucide-react';
+import {
+  Database,
+  Download,
+  FileText,
+  FileUp,
+  Link2,
+  Network,
+  RefreshCw,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  UserRound,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { UiCopy } from '../i18n';
 import type { Project, RevokedSyncDevice, SyncDevice, ThoughtBlock } from '../model';
@@ -6,6 +18,7 @@ import type { RelatedBlock } from '../repository';
 import type { RestorePreview } from '../restorePreview';
 import type { SyncFolderPacketFile } from '../storage';
 import type { SyncPreview } from '../syncPreview';
+import { isBlockedSyncFolderPacketReview, type SyncFolderPacketReview } from '../syncFolderReview';
 import { HelpNote } from './HelpNote';
 
 function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
@@ -32,6 +45,7 @@ type InspectorPanelProps = {
   syncRiskAccepted: boolean;
   syncFolderPath: string;
   syncFolderPackets: SyncFolderPacketFile[];
+  syncFolderPacketReviews: SyncFolderPacketReview[];
   personalKmHandoffStatus: string;
   deviceId: string;
   deviceName: string;
@@ -65,6 +79,7 @@ type InspectorPanelProps = {
   onSyncFolderPathChange: (path: string) => void;
   onExportEncryptedSyncPacketToFolder: () => void;
   onRefreshSyncFolderPackets: () => void;
+  onReviewSyncFolderPackets: () => void;
   onImportSyncFolderPacket: (packetFile: SyncFolderPacketFile) => void;
   onQuarantineSyncFolderPacket: (packetFile: SyncFolderPacketFile) => void;
   onApplySyncPreview: () => void;
@@ -97,6 +112,7 @@ export function InspectorPanel({
   syncRiskAccepted,
   syncFolderPath,
   syncFolderPackets,
+  syncFolderPacketReviews,
   personalKmHandoffStatus,
   deviceId,
   deviceName,
@@ -130,6 +146,7 @@ export function InspectorPanel({
   onSyncFolderPathChange,
   onExportEncryptedSyncPacketToFolder,
   onRefreshSyncFolderPackets,
+  onReviewSyncFolderPackets,
   onImportSyncFolderPacket,
   onQuarantineSyncFolderPacket,
   onApplySyncPreview,
@@ -235,10 +252,20 @@ export function InspectorPanel({
           folderPathPlaceholder: 'C:\\Users\\awake\\OneDrive\\Distill Sync',
           exportToFolder: 'Export to sync folder',
           scanFolder: 'Scan sync folder',
+          safetyScanFolder: 'Safety scan',
           folderPackets: 'Folder packets',
           noFolderPackets: 'No packet files found yet',
           importFolderPacket: 'Preview',
           quarantineFolderPacket: 'Quarantine',
+          reviewReady: 'Ready',
+          reviewRisk: 'Risk review',
+          reviewStale: 'Stale',
+          reviewBlocked: 'Blocked',
+          reviewCheckpointRisk: 'Checkpoint risk',
+          reviewInvalid: 'Invalid',
+          reviewSource: 'Source',
+          reviewRecords: 'Records',
+          reviewDecisions: 'Decisions',
           knownDevices: 'Known devices',
           noKnownDevices: 'No synced devices yet',
           revokedDevices: 'Revoked devices',
@@ -260,10 +287,20 @@ export function InspectorPanel({
           folderPathPlaceholder: 'C:\\Users\\awake\\OneDrive\\Distill Sync',
           exportToFolder: '同期フォルダへ書き出す',
           scanFolder: '同期フォルダを確認',
+          safetyScanFolder: '安全スキャン',
           folderPackets: 'フォルダ内パケット',
           noFolderPackets: '同期パケットはまだ見つかっていません',
           importFolderPacket: 'プレビュー',
           quarantineFolderPacket: '隔離',
+          reviewReady: '安全候補',
+          reviewRisk: 'リスク確認',
+          reviewStale: '古い',
+          reviewBlocked: 'ブロック',
+          reviewCheckpointRisk: 'チェックポイント注意',
+          reviewInvalid: '無効',
+          reviewSource: '送信元',
+          reviewRecords: 'レコード',
+          reviewDecisions: '判定',
           knownDevices: '同期済み端末',
           noKnownDevices: '同期済み端末はまだありません',
           revokedDevices: '信頼解除済み端末',
@@ -273,6 +310,14 @@ export function InspectorPanel({
           revoke: '信頼解除',
           forget: '記録削除',
         };
+  const syncFolderReviewLabels: Record<SyncFolderPacketReview['status'], string> = {
+    ready: syncLabels.reviewReady,
+    risk: syncLabels.reviewRisk,
+    stale: syncLabels.reviewStale,
+    blocked: syncLabels.reviewBlocked,
+    'checkpoint-risk': syncLabels.reviewCheckpointRisk,
+    invalid: syncLabels.reviewInvalid,
+  };
 
   const restorePreviewLabels =
     ui.navInbox === 'Inbox'
@@ -793,39 +838,68 @@ export function InspectorPanel({
               <RefreshCw size={16} />
               {syncLabels.scanFolder}
             </button>
+            <button className="restoreButton" type="button" onClick={onReviewSyncFolderPackets}>
+              <ShieldCheck size={16} />
+              {syncLabels.safetyScanFolder}
+            </button>
           </div>
           <span className="storagePath">{syncLabels.folderPackets}</span>
           {syncFolderPackets.length > 0 ? (
             <div className="deviceList">
-              {syncFolderPackets.map((packetFile) => (
-                <div className="deviceRow" key={packetFile.path}>
-                  <div className="deviceDetails">
-                    <b>{packetFile.fileName}</b>
-                    <small>{packetFile.path}</small>
-                    <small>
-                      {packetFile.bytes} bytes / {packetFile.modifiedAt}
-                    </small>
+              {syncFolderPackets.map((packetFile) => {
+                const review = syncFolderPacketReviews.find((item) => item.path === packetFile.path);
+                const blocksPreview = review ? isBlockedSyncFolderPacketReview(review) : false;
+
+                return (
+                  <div className="deviceRow" key={packetFile.path}>
+                    <div className="deviceDetails">
+                      <b>{packetFile.fileName}</b>
+                      {review ? (
+                        <span className={`syncPacketBadge syncPacketBadge-${review.status}`}>
+                          {syncFolderReviewLabels[review.status]}
+                        </span>
+                      ) : null}
+                      <small>{packetFile.path}</small>
+                      <small>
+                        {packetFile.bytes} bytes / {packetFile.modifiedAt}
+                      </small>
+                      {review ? <small>{review.reason}</small> : null}
+                      {review?.sourceDeviceId ? (
+                        <small>
+                          {syncLabels.reviewSource}: {review.sourceDeviceName || review.sourceDeviceId}
+                        </small>
+                      ) : null}
+                      {typeof review?.records === 'number' ? (
+                        <small>
+                          {syncLabels.reviewRecords}: {review.records}
+                          {typeof review.destructiveChanges === 'number' && typeof review.timestampTies === 'number'
+                            ? ` / ${syncLabels.reviewDecisions}: ${review.destructiveChanges}+${review.timestampTies}`
+                            : ''}
+                        </small>
+                      ) : null}
+                    </div>
+                    <div className="deviceActions">
+                      <button
+                        className="restoreButton inlineActionButton"
+                        type="button"
+                        disabled={blocksPreview}
+                        onClick={() => onImportSyncFolderPacket(packetFile)}
+                      >
+                        <FileUp size={14} />
+                        {syncLabels.importFolderPacket}
+                      </button>
+                      <button
+                        className="restoreButton dangerButton inlineActionButton"
+                        type="button"
+                        onClick={() => onQuarantineSyncFolderPacket(packetFile)}
+                      >
+                        <ShieldOff size={14} />
+                        {syncLabels.quarantineFolderPacket}
+                      </button>
+                    </div>
                   </div>
-                  <div className="deviceActions">
-                    <button
-                      className="restoreButton inlineActionButton"
-                      type="button"
-                      onClick={() => onImportSyncFolderPacket(packetFile)}
-                    >
-                      <FileUp size={14} />
-                      {syncLabels.importFolderPacket}
-                    </button>
-                    <button
-                      className="restoreButton dangerButton inlineActionButton"
-                      type="button"
-                      onClick={() => onQuarantineSyncFolderPacket(packetFile)}
-                    >
-                      <ShieldOff size={14} />
-                      {syncLabels.quarantineFolderPacket}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <span className="storagePath">{syncLabels.noFolderPackets}</span>

@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.18
+- Current version: 0.1.19
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, desktop sync-folder packet exchange prototype, sync packet quarantine, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, desktop sync-folder packet exchange prototype with safety scan and packet quarantine, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -63,7 +63,7 @@ Implemented app features:
 - Manual update launcher fallback for newer Distill setup packages
 - Stable local device identity for sync packet source tracking
 - Manual encrypted sync packet export/import using record-level encrypted records
-- Desktop sync-folder path for writing, scanning, and previewing encrypted sync packet files
+- Desktop sync-folder path for writing, scanning, safety-classifying, and previewing encrypted sync packet files
 - Sync packet apply preview with add/update/skip/delete counts before merging
 - Sync packet decision review with remote wins, local wins, same-time tie-breaks, and local changes/deletes
 - Sync risk acknowledgement gate before applying packets that update/delete local data or rely on same-time tie-breaks
@@ -97,7 +97,7 @@ Known remaining security limits:
 - passphrase remains in app memory while unlocked
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - restore preview exists, but restore still replaces the full local store after user approval
-- no automatic/background sync yet; current sync-folder flow is explicit user-triggered packet exchange
+- no automatic/background sync yet; current sync-folder flow is explicit user-triggered packet exchange with local safety classification
 - browser preview still depends on localStorage for the encrypted envelope
 
 ## Technical Stack
@@ -153,7 +153,7 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after sync quarantine and risk-gate update:
+Latest verification after sync-folder safety scan update:
 
 - `npm test`: 42 passed
 - `npm run build`: passed
@@ -250,7 +250,7 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
-Current status: manual encrypted sync packets, apply preview, device registry, deletion tombstones, and chained checkpoint validation exist. Automatic cloud/background sync is still blocked until recovery behavior, device trust revocation, and mobile storage are specified.
+Current status: manual encrypted sync packets, apply preview, sync-folder safety scan, device registry, deletion tombstones, and chained checkpoint validation exist. Automatic cloud/background sync is still blocked until recovery behavior, device trust revocation, and mobile storage are specified.
 
 ## Recommended Next Steps
 
@@ -279,4 +279,4 @@ Current status: manual encrypted sync packets, apply preview, device registry, d
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, apply previews, device registry, deletion tombstones, and chained checkpoint validation. The next major architecture decision is automatic sync transport and recovery behavior, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, sync-folder safety scans, apply previews, device registry, deletion tombstones, and chained checkpoint validation. The next major architecture decision is automatic sync transport and recovery behavior, not more plaintext SQLite indexing.

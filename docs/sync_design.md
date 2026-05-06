@@ -87,7 +87,7 @@ Implemented:
 - metadata tamper detection between encrypted wrappers and decrypted records.
 - stable per-device identity stored locally as `distill.device.v1`.
 - manual encrypted sync packet export/import UI.
-- desktop sync-folder path for writing encrypted packet files, scanning packet candidates, and loading a selected packet into the existing preview flow.
+- desktop sync-folder path for writing encrypted packet files, scanning packet candidates, safety-scanning candidates, and loading a selected packet into the existing preview flow.
 - desktop sync-folder quarantine for suspicious or unwanted packet files.
 - import preview before applying encrypted sync packets, with add/update/skip/delete counts.
 - decision-review counts in sync previews for remote wins, local wins, same-time tie-breaks, and local changes/deletes.
@@ -189,9 +189,10 @@ The current UI supports local manual sync only:
 10. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
 11. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
 12. Distill rejects packets from devices the user has revoked.
-13. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, and load a selected packet into the same preview/apply flow.
-14. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
-15. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
+13. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, safety-classify candidates, and load a selected packet into the same preview/apply flow.
+14. The user can run a safety scan that classifies folder packets as ready, risk review, stale, blocked, checkpoint risk, or invalid before previewing them.
+15. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
+16. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
 
 This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
@@ -279,7 +280,7 @@ Encrypted file sync MVP:
 2. Import encrypted `.distill-vault.json` on another device.
 3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
 4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges block records, tombstones, device metadata, and checkpoint state.
-5. Automate file read/write through a user-selected folder later.
+5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, and safety scan classifies packet candidates before import.
 
 ## Security Gate
 

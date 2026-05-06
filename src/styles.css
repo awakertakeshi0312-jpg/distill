@@ -991,6 +991,43 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.syncPacketBadge {
+  width: fit-content;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.syncPacketBadge-ready {
+  border-color: rgba(47, 111, 78, 0.32);
+  background: #edf6ed;
+  color: #2f6f4e;
+}
+
+.syncPacketBadge-risk,
+.syncPacketBadge-checkpoint-risk {
+  border-color: rgba(138, 75, 15, 0.34);
+  background: #fff7e8;
+  color: #8a4b0f;
+}
+
+.syncPacketBadge-stale {
+  border-color: rgba(38, 82, 128, 0.28);
+  background: #eef5fb;
+  color: #265280;
+}
+
+.syncPacketBadge-blocked,
+.syncPacketBadge-invalid {
+  border-color: rgba(132, 54, 37, 0.32);
+  background: #fff0eb;
+  color: #843625;
+}
+
 .deviceActions {
   display: flex;
   flex-wrap: wrap;
