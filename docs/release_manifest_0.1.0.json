@@ -1,0 +1,26 @@
+{
+  "product": "Distill",
+  "version": "0.1.0",
+  "platform": "windows-x64",
+  "packageType": "nsis",
+  "artifact": "release/Distill_0.1.0_x64-setup.exe",
+  "sizeBytes": 3788897,
+  "sha256": "57339EC6F50B631EACC8933CA64CA2CC1A1466C80AC643DCB7448F5671A5628F",
+  "builtAtUtc": "2026-05-05T19:02:34.6117852Z",
+  "verification": {
+    "frontendDomainTests": "17 passed",
+    "rustSqliteTests": "8 passed",
+    "browserE2eSmoke": "9 passed",
+    "frontendBuild": "passed",
+    "tauriWindowsBuild": "passed",
+    "signedUpdaterArtifacts": "passed"
+  },
+  "knownLimits": [
+    "Unsigned Windows code-signing certificate; SmartScreen trust is not solved",
+    "Signed updater artifacts are generated locally; release files still need to be uploaded to the configured host",
+    "Local semantic-overlap retrieval is implemented; no embedding/vector index yet",
+    "No sync"
+  ],
+  "signatureArtifact": "release/Distill_0.1.0_x64-setup.exe.sig",
+  "updateManifest": "release/latest.json"
+}

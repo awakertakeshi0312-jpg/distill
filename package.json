@@ -1,0 +1,41 @@
+{
+  "name": "distill",
+  "version": "0.1.4",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "test": "vitest run src",
+    "test:rust": "cmd /c \"\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\LaunchDevCmd.bat\" -arch=x64 -host_arch=x64 && set PATH=%USERPROFILE%\\.cargo\\bin;%PATH% && cd /d %CD%\\src-tauri && cargo test\"",
+    "check:all": "npm test && npm run build && npm run test:rust && npm run test:e2e",
+    "tauri:dev:windows": "cmd /c \"\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\LaunchDevCmd.bat\" -arch=x64 -host_arch=x64 && set PATH=%USERPROFILE%\\.cargo\\bin;%PATH% && npm run tauri:dev\"",
+    "tauri:build:windows": "cmd /c \"\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\LaunchDevCmd.bat\" -arch=x64 -host_arch=x64 && set PATH=%USERPROFILE%\\.cargo\\bin;%PATH% && npm run tauri:build\"",
+    "test:e2e": "playwright test",
+    "tauri:build:signed": "powershell -ExecutionPolicy Bypass -File scripts/build-signed-updater.ps1",
+    "release:latest-json": "powershell -ExecutionPolicy Bypass -File scripts/create-latest-json.ps1",
+    "release:windows": "npm run tauri:build:signed"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
+    "@vitejs/plugin-react": "^5.1.1",
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@tauri-apps/cli": "^2.11.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "vitest": "^4.1.5"
+  }
+}

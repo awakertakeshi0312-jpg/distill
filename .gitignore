@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+src-tauri/target/
+target/
+release/
+release_archive/
+test-results/
+playwright-report/
+*.log
+*.tmp
+.env
+.env.*
+scratch/*.log
+scratch/*.out.log
+scratch/*.err.log

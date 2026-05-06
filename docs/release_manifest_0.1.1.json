@@ -1,0 +1,28 @@
+﻿{
+  "product": "Distill",
+  "version": "0.1.1",
+  "platform": "windows-x64",
+  "packageType": "nsis",
+  "artifact": "release/Distill_0.1.1_x64-setup.exe",
+  "signatureArtifact": "release/Distill_0.1.1_x64-setup.exe.sig",
+  "updateManifest": "release/latest.json",
+  "sizeBytes": 3789241,
+  "sha256": "5E13BA109491348C58B00A498FBFA5396CD906263A70619D3DF3F1FD77A2CC81",
+  "builtAtUtc": "2026-05-06T02:26:03.3990163Z",
+  "updateEndpoint": "https://github.com/awakertakeshi0312-jpg/distill/releases/latest/download/latest.json",
+  "verification": {
+    "frontendDomainTests": "17 passed",
+    "rustSqliteTests": "8 passed",
+    "browserE2eSmoke": "9 passed",
+    "frontendBuild": "passed",
+    "tauriWindowsBuild": "passed",
+    "signedUpdaterArtifacts": "passed",
+    "checkAll": "passed"
+  },
+  "knownLimits": [
+    "Unsigned Windows code-signing certificate; SmartScreen trust is not solved",
+    "Release files still need to be uploaded to GitHub Releases",
+    "Local semantic-overlap retrieval is implemented; no embedding/vector index yet",
+    "No sync"
+  ]
+}
