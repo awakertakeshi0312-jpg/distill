@@ -1,4 +1,4 @@
-# Distill Security Assessment - 2026-05-06
+﻿# Distill Security Assessment - 2026-05-06
 
 ## Scope
 
@@ -6,11 +6,11 @@ This assessment covers the current local-first Distill MVP:
 
 - Tauri desktop shell
 - React/Vite frontend
-- SQLite persistence through Rust commands
-- browser/localStorage fallback
+- encrypted local vault persistence
+- legacy plaintext migration path
+- browser/PWA preview
 - signed Windows updater
 - GitHub Releases updater feed
-- new PWA/mobile web preview path
 
 It does not certify the app for regulated data, medical data, legal privilege, or enterprise compliance.
 
@@ -18,79 +18,82 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 
 ### Strengths
 
-- Local-first storage: notes are stored locally, not sent to a backend by default.
+- Local-first storage: notes are stored locally and are not sent to a backend by default.
+- Normal local persistence is encrypted after vault creation/unlock.
+- The encrypted vault uses PBKDF2 SHA-256 and AES-256-GCM.
+- App startup gates note access behind a vault passphrase.
+- Existing known plaintext local stores are migrated into the encrypted vault and cleared.
+- Search and graph run from the decrypted in-memory store, not from a persistent plaintext SQLite index.
 - No remote scripts or CDN runtime dependencies are loaded by the app shell.
+- Tauri command exposure is explicitly limited through capabilities.
 - Signed updater is configured with Tauri updater signatures.
 - Release feed is HTTPS-hosted on GitHub Releases.
 - Export/import is explicit and user-triggered.
 - Tauri updater is registered only for desktop builds.
-- Browser/PWA mode falls back to localStorage and does not expose desktop installer launching.
 
-### Changes Applied In This Pass
+### Changes Applied In 0.1.8
 
-- Enabled Tauri Content Security Policy instead of `csp: null`.
-- Restricted Tauri command exposure at build time with an explicit command allow-list.
-- Limited the default Tauri capability to desktop platforms.
-- Kept updater permission desktop-only through the desktop capability file.
-- Tightened manual update installer validation to the exact `Distill_<version>_x64-setup.exe` shape.
-- Added `npm run security:audit`.
-- Added PWA manifest and service worker for mobile web usage.
-- Added GitHub Pages workflow for a web preview build.
-- Added encrypted portable vault backups using passphrase-derived AES-GCM.
+- Added startup vault gate for create/unlock.
+- Added normal encrypted local persistence under `distill.vault.v1`.
+- Added one-time migration from legacy plaintext store to encrypted vault.
+- Added `clear_plain_store` to remove known plaintext normalized tables, legacy JSON, and old plaintext auto backup.
+- Removed plaintext save/search/graph commands from the frontend capability allow-list.
+- Switched app search and graph to the unlocked in-memory store.
+- Updated E2E tests to assert encrypted vault persistence does not contain plaintext.
 
 ## Findings
 
-### P1: Local notes are not encrypted at rest
+### P1: Passphrase lives in app memory while unlocked
 
-Distill currently stores the primary data in SQLite and automatic JSON backup files in the app data directory. Anyone with OS-level access to the user profile or disk can potentially read the data.
-
-Encrypted `.distill-vault.json` backups are now available, but the active local database is still plaintext.
+Distill keeps the passphrase available during the unlocked session so autosave and updater flows can persist the encrypted vault.
 
 Recommended remediation:
 
-- Add passphrase-based local vault encryption before saving store JSON.
-- Evaluate Tauri Stronghold for secret storage, especially if later storing sync credentials.
-- Add a recovery/export path before enabling encryption by default.
+- Replace passphrase-in-state with a session key model.
+- Derive and hold a non-exportable CryptoKey where possible.
+- Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
+- Add explicit lock-on-idle and lock-on-sleep settings.
 
-### P1: Browser/PWA mode uses localStorage
+### P1: Whole-store encryption limits sync and conflict handling
 
-The web/mobile preview uses browser localStorage. This is convenient for testing on a phone, but localStorage is not appropriate for high-sensitivity long-term private notes.
+The current encrypted vault protects local data at rest, but the whole store is encrypted as one envelope. This is simple and safe for local MVP use, but not ideal for multi-device sync.
 
 Recommended remediation:
 
-- Treat PWA mode as a preview until IndexedDB + encryption is implemented.
-- Warn users in docs/UI that browser data is device/browser-local and not encrypted by Distill.
-- Add explicit backup/export prompts on mobile.
+- Move to record-level encrypted blocks/projects.
+- Add encrypted append-only sync records.
+- Keep plaintext sync metadata minimal.
+- Define rollback/replay protection before automatic sync.
+
+### P2: Browser/PWA mode still depends on localStorage
+
+The browser preview stores the encrypted envelope in localStorage. Content is encrypted, but localStorage can be deleted, replaced, or copied by anything with browser profile access.
+
+Recommended remediation:
+
+- Treat PWA mode as a preview until IndexedDB + better key/session handling is implemented.
+- Add backup/export prompts on mobile.
+- Consider native mobile for stronger platform storage.
 
 ### P2: Manual update installer fallback launches a local executable
 
-The manual fallback is useful for recovery, but it intentionally starts a local installer path. Filename validation is now stricter, but filename validation is not cryptographic verification.
+The manual fallback intentionally starts a local installer path. Filename validation is stricter, but filename validation is not cryptographic verification.
 
 Recommended remediation:
 
 - Prefer signed automatic updater for normal updates.
 - Keep manual fallback behind a clear warning.
-- Later verify SHA256 or signature before launching the fallback installer.
+- Later verify SHA256 or Authenticode signature before launching the fallback installer.
 
-### P2: Import size and content limits are not enforced
+### P2: Import limits are basic
 
-JSON and Markdown imports validate shape, but there is no explicit size cap. A very large import can cause memory/performance problems.
+JSON, Markdown, and encrypted vault imports have a 5 MB file cap and schema validation, but no full resource exhaustion policy.
 
 Recommended remediation:
 
-- Add client-side file size limits.
 - Add maximum block/project counts per import.
-- Add streaming or chunked import only if needed later.
-
-### P2: No app-level lock screen
-
-Anyone with access to the unlocked OS session can open Distill.
-
-Recommended remediation:
-
-- Add optional app lock.
-- On desktop, use OS credential APIs or Stronghold-backed unlock state.
-- On mobile, consider biometric plugin after mobile native path is chosen.
+- Add restore preview before replacing the vault.
+- Add corrupted encrypted vault test cases.
 
 ### P3: GitHub Pages web preview has no sync or account boundary
 
@@ -98,9 +101,9 @@ The web preview is static and local-only. That is safe from a backend perspectiv
 
 Recommended remediation:
 
-- Label web preview as "this device only".
+- Label web preview as this-device-only.
 - Add backup/export onboarding for mobile.
-- Add sync only after encryption and identity model are designed.
+- Add sync only after record-level encryption and identity model are designed.
 
 ## Dependency Audit
 
@@ -118,12 +121,13 @@ Recommended recurring checks:
 
 ## Tauri Security Notes
 
-The current implementation follows these Tauri security recommendations:
+The current implementation follows these Tauri security practices:
 
-- Capabilities are used to constrain frontend access to native APIs.
+- Capabilities constrain frontend access to native APIs.
 - Remote API access is not enabled.
 - CSP is enabled and restricts remote content.
 - Updater permission is scoped to desktop capability.
+- Plaintext save/search/graph commands are not exposed to the frontend capability.
 
 References:
 
@@ -147,8 +151,8 @@ Before distributing a new public build:
 
 ## Next Security Milestones
 
-1. Add explicit web/PWA local-only warning.
-2. Add SHA256 check for manual installer fallback.
-3. Add app lock.
-4. Move active local persistence to encrypted vault storage.
-5. Add sync only after encrypted local persistence is complete.
+1. Add passphrase change flow.
+2. Add lock-on-idle and lock-on-sleep.
+3. Add restore preview and corrupted vault tests.
+4. Move to record-level encrypted records.
+5. Add sync only after encrypted record format and device identity are complete.

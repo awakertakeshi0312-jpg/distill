@@ -1,17 +1,18 @@
 import { invoke } from '@tauri-apps/api/core';
 import { check, type DownloadEvent, type Update } from '@tauri-apps/plugin-updater';
 import type { GraphSnapshot } from './graph';
-import { DistillStore, initialStore, SearchResult, searchBlocks } from './model';
+import { DistillStore, SearchResult, searchBlocks } from './model';
 
 const STORE_KEY = 'distill.store.v1';
 const AUTO_BACKUP_KEY = 'distill.backup.latest.v1';
+const VAULT_KEY = 'distill.vault.v1';
 
 type TauriWindow = Window & {
   __TAURI_INTERNALS__?: unknown;
 };
 
 export type StorageInfo = {
-  mode: 'sqlite' | 'browser';
+  mode: 'encrypted-vault' | 'browser';
   path: string;
   backupPath?: string;
 };
@@ -32,77 +33,76 @@ export function isDesktopRuntime() {
   return isTauriRuntime();
 }
 
-function parseStore(value: string | null): DistillStore {
+function parseLegacyStore(value: string | null): DistillStore | null {
   if (!value) {
-    return initialStore;
+    return null;
   }
 
   try {
     return JSON.parse(value) as DistillStore;
   } catch {
-    return initialStore;
+    return null;
   }
 }
 
-function loadLocalStore(): DistillStore {
-  const stored = localStorage.getItem(STORE_KEY);
-  return parseStore(stored);
+export async function loadEncryptedVault(): Promise<string | null> {
+  if (isTauriRuntime()) {
+    try {
+      return await invoke<string | null>('load_vault_json');
+    } catch (error) {
+      console.warn('Falling back to browser vault after Tauri vault load failed.', error);
+    }
+  }
+
+  return localStorage.getItem(VAULT_KEY);
 }
 
-export async function loadStore(): Promise<DistillStore> {
+export async function saveEncryptedVault(value: string): Promise<void> {
+  if (isTauriRuntime()) {
+    await invoke('save_vault_json', { value });
+    return;
+  }
+
+  localStorage.setItem(VAULT_KEY, value);
+}
+
+export async function loadLegacyPlainStore(): Promise<DistillStore | null> {
   if (isTauriRuntime()) {
     try {
       const stored = await invoke<string | null>('load_store_json');
-      return parseStore(stored);
+      return parseLegacyStore(stored);
     } catch (error) {
-      console.warn('Falling back to local store after Tauri load failed.', error);
+      console.warn('Falling back to browser legacy store after Tauri legacy load failed.', error);
     }
   }
 
-  return loadLocalStore();
+  return parseLegacyStore(localStorage.getItem(STORE_KEY));
 }
 
-export async function saveStore(store: DistillStore) {
-  const value = JSON.stringify(store);
-
+export async function clearLegacyPlainStore(): Promise<void> {
   if (isTauriRuntime()) {
     try {
-      await invoke('save_store_json', { value });
+      await invoke('clear_plain_store');
       return;
     } catch (error) {
-      console.warn('Falling back to local store after Tauri save failed.', error);
+      console.warn('Falling back to browser legacy clear after Tauri legacy clear failed.', error);
     }
   }
 
-  localStorage.setItem(STORE_KEY, value);
-  localStorage.setItem(AUTO_BACKUP_KEY, value);
+  localStorage.removeItem(STORE_KEY);
+  localStorage.removeItem(AUTO_BACKUP_KEY);
 }
 
 export async function searchStore(store: DistillStore, query: string): Promise<SearchResult[]> {
-  if (isTauriRuntime()) {
-    try {
-      const results = await invoke<string>('search_blocks_json', { query });
-      return JSON.parse(results) as SearchResult[];
-    } catch (error) {
-      console.warn('Falling back to in-memory search after Tauri search failed.', error);
-    }
-  }
-
+  // The unlocked vault lives in memory. Searching the plaintext SQLite mirror would
+  // reintroduce decrypted note content at rest, so retrieval runs against memory.
   return searchBlocks(store.blocks, query);
 }
 
 export async function loadGraph(): Promise<GraphSnapshot | null> {
-  if (!isTauriRuntime()) {
-    return null;
-  }
-
-  try {
-    const graph = await invoke<string>('load_graph_json');
-    return JSON.parse(graph) as GraphSnapshot;
-  } catch (error) {
-    console.warn('Falling back to inferred graph after Tauri graph load failed.', error);
-    return null;
-  }
+  // Graphs are inferred from the decrypted in-memory store for the same reason as
+  // search: no active plaintext index should be required after vault unlock.
+  return null;
 }
 
 export async function loadStorageInfo(): Promise<StorageInfo> {
@@ -117,8 +117,8 @@ export async function loadStorageInfo(): Promise<StorageInfo> {
 
   return {
     mode: 'browser',
-    path: `localStorage:${STORE_KEY}`,
-    backupPath: `localStorage:${AUTO_BACKUP_KEY}`,
+    path: `localStorage:${VAULT_KEY}`,
+    backupPath: 'encrypted browser vault',
   };
 }
 

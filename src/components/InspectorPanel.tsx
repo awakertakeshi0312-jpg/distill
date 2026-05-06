@@ -95,13 +95,13 @@ export function InspectorPanel({
     ui.navInbox === 'Inbox'
       ? {
           title: 'Encrypted vault',
-          hint: 'Create or restore a passphrase-protected vault backup. Active local storage is not encrypted yet.',
+          hint: 'Create or restore a passphrase-protected vault backup. Active local storage is encrypted after vault unlock.',
           backup: 'Backup encrypted vault',
           restore: 'Restore encrypted vault',
         }
       : {
           title: '暗号化Vault',
-          hint: 'パスフレーズ付きのVaultバックアップを作成・復元します。現在のローカル保存自体はまだ暗号化されません。',
+          hint: 'Vault解除後の通常保存は暗号化されています。パスフレーズ付きVaultバックアップの作成・復元もできます。',
           backup: '暗号化Vaultをバックアップ',
           restore: '暗号化Vaultを復元',
         };

@@ -1,9 +1,9 @@
-import { startTransition, useEffect, useMemo, useState } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { exportStoreAsJson, exportStoreAsMarkdown, downloadTextFile } from './export';
 import { createMarkdownImport, parseDistillImport } from './import';
 import { decryptDistillVault, encryptDistillVault } from './vaultCrypto';
 import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
-import { initialStore, type Project, type SearchResult } from './model';
+import { initialStore, type DistillStore, type Project, type SearchResult } from './model';
 import {
   addCapture,
   archiveBlock,
@@ -19,12 +19,14 @@ import {
 } from './repository';
 import {
   checkForAppUpdate,
+  clearLegacyPlainStore,
   isDesktopRuntime,
   installPendingAppUpdate,
   loadGraph,
+  loadEncryptedVault,
+  loadLegacyPlainStore,
   loadStorageInfo,
-  loadStore,
-  saveStore,
+  saveEncryptedVault,
   searchStore,
   startUpdateInstaller,
 } from './storage';
@@ -51,15 +53,23 @@ import { SearchPanel } from './components/SearchPanel';
 import { Sidebar } from './components/Sidebar';
 import { TodayPanel } from './components/TodayPanel';
 import { Topbar } from './components/Topbar';
+import { VaultGate } from './components/VaultGate';
 import { copy, getInitialLocale, UI_LOCALE_KEY, type Locale } from './i18n';
 
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
+type VaultStatus = 'checking' | 'locked' | 'setup' | 'unlocked';
 
 function App() {
   const [locale, setLocale] = useState<Locale>(getInitialLocale);
   const [store, setStore] = useState(initialStore);
   const [hasLoadedStore, setHasLoadedStore] = useState(false);
+  const [vaultStatus, setVaultStatus] = useState<VaultStatus>('checking');
+  const [legacyPlainStore, setLegacyPlainStore] = useState<DistillStore | null>(null);
+  const [vaultPassphrase, setVaultPassphrase] = useState('');
+  const [vaultError, setVaultError] = useState('');
+  const [vaultNotice, setVaultNotice] = useState('');
+  const vaultSaveSerial = useRef(0);
   const [captureText, setCaptureText] = useState(copy[getInitialLocale()].initialCapture as string);
   const [query, setQuery] = useState(copy[getInitialLocale()].initialQuery as string);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -94,15 +104,39 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
-    void loadStore().then((loadedStore) => {
+    async function initializeVault() {
       if (!isMounted) {
         return;
       }
 
-      setStore(loadedStore);
-      setSelectedBlockId(loadedStore.blocks[0]?.id);
-      setHasLoadedStore(true);
-    });
+      try {
+        const encryptedVault = await loadEncryptedVault();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (encryptedVault) {
+          setVaultStatus('locked');
+          return;
+        }
+
+        const legacyStore = await loadLegacyPlainStore();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setLegacyPlainStore(legacyStore);
+        setVaultStatus('setup');
+      } catch (error) {
+        console.warn('Failed to initialize encrypted vault.', error);
+        setVaultError(runtimeVaultLabels().unlockInvalid);
+        setVaultStatus('setup');
+      }
+    }
+
+    void initializeVault();
 
     return () => {
       isMounted = false;
@@ -110,10 +144,21 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (hasLoadedStore) {
-      void saveStore(store);
+    if (vaultStatus !== 'unlocked' || !hasLoadedStore || !vaultPassphrase) {
+      return;
     }
-  }, [store, hasLoadedStore]);
+
+    const serial = vaultSaveSerial.current + 1;
+    vaultSaveSerial.current = serial;
+    const timer = window.setTimeout(() => {
+      void persistEncryptedStore(store, serial).catch((error) => {
+        console.warn('Failed to persist encrypted Distill vault.', error);
+        setRestoreStatus(error instanceof Error ? error.message : vaultLabels().encryptedRestoreInvalid);
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [store, hasLoadedStore, vaultStatus, vaultPassphrase]);
 
   useEffect(() => {
     localStorage.setItem(UI_LOCALE_KEY, locale);
@@ -347,6 +392,116 @@ function App() {
     downloadTextFile(`distill-backup-${timestamp}.json`, exportStoreAsJson(store), 'application/json');
   }
 
+  function runtimeVaultLabels() {
+    return locale === 'en'
+      ? {
+          mismatch: 'Vault passphrases did not match.',
+          unlockInvalid: 'Could not unlock the vault. Check the passphrase.',
+          missingVault: 'No encrypted vault was found. Create a new vault first.',
+          createSuccess: 'Encrypted vault created. Active storage is now encrypted at rest.',
+          migrationSuccess: 'Existing plaintext store was encrypted and the old plaintext copy was cleared.',
+          passphraseRequired: 'Vault passphrase is required before saving.',
+        }
+      : {
+          mismatch: 'Vaultパスフレーズが一致しません。',
+          unlockInvalid: 'Vaultを開けませんでした。パスフレーズを確認してください。',
+          missingVault: '暗号化Vaultが見つかりません。先にVaultを作成してください。',
+          createSuccess: '暗号化Vaultを作成しました。通常保存は暗号化保存に切り替わりました。',
+          migrationSuccess: '既存の平文ストアを暗号化し、古い平文コピーを削除しました。',
+          passphraseRequired: '保存前にVaultパスフレーズが必要です。',
+        };
+  }
+
+  async function persistEncryptedStore(nextStore: DistillStore, serial?: number) {
+    if (!vaultPassphrase) {
+      throw new Error(runtimeVaultLabels().passphraseRequired);
+    }
+
+    const encrypted = await encryptDistillVault(exportStoreAsJson(nextStore), vaultPassphrase);
+
+    if (serial !== undefined && serial !== vaultSaveSerial.current) {
+      return;
+    }
+
+    await saveEncryptedVault(encrypted);
+  }
+
+  async function unlockVault(passphrase: string) {
+    setVaultError('');
+    setVaultNotice('');
+
+    try {
+      const encryptedVault = await loadEncryptedVault();
+
+      if (!encryptedVault) {
+        setVaultError(runtimeVaultLabels().missingVault);
+        setVaultStatus('setup');
+        return;
+      }
+
+      const decrypted = await decryptDistillVault(encryptedVault, passphrase);
+      const loadedStore = parseDistillImport(decrypted);
+
+      setStore(loadedStore);
+      setSelectedBlockId(loadedStore.blocks[0]?.id);
+      setVaultPassphrase(passphrase);
+      setHasLoadedStore(true);
+      setVaultStatus('unlocked');
+    } catch (error) {
+      console.warn('Failed to unlock encrypted Distill vault.', error);
+      setVaultError(runtimeVaultLabels().unlockInvalid);
+    }
+  }
+
+  async function createOrMigrateVault(passphrase: string, confirmation: string) {
+    const labels = runtimeVaultLabels();
+
+    if (passphrase !== confirmation) {
+      setVaultError(labels.mismatch);
+      return;
+    }
+
+    setVaultError('');
+    setVaultNotice('');
+
+    try {
+      const nextStore = legacyPlainStore ?? initialStore;
+      const encrypted = await encryptDistillVault(exportStoreAsJson(nextStore), passphrase);
+
+      await saveEncryptedVault(encrypted);
+      await clearLegacyPlainStore();
+
+      setStore(nextStore);
+      setSelectedBlockId(nextStore.blocks[0]?.id);
+      setVaultPassphrase(passphrase);
+      setHasLoadedStore(true);
+      setVaultStatus('unlocked');
+      setLegacyPlainStore(null);
+      setVaultNotice(legacyPlainStore ? labels.migrationSuccess : labels.createSuccess);
+    } catch (error) {
+      console.warn('Failed to create encrypted Distill vault.', error);
+      setVaultError(error instanceof Error ? error.message : labels.unlockInvalid);
+    }
+  }
+
+  async function lockVault() {
+    try {
+      if (hasLoadedStore && vaultPassphrase) {
+        await persistEncryptedStore(store);
+      }
+    } finally {
+      setVaultPassphrase('');
+      setHasLoadedStore(false);
+      setStore(initialStore);
+      setResults([]);
+      setSqliteGraph(null);
+      setSelectedBlockId(undefined);
+      setVaultStatus('locked');
+      setVaultNotice('');
+      setRestoreStatus('');
+    }
+  }
+
   function vaultLabels() {
     return locale === 'en'
       ? {
@@ -488,7 +643,7 @@ function App() {
     setUpdateStatus(ui.updateStarting as string);
 
     try {
-      await saveStore(store);
+      await persistEncryptedStore(store);
       await startUpdateInstaller(path);
     } catch (error) {
       console.warn('Failed to start update installer.', error);
@@ -525,7 +680,7 @@ function App() {
     setAutoUpdateStatus(ui.autoUpdateInstalling as string);
 
     try {
-      await saveStore(store);
+      await persistEncryptedStore(store);
       await installPendingAppUpdate((event) => {
         if (event.event === 'Started') {
           setAutoUpdateStatus(ui.autoUpdateDownloadStarted(event.data.contentLength ?? 0));
@@ -622,6 +777,21 @@ function App() {
     cancelEditing();
   }
 
+  if (vaultStatus !== 'unlocked') {
+    return (
+      <VaultGate
+        locale={locale}
+        mode={vaultStatus}
+        hasLegacyPlainStore={Boolean(legacyPlainStore)}
+        error={vaultError}
+        notice={vaultNotice}
+        onLocaleChange={setLocale}
+        onUnlock={(passphrase) => void unlockVault(passphrase)}
+        onCreate={(passphrase, confirmation) => void createOrMigrateVault(passphrase, confirmation)}
+      />
+    );
+  }
+
   return (
     <main className="shell">
       <Sidebar ui={ui} blockCount={store.blocks.length} hasLoadedStore={hasLoadedStore} appVersion={APP_VERSION} />
@@ -632,6 +802,7 @@ function App() {
           locale={locale}
           onLocaleChange={setLocale}
           onOpenCommandPalette={() => setIsCommandOpen(true)}
+          onLockVault={() => void lockVault()}
         />
 
         {isOnboardingVisible ? (

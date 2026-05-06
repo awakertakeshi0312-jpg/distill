@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clear-plain-store"
+description = "Enables the clear_plain_store command without any pre-configured scope."
+commands.allow = ["clear_plain_store"]
+
+[[permission]]
+identifier = "deny-clear-plain-store"
+description = "Denies the clear_plain_store command without any pre-configured scope."
+commands.deny = ["clear_plain_store"]

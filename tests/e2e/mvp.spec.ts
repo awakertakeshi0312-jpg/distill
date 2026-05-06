@@ -1,12 +1,33 @@
 import { expect, test } from '@playwright/test';
 
+const VAULT_PASSPHRASE = 'correct horse battery staple';
+
+async function openUnlockedVault(page: import('@playwright/test').Page) {
+  await page.goto('/');
+
+  const passphrase = page.locator('input[aria-label="Vault passphrase"]');
+  await expect(passphrase).toBeVisible();
+  await passphrase.fill(VAULT_PASSPHRASE);
+
+  const confirmation = page.locator('input[aria-label="Confirm vault passphrase"]');
+
+  if ((await confirmation.count()) > 0) {
+    await confirmation.fill(VAULT_PASSPHRASE);
+    await page.getByRole('button', { name: /Create vault|Encrypt and migrate|Vaultを作成|暗号化して移行/ }).click();
+  } else {
+    await page.getByRole('button', { name: /Unlock vault|Vaultを開く/ }).click();
+  }
+
+  await expect(page.locator('.shell')).toBeVisible();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => window.localStorage.clear());
 });
 
 test('Japanese UI is available by default', async ({ page }) => {
-  await page.goto('/');
+  await openUnlockedVault(page);
 
   const today = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'full' }).format(new Date());
   await expect(page.getByText(today)).toBeVisible();
@@ -21,7 +42,7 @@ test('Japanese UI is available by default', async ({ page }) => {
 });
 
 test('MVP browser smoke: capture, search, graph, project, archive', async ({ page }) => {
-  await page.goto('/');
+  await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
 
   await expect(page.getByRole('heading', { name: 'Inbox triage' })).toBeVisible();
@@ -58,7 +79,7 @@ test('MVP browser smoke: capture, search, graph, project, archive', async ({ pag
 });
 
 test('JSON backup can be restored through the UI', async ({ page }) => {
-  await page.goto('/');
+  await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
 
   page.on('dialog', async (dialog) => {
@@ -98,7 +119,7 @@ test('JSON backup can be restored through the UI', async ({ page }) => {
 });
 
 test('Markdown import appends blocks without replacing the store', async ({ page }) => {
-  await page.goto('/');
+  await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
 
   await page.locator('input[type="file"]').nth(1).setInputFiles({
@@ -116,7 +137,7 @@ test('Markdown import appends blocks without replacing the store', async ({ page
 });
 
 test('Edit, archive, and restore keep a block usable', async ({ page }) => {
-  await page.goto('/');
+  await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
 
   const capture = page.getByLabel('Capture a thought');
@@ -140,7 +161,7 @@ test('Edit, archive, and restore keep a block usable', async ({ page }) => {
 });
 
 test('Markdown, JSON, and backup exports download files', async ({ page }) => {
-  await page.goto('/');
+  await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
 
   const markdownDownload = page.waitForEvent('download');
@@ -157,7 +178,7 @@ test('Markdown, JSON, and backup exports download files', async ({ page }) => {
 });
 
 test('Update section validates installer launch boundary in browser fallback', async ({ page }) => {
-  await page.goto('/');
+  await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
 
   await page.getByPlaceholder('Paste path to Distill_0.1.0_x64-setup.exe').fill('C:\\Downloads\\Distill_0.1.0_x64-setup.exe');
@@ -166,7 +187,7 @@ test('Update section validates installer launch boundary in browser fallback', a
 });
 
 test('People index and graph neighbors respond to captured context', async ({ page }) => {
-  await page.goto('/');
+  await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
 
   await page.getByLabel('Capture a thought').fill('Coordinate graph review with @Mina [[Graph Context]] #graph');
@@ -183,7 +204,7 @@ test('People index and graph neighbors respond to captured context', async ({ pa
 });
 
 test('Project assignment persists after reload in browser fallback', async ({ page }) => {
-  await page.goto('/');
+  await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
 
   await page.locator('a[href="#projects"]').click();
@@ -195,14 +216,16 @@ test('Project assignment persists after reload in browser fallback', async ({ pa
   await page.locator('a[href="#inbox"]').click();
   await page.getByLabel('Capture a thought').fill('Persist assignment [[Persistence]] #state');
   await page.getByRole('button', { name: 'Capture' }).click();
+  const vaultBeforeAssignment = await page.evaluate(() => window.localStorage.getItem('distill.vault.v1'));
   await page.locator('.inspectorControls select').selectOption({ label: 'Persistence Project' });
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Persistence Project' })).toBeVisible();
-  await page.waitForFunction(() => {
-    const stored = window.localStorage.getItem('distill.store.v1') ?? '';
-    return stored.includes('Persist assignment') && stored.includes('Persistence Project');
-  });
+  await page.waitForFunction((previousVault) => {
+    const stored = window.localStorage.getItem('distill.vault.v1') ?? '';
+    return stored !== previousVault && stored.includes('distill.encrypted-vault') && !stored.includes('Persist assignment') && !stored.includes('Persistence Project');
+  }, vaultBeforeAssignment);
 
   await page.reload();
+  await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Persist assignment' })).toContainText('Persistence Project');
 });

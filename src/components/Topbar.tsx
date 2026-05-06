@@ -1,4 +1,4 @@
-﻿import { Command } from 'lucide-react';
+import { Command, LockKeyhole } from 'lucide-react';
 import type { Locale, UiCopy } from '../i18n';
 
 type TopbarProps = {
@@ -6,9 +6,10 @@ type TopbarProps = {
   locale: Locale;
   onLocaleChange: (locale: Locale) => void;
   onOpenCommandPalette: () => void;
+  onLockVault: () => void;
 };
 
-export function Topbar({ ui, locale, onLocaleChange, onOpenCommandPalette }: TopbarProps) {
+export function Topbar({ ui, locale, onLocaleChange, onOpenCommandPalette, onLockVault }: TopbarProps) {
   const displayDate = new Intl.DateTimeFormat(locale === 'ja' ? 'ja-JP' : 'en-US', {
     dateStyle: 'full',
   }).format(new Date());
@@ -36,6 +37,15 @@ export function Topbar({ ui, locale, onLocaleChange, onOpenCommandPalette }: Top
           onClick={onOpenCommandPalette}
         >
           <Command size={19} />
+        </button>
+        <button
+          className="iconButton"
+          type="button"
+          aria-label={locale === 'en' ? 'Lock vault' : 'Vaultをロック'}
+          title={locale === 'en' ? 'Lock vault' : 'Vaultをロック'}
+          onClick={onLockVault}
+        >
+          <LockKeyhole size={18} />
         </button>
       </div>
     </header>

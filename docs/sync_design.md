@@ -66,9 +66,10 @@ Cons:
 
 ## Recommended Path
 
-1. Implement encrypted local vault.
-2. Implement encrypted file sync first.
-3. Add E2EE hosted sync only after the record format is stable.
+1. Keep encrypted local vault as the default persistence boundary.
+2. Move from whole-store vault encryption to record-level encrypted records.
+3. Implement encrypted file sync first.
+4. Add E2EE hosted sync only after the record format is stable.
 
 ## Sync Record Shape
 
@@ -134,7 +135,7 @@ Allowed:
 
 ## Mobile Implication
 
-PWA mode can participate only after IndexedDB + encrypted local persistence is implemented. Native mobile can use stronger platform storage and local file APIs.
+PWA mode can participate only after IndexedDB + stronger encrypted local persistence is implemented. Native mobile can use stronger platform storage and local file APIs.
 
 ## First Implementable Sync Milestone
 
@@ -142,8 +143,8 @@ Encrypted file sync MVP:
 
 1. Export encrypted `.distill-vault.json`.
 2. Import encrypted `.distill-vault.json` on another device.
-3. Add a manual "merge encrypted vault" command.
-4. Add conflict-safe append-only record log.
+3. Add record-level encrypted append-only log.
+4. Add a manual "merge encrypted vault" command.
 5. Automate file read/write through a user-selected folder later.
 
 ## Security Gate

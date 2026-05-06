@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 const STORE_KEY: &str = "distill.store.v1";
+const VAULT_KEY: &str = "distill.vault.v1";
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +35,7 @@ struct Project {
   status: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SearchResult {
@@ -44,6 +46,7 @@ struct SearchResult {
   matched_terms: Vec<String>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GraphSnapshot {
@@ -51,6 +54,7 @@ struct GraphSnapshot {
   edges: Vec<GraphEdge>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GraphNode {
@@ -60,6 +64,7 @@ struct GraphNode {
   block_id: Option<String>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GraphEdge {
@@ -175,11 +180,16 @@ fn backup_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
   Ok(data_dir.join("backups").join("distill-auto-backup-latest.json"))
 }
 
-fn write_auto_backup(app: &AppHandle, value: &str) -> Result<(), String> {
-  let path = backup_path(app)?;
+fn encrypted_vault_backup_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+  let data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+  Ok(data_dir.join("backups").join("distill-encrypted-vault-latest.json"))
+}
+
+fn write_encrypted_vault_backup(app: &AppHandle, value: &str) -> Result<(), String> {
+  let path = encrypted_vault_backup_path(app)?;
   let parent = path
     .parent()
-    .ok_or_else(|| "Could not resolve backup directory.".to_string())?;
+    .ok_or_else(|| "Could not resolve encrypted vault backup directory.".to_string())?;
   std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
   std::fs::write(path, value).map_err(|error| error.to_string())
 }
@@ -307,10 +317,12 @@ fn load_normalized_store(connection: &Connection) -> Result<DistillStore, String
   Ok(DistillStore { blocks, projects })
 }
 
+#[cfg(test)]
 fn is_active_block(block: &ThoughtBlock) -> bool {
   block.state != "archived"
 }
 
+#[cfg(test)]
 fn push_unique(values: &mut Vec<String>, value: String) {
   let trimmed = value.trim();
   if !trimmed.is_empty() && !values.iter().any(|current| current == trimmed) {
@@ -318,6 +330,7 @@ fn push_unique(values: &mut Vec<String>, value: String) {
   }
 }
 
+#[cfg(test)]
 fn extract_people(block: &ThoughtBlock) -> Vec<String> {
   let mut people = Vec::new();
   let mut chars = block.content.chars().peekable();
@@ -352,6 +365,7 @@ fn extract_people(block: &ThoughtBlock) -> Vec<String> {
   people
 }
 
+#[cfg(test)]
 fn save_normalized_store(connection: &mut Connection, store: &DistillStore) -> Result<(), String> {
   let transaction = connection.transaction().map_err(|error| error.to_string())?;
 
@@ -511,6 +525,44 @@ fn save_normalized_store(connection: &mut Connection, store: &DistillStore) -> R
   Ok(())
 }
 
+fn clear_plain_store_data(connection: &mut Connection) -> Result<(), String> {
+  let transaction = connection.transaction().map_err(|error| error.to_string())?;
+
+  transaction
+    .execute("DELETE FROM graph_edges", [])
+    .map_err(|error| error.to_string())?;
+  transaction
+    .execute("DELETE FROM block_people", [])
+    .map_err(|error| error.to_string())?;
+  transaction
+    .execute("DELETE FROM people", [])
+    .map_err(|error| error.to_string())?;
+  transaction
+    .execute("DELETE FROM concepts", [])
+    .map_err(|error| error.to_string())?;
+  transaction
+    .execute("DELETE FROM block_tags", [])
+    .map_err(|error| error.to_string())?;
+  transaction
+    .execute("DELETE FROM block_links", [])
+    .map_err(|error| error.to_string())?;
+  transaction
+    .execute("DELETE FROM blocks_fts", [])
+    .map_err(|error| error.to_string())?;
+  transaction
+    .execute("DELETE FROM blocks", [])
+    .map_err(|error| error.to_string())?;
+  transaction
+    .execute("DELETE FROM projects", [])
+    .map_err(|error| error.to_string())?;
+  transaction
+    .execute("DELETE FROM app_store WHERE key = ?1", params![STORE_KEY])
+    .map_err(|error| error.to_string())?;
+
+  transaction.commit().map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
 fn search_terms(query: &str) -> Vec<String> {
   query
     .split_whitespace()
@@ -525,6 +577,7 @@ fn search_terms(query: &str) -> Vec<String> {
     .collect::<Vec<_>>()
 }
 
+#[cfg(test)]
 fn semantic_aliases(term: &str) -> Vec<&'static str> {
   match term {
     "remember" | "remembering" => vec!["resurfaced", "recall", "revisit", "memory"],
@@ -543,6 +596,7 @@ fn semantic_aliases(term: &str) -> Vec<&'static str> {
   }
 }
 
+#[cfg(test)]
 fn expanded_search_terms(terms: &[String]) -> Vec<String> {
   let mut expanded = Vec::new();
 
@@ -556,6 +610,7 @@ fn expanded_search_terms(terms: &[String]) -> Vec<String> {
   expanded
 }
 
+#[cfg(test)]
 fn semantic_match_terms(block: &ThoughtBlock, terms: &[String]) -> Vec<String> {
   let profile = search_terms(&format!(
     "{} {} {}",
@@ -570,6 +625,7 @@ fn semantic_match_terms(block: &ThoughtBlock, terms: &[String]) -> Vec<String> {
     .collect::<Vec<_>>()
 }
 
+#[cfg(test)]
 fn fts_query(query: &str) -> Option<String> {
   let terms = search_terms(query)
     .into_iter()
@@ -583,6 +639,7 @@ fn fts_query(query: &str) -> Option<String> {
   Some(terms.join(" OR "))
 }
 
+#[cfg(test)]
 fn search_match_details(block: &ThoughtBlock, terms: &[String]) -> (Vec<String>, Vec<String>) {
   let content = block.content.to_lowercase();
   let tags = block
@@ -652,11 +709,27 @@ fn load_store_json(app: AppHandle) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-fn save_store_json(app: AppHandle, value: String) -> Result<(), String> {
-  let mut connection = open_database(&app)?;
-  let store = serde_json::from_str::<DistillStore>(&value).map_err(|error| error.to_string())?;
+fn load_vault_json(app: AppHandle) -> Result<Option<String>, String> {
+  let connection = open_database(&app)?;
 
-  save_normalized_store(&mut connection, &store)?;
+  connection
+    .query_row(
+      "SELECT value FROM app_store WHERE key = ?1",
+      params![VAULT_KEY],
+      |row| row.get(0),
+    )
+    .optional()
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn save_vault_json(app: AppHandle, value: String) -> Result<(), String> {
+  let connection = open_database(&app)?;
+  let parsed = serde_json::from_str::<serde_json::Value>(&value).map_err(|error| error.to_string())?;
+
+  if parsed.get("type").and_then(|field| field.as_str()) != Some("distill.encrypted-vault") {
+    return Err("Value is not a Distill encrypted vault.".to_string());
+  }
 
   connection
     .execute(
@@ -665,15 +738,28 @@ fn save_store_json(app: AppHandle, value: String) -> Result<(), String> {
        ON CONFLICT(key) DO UPDATE SET
          value = excluded.value,
          updated_at = CURRENT_TIMESTAMP",
-      params![STORE_KEY, value],
+      params![VAULT_KEY, value],
     )
     .map_err(|error| error.to_string())?;
 
-  write_auto_backup(&app, &value)?;
+  write_encrypted_vault_backup(&app, &value)?;
 
   Ok(())
 }
 
+#[tauri::command]
+fn clear_plain_store(app: AppHandle) -> Result<(), String> {
+  let mut connection = open_database(&app)?;
+  clear_plain_store_data(&mut connection)?;
+
+  match std::fs::remove_file(backup_path(&app)?) {
+    Ok(()) => Ok(()),
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+    Err(error) => Err(error.to_string()),
+  }
+}
+
+#[cfg(test)]
 fn search_normalized_blocks(connection: &Connection, query: &str) -> Result<Vec<SearchResult>, String> {
   if !normalized_store_exists(connection)? {
     return Ok(Vec::new());
@@ -791,6 +877,7 @@ fn search_normalized_blocks(connection: &Connection, query: &str) -> Result<Vec<
   Ok(results)
 }
 
+#[cfg(test)]
 fn short_graph_label(content: &str) -> String {
   let mut label = content.chars().take(34).collect::<String>();
   if content.chars().count() > 34 {
@@ -799,6 +886,7 @@ fn short_graph_label(content: &str) -> String {
   label
 }
 
+#[cfg(test)]
 fn load_graph_snapshot(connection: &Connection) -> Result<GraphSnapshot, String> {
   if !normalized_store_exists(connection)? {
     return Ok(GraphSnapshot {
@@ -948,24 +1036,11 @@ fn load_graph_snapshot(connection: &Connection) -> Result<GraphSnapshot, String>
 }
 
 #[tauri::command]
-fn load_graph_json(app: AppHandle) -> Result<String, String> {
-  let connection = open_database(&app)?;
-  serde_json::to_string(&load_graph_snapshot(&connection)?).map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn search_blocks_json(app: AppHandle, query: String) -> Result<String, String> {
-  let connection = open_database(&app)?;
-  serde_json::to_string(&search_normalized_blocks(&connection, &query)?)
-    .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
 fn load_storage_info_json(app: AppHandle) -> Result<String, String> {
   let info = StorageInfo {
-    mode: "sqlite".to_string(),
+    mode: "encrypted-vault".to_string(),
     path: database_path(&app)?.display().to_string(),
-    backup_path: backup_path(&app)?.display().to_string(),
+    backup_path: encrypted_vault_backup_path(&app)?.display().to_string(),
   };
 
   serde_json::to_string(&info).map_err(|error| error.to_string())
@@ -1039,6 +1114,50 @@ mod tests {
     assert_eq!(loaded.blocks[0].id, "b-1");
     assert_eq!(loaded.blocks[0].tags, vec!["search", "trust"]);
     assert_eq!(loaded.blocks[0].links, vec!["Semantic Retrieval", "Person: Mina"]);
+  }
+
+  #[test]
+  fn clears_plain_store_tables_and_legacy_json_without_touching_vault() {
+    let mut connection = test_connection();
+    let store = sample_store();
+
+    save_normalized_store(&mut connection, &store).expect("save store");
+    connection
+      .execute(
+        "INSERT INTO app_store (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+        params![STORE_KEY, "{\"blocks\":[],\"projects\":[]}"],
+      )
+      .expect("insert legacy store json");
+    connection
+      .execute(
+        "INSERT INTO app_store (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+        params![VAULT_KEY, "{\"type\":\"distill.encrypted-vault\"}"],
+      )
+      .expect("insert encrypted vault");
+
+    clear_plain_store_data(&mut connection).expect("clear plaintext store");
+
+    assert!(!normalized_store_exists(&connection).expect("normalized store check"));
+
+    let legacy_json = connection
+      .query_row(
+        "SELECT value FROM app_store WHERE key = ?1",
+        params![STORE_KEY],
+        |row| row.get::<_, String>(0),
+      )
+      .optional()
+      .expect("query legacy json");
+    let vault_json = connection
+      .query_row(
+        "SELECT value FROM app_store WHERE key = ?1",
+        params![VAULT_KEY],
+        |row| row.get::<_, String>(0),
+      )
+      .optional()
+      .expect("query vault json");
+
+    assert!(legacy_json.is_none());
+    assert_eq!(vault_json.as_deref(), Some("{\"type\":\"distill.encrypted-vault\"}"));
   }
 
   #[test]
@@ -1211,9 +1330,9 @@ pub fn run() {
     })
     .invoke_handler(tauri::generate_handler![
       load_store_json,
-      save_store_json,
-      search_blocks_json,
-      load_graph_json,
+      load_vault_json,
+      save_vault_json,
+      clear_plain_store,
       load_storage_info_json,
       start_update_installer
     ])

@@ -14,9 +14,9 @@
     "core:default",
     "updater:default",
     "allow-load-store-json",
-    "allow-save-store-json",
-    "allow-search-blocks-json",
-    "allow-load-graph-json",
+    "allow-load-vault-json",
+    "allow-save-vault-json",
+    "allow-clear-plain-store",
     "allow-load-storage-info-json",
     "allow-start-update-installer"
   ]

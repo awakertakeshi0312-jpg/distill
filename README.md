@@ -10,22 +10,23 @@ Implemented:
 
 - Inbox capture with `#tags` and `[[links]]` extraction.
 - Today view with daily-note grouping and active focus projects.
-- Hybrid search with SQLite FTS5, local semantic-overlap retrieval, and in-memory browser fallback.
+- Hybrid search with local semantic-overlap retrieval over the unlocked in-memory vault.
 - Search evidence via matched fields and matched terms.
 - People extraction from `@name`, `[[Person: Name]]`, and `[[People/Name]]`.
-- Knowledge graph with SQLite-derived graph snapshots in Tauri mode.
-- Browser fallback graph inferred from the loaded store.
+- Knowledge graph inferred from the unlocked in-memory vault.
 - Graph edge filters for `all`, `project`, `person`, and `concept` relationships.
 - Graph neighbor inspection for selected nodes.
 - Projects, Archive, restore, inline edit, and processed/open state toggles.
 - Markdown and JSON export.
 - Validated JSON restore for portable backups.
 - Markdown import for bullet-based notes.
-- Manual JSON backup and automatic latest local backup.
+- Manual JSON backup and encrypted vault backup.
 - First-run onboarding for capture/search/export workflow.
+- Encrypted local vault gate with passphrase-based unlock.
+- One-time migration from legacy plaintext local storage to encrypted vault storage.
 - Storage path visibility in the inspector.
 - English/Japanese UI switching.
-- Tauri command failure fallback to local browser-compatible persistence/search behavior.
+- Tauri capability exposure limited to encrypted vault read/write, legacy migration read, plaintext clear, storage info, and update launch.
 
 Not included in this MVP:
 
@@ -84,8 +85,8 @@ npm run check:all
 
 Current passing suite:
 
-- Frontend/domain tests: 17 passed.
-- Rust/SQLite tests: 8 passed.
+- Frontend/domain tests: 19 passed.
+- Rust/SQLite tests: 10 passed.
 - Browser E2E smoke tests: 9 passed.
 - Production frontend build: passing.
 
@@ -93,11 +94,11 @@ Current passing suite:
 
 Tauri is initialized in `src-tauri/` and connected to the Vite app.
 
-Desktop mode stores app state in a local SQLite database through Tauri commands.
+Desktop mode stores normal app state as an encrypted vault envelope through Tauri commands.
 
-Desktop search uses SQLite FTS5 over block content, tags, and links, then augments results with local semantic-overlap retrieval. Browser mode keeps the same UI contract and falls back to client-side matching with the same local semantic aliases.
+After unlock, search runs over the decrypted in-memory store and augments exact matches with local semantic-overlap retrieval. Persistent plaintext SQLite search indexes are no longer used by the app.
 
-Desktop graph reads use SQLite-derived `people`, `concepts`, and `graph_edges` tables. Browser mode falls back to inferred graph data.
+Graph data is inferred from the decrypted in-memory store after unlock.
 
 Run desktop dev mode:
 
@@ -132,19 +133,19 @@ src-tauri/target/release/app.exe
 Current Windows installer output:
 
 ```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.1_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Distill_0.1.8_x64-setup.exe
 ```
 
 Installer SHA256:
 
 ```text
-5E13BA109491348C58B00A498FBFA5396CD906263A70619D3DF3F1FD77A2CC81
+EAFCE6D3574EA2529F45EB90012875900E5398E31E25B45A0A593B2758D59C0A
 ```
 
 Signed auto-update flow:
 
 1. Build a signed release with `npm run release:windows`.
-2. Upload `release/Distill_0.1.1_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
+2. Upload `release/Distill_0.1.8_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
 3. Open the installed Distill desktop app.
 4. Click `Check for updates` in the Inspector update section.
 5. Click `Install update` when a newer signed version is available.

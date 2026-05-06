@@ -1,8 +1,8 @@
-# Distill Roadmap
+﻿# Distill Roadmap
 
 ## Current Phase
 
-Phase 2 is functionally complete for the local MVP. The 0.1.0 desktop MVP is complete, buildable, installed-app verified, and includes the first practical-use hardening layer: onboarding, storage path visibility, validated restore, import/export, and local backups.
+Distill 0.1.8 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, and the next major work is passphrase lifecycle, restore safety, and record-level encrypted data for future sync.
 
 ## Phase 1: Desktop MVP
 
@@ -12,8 +12,7 @@ Status: Complete.
 - Today view and daily-note grouping.
 - Projects, Archive, inline edit, restore, and processed/open state.
 - Tags, wiki links, people, and concepts.
-- SQLite persistence in Tauri mode.
-- SQLite FTS5 search with evidence.
+- Local persistence.
 - Local semantic-overlap retrieval.
 - Knowledge graph with relationship filters and neighbors.
 - Markdown and JSON export.
@@ -23,7 +22,7 @@ Status: Complete.
 
 ## Phase 2: Practical Use Hardening
 
-Status: Functionally complete for local MVP.
+Status: Complete for local MVP.
 
 Completed:
 
@@ -32,30 +31,55 @@ Completed:
 - Validated JSON restore.
 - JSON restore confirmation before replacing the current store.
 - Manual JSON backup.
-- Automatic latest local backup.
 - Markdown import for bullet notes.
 - Local semantic-overlap retrieval.
 - Manual update launcher for newer setup packages.
 - Installed-app QA on Windows.
-- E2E coverage for Japanese UI, MVP flow, JSON restore, Markdown import, edit/archive/restore, exports, people/graph, and project persistence.
+- PWA/mobile preview path.
+- E2E coverage for vault unlock, Japanese UI, MVP flow, restore/import, edit/archive/restore, exports, people/graph, and encrypted persistence.
 
-Remaining:
+Remaining polish:
 
-- Safer restore flow with conflict summary.
+- Restore preview and conflict summary.
 - Empty-state and error-state polish.
-- Additional polish beyond the local MVP release gate.
+- Better Japanese product copy.
 
-## Phase 3: Retrieval Upgrade
+## Phase 3: Trust Layer
+
+Status: In progress.
+
+Completed:
+
+- Encrypted portable vault backup/restore.
+- Startup vault create/unlock gate.
+- Normal encrypted local persistence.
+- Legacy plaintext migration.
+- Known plaintext legacy data clearing.
+- Removed plaintext save/search/graph commands from frontend capability exposure.
+
+Next:
+
+- Passphrase change flow.
+- Lock-on-idle and lock-on-sleep.
+- Corrupted/tampered vault tests.
+- Restore preview before replacing vault.
+- User-selectable vault location.
+- Record-level encrypted records.
+- Optional platform keyring or Tauri Stronghold convenience unlock.
+
+## Phase 4: Retrieval Upgrade
 
 Status: Partially complete.
 
 - Add embedding generation.
-- Add vector index storage.
-- Combine SQLite FTS5 with vector retrieval.
+- Add local vector index after unlock.
+- Combine exact matching with vector retrieval.
 - Explain why each result appears.
 - Recommend related blocks and concepts from the selected block.
 
-## Phase 4: Knowledge Maturation
+Constraint: embeddings/indexes must not be synced as plaintext.
+
+## Phase 5: Knowledge Maturation
 
 Status: Not started.
 
@@ -65,18 +89,17 @@ Status: Not started.
 - Add AI-assisted summarization, contradiction spotting, and next-action extraction.
 - Add writing/export workflows for long-form output.
 
-## Phase 5: Trust Layer
+## Phase 6: Sync
 
-Status: Not started.
+Status: Design only.
 
-- User-selectable vault location.
-- Automatic local backups. Complete.
-- Database migration strategy.
-- Optional encryption.
-- Signed installer.
-- Signed auto-update channel. Implemented locally; release hosting remains.
+- Record-level encrypted append-only log.
+- Device identity.
+- Manual encrypted file sync first.
+- Conflict handling.
+- Optional E2EE hosted sync after record format is stable.
 
-## Phase 6: Context Integrations
+## Phase 7: Context Integrations
 
 Status: Not started.
 
@@ -88,7 +111,8 @@ Status: Not started.
 
 ## Release Gate For 0.2.0
 
-- Installed app passes the manual QA checklist.
-- Backup and restore are safe enough for real notes.
+- Encrypted local vault is stable through multiple installed updates.
+- Passphrase change and restore preview are implemented.
 - No known data-loss path in normal use.
-- Search, edit, project assignment, archive, restore, import, export, people, and graph smoke tests are automated.
+- Search, edit, project assignment, archive, restore, import, export, people, graph, vault unlock, and encrypted persistence smoke tests are automated.
+- Sync design has record-level encryption and conflict strategy before implementation.

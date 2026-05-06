@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-save-vault-json"
+description = "Enables the save_vault_json command without any pre-configured scope."
+commands.allow = ["save_vault_json"]
+
+[[permission]]
+identifier = "deny-save-vault-json"
+description = "Denies the save_vault_json command without any pre-configured scope."
+commands.deny = ["save_vault_json"]

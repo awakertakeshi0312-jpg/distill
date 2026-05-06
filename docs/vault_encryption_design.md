@@ -1,10 +1,24 @@
-# Distill Encrypted Vault Design
+﻿# Distill Encrypted Vault Design
 
 ## Current Implementation
 
-Distill now supports encrypted portable backups:
+Distill 0.1.8 uses an encrypted local vault for normal app persistence.
 
-- file format: `.distill-vault.json`
+Implemented:
+
+- App starts in a locked/setup vault gate instead of loading notes immediately.
+- New users create a vault passphrase before entering the app.
+- Existing plaintext local stores are migrated once into an encrypted vault.
+- After migration, known plaintext SQLite tables, the legacy `distill.store.v1` JSON row, and the old automatic JSON backup are cleared.
+- The persistent vault value is stored as `distill.vault.v1`.
+- Desktop stores the encrypted envelope in the Tauri SQLite `app_store` table and writes an encrypted latest backup at `backups/distill-encrypted-vault-latest.json`.
+- Browser/PWA preview stores the encrypted envelope in `localStorage:distill.vault.v1`.
+- Search and graph are generated from the decrypted in-memory store after unlock, not from a persistent plaintext SQLite index.
+
+Vault envelope:
+
+- file/storage format: Distill encrypted vault JSON
+- envelope type: `distill.encrypted-vault`
 - KDF: PBKDF2
 - KDF hash: SHA-256
 - default iterations: 310,000
@@ -13,124 +27,99 @@ Distill now supports encrypted portable backups:
 - IV: 12 random bytes
 - authentication: AES-GCM tag included in the encrypted payload
 
-This protects exported backups and gives the future sync layer a concrete encrypted envelope format.
+## Security Boundary
 
-## Important Limit
+Protected at rest:
 
-The active desktop SQLite database and automatic local JSON backup are **not encrypted at rest yet**. The encrypted vault backup is the first step, not the final vault.
+- block content
+- project names/signals
+- tags
+- links
+- people references
+- exported encrypted vault backups
+- normal local app persistence after vault creation/migration
 
-## Why This Step First
+Still in memory while unlocked:
 
-At-rest encryption changes how search, graph, and indexing work. If every block is encrypted before SQLite indexing, local search cannot read it. If SQLite remains plaintext, search works but disk privacy is incomplete.
+- vault passphrase
+- decrypted full store
+- search results
+- graph data
 
-The safe sequence is:
+This is acceptable for the current local MVP, but it is not equivalent to a hardened password manager.
 
-1. Add encrypted export/import.
-2. Add passphrase UX and recovery expectations.
-3. Add encrypted local persistence.
-4. Rebuild search/indexing around an unlocked in-memory working set.
-5. Add sync only after encrypted envelopes are stable.
+## Important Limits
 
-## Target Vault Architecture
+- If the user forgets the passphrase, Distill cannot recover the vault.
+- The passphrase is held in the React app session while unlocked so autosave and updates can persist the encrypted vault.
+- The current format encrypts the whole store as one envelope, not individual records.
+- Sync is not implemented yet.
+- Browser/PWA mode still depends on browser localStorage for the encrypted envelope, so browser profile compromise can delete or replace data even though content is encrypted.
+- Old plaintext copies outside known Distill paths, such as OS backups or manually exported JSON, cannot be erased by the app.
+
+## Runtime Flow
 
 ```mermaid
 flowchart TD
-  User["User passphrase"] --> KDF["KDF: Argon2id preferred, PBKDF2 fallback"]
-  KDF --> KEK["Key encryption key"]
-  RNG["Secure random"] --> DEK["Data encryption key"]
-  KEK --> WrappedDEK["Wrapped DEK"]
-  DEK --> EncryptBlocks["Encrypt block/project payloads"]
-  EncryptBlocks --> VaultFile["Encrypted vault records"]
-  WrappedDEK --> VaultFile
-  VaultFile --> Index["Local unlocked search index"]
+  Start["App start"] --> Check["Check distill.vault.v1"]
+  Check -->|exists| Locked["Vault locked"]
+  Check -->|missing| Legacy["Check legacy plaintext store"]
+  Legacy --> Setup["Create passphrase"]
+  Locked --> Unlock["Decrypt with passphrase"]
+  Setup --> Encrypt["Encrypt initial or migrated store"]
+  Encrypt --> Clear["Clear known plaintext legacy data"]
+  Unlock --> Memory["Decrypted store in memory"]
+  Clear --> Memory
+  Memory --> Search["In-memory search and graph"]
+  Memory --> Save["Encrypt full store on change"]
+  Save --> Vault["Persist encrypted vault envelope"]
 ```
 
-## Recommended Final Design
+## Tauri Command Boundary
 
-### Keys
+Allowed desktop commands in the default capability:
 
-- Generate a random data encryption key per vault.
-- Derive a key-encryption key from the passphrase.
-- Wrap the data encryption key with the passphrase-derived key.
-- Never store the raw passphrase.
+- `load_store_json`: legacy migration read only
+- `load_vault_json`: read encrypted vault envelope
+- `save_vault_json`: write encrypted vault envelope
+- `clear_plain_store`: delete known plaintext legacy data
+- `load_storage_info_json`: show storage paths
+- `start_update_installer`: validated manual installer fallback
 
-### Desktop Secret Storage
+Removed from frontend capability exposure:
 
-Use Tauri Stronghold or a platform keyring only to protect convenience secrets, not as the only recovery mechanism. A user-owned passphrase must remain sufficient to unlock portable data.
+- plaintext store save
+- plaintext SQLite search
+- plaintext SQLite graph loading
 
-Tauri Stronghold reference:
+## Migration Behavior
 
-- https://v2.tauri.app/reference/javascript/stronghold/
+When no encrypted vault exists:
 
-### Data Model
+1. Distill reads any existing legacy plaintext store.
+2. The user creates and confirms a vault passphrase.
+3. Distill encrypts the existing store, or the seeded initial store for new users.
+4. Distill saves `distill.vault.v1`.
+5. Distill clears the normalized plaintext tables and legacy plaintext JSON key.
+6. Distill removes the known plaintext automatic backup file if present.
 
-Use record-level encryption:
+## Next Vault Milestones
 
-- encrypted block payload
-- encrypted project payload
-- plaintext record IDs
-- plaintext sync metadata
-- optional plaintext coarse timestamps
-
-Keep search indexes local to the unlocked device and rebuildable from decrypted records.
-
-### Search
-
-For privacy, do not sync plaintext search indexes.
-
-Allowed:
-
-- local in-memory index after unlock
-- local encrypted cache if protected by the same vault key
-
-Not allowed for E2EE sync:
-
-- syncing plaintext FTS tokens
-- syncing embeddings generated from private text unless encrypted and device-local
-
-## Migration Plan
-
-### Phase V1: Encrypted Portable Backups
-
-Implemented:
-
-- Encrypt JSON export with passphrase.
-- Restore encrypted backup with passphrase.
-- Reject wrong passphrase through AES-GCM authentication.
-
-### Phase V2: Local Vault Lock
-
-Next:
-
-- Add app lock/unlock screen.
-- Do not load notes until unlocked.
-- Store encrypted vault envelope locally.
-- Keep decrypted store only in memory while unlocked.
-
-### Phase V3: Encrypted Local Persistence
-
-Next:
-
-- Replace plaintext `app_store` JSON with encrypted envelope.
-- Decide whether normalized SQLite tables remain plaintext cache or become rebuildable unlocked cache.
-- If cache remains plaintext, label it clearly as performance cache and add secure-clear option.
-
-### Phase V4: Full Encrypted Vault
-
-Next:
-
-- Encrypt record payloads.
-- Rebuild local index after unlock.
-- Store only encrypted records persistently.
-- Add vault backup/recovery UX.
+1. Add explicit passphrase change flow.
+2. Add emergency recovery/export guidance in the UI.
+3. Move from whole-store encryption to record-level encrypted records.
+4. Add encrypted append-only record log for sync.
+5. Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
+6. Add tamper/corruption test cases for modified vault envelopes.
 
 ## Release Gate Before Sync
 
-Do not ship sync until:
+Do not ship automatic sync until:
 
-- encrypted backup works
-- encrypted local persistence is implemented
-- wrong passphrase cannot reveal data
-- export/recovery story is documented
-- device loss scenario is tested
-- merge/conflict format is finalized
+- encrypted local persistence is stable
+- wrong passphrase tests pass
+- corrupted payload tests pass
+- record-level merge format is finalized
+- device identity is designed
+- rollback/replay handling is defined
+- recovery and device-loss scenarios are documented

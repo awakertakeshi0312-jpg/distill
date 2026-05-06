@@ -1,119 +1,90 @@
 ﻿# Distill Project Context
 
-## Purpose Of This Document
+## Purpose
 
-This document captures the project context so another person or future agent can understand what has been built, why decisions were made, how to run it, and what remains.
+This document is the handoff context for Distill so another person or future agent can understand the current state, run the project, and continue safely.
 
 ## Project Identity
 
 - Project name: Distill
 - Location: `C:\Users\awake\dev\active\distill`
-- Product type: local-first desktop thinking app
-- Current version: 0.1.1
+- Repository: `https://github.com/awakertakeshi0312-jpg/distill`
+- Product type: local-first desktop/PWA thinking app
+- Current version: 0.1.8
 - Desktop target: Windows x64
-- Current state: local MVP complete and installed-app verified
+- Current state: local MVP plus encrypted local vault and signed updater flow
 
-## Origin
+## Product Direction
 
-The project started from the goal of building a world-class personal thinking support app.
+Distill is designed as a personal thinking OS:
 
-The product direction was derived from these principles:
+- capture thoughts instantly
+- recover them later by meaning and context
+- connect blocks through links, tags, people, projects, and dates
+- preserve long-term ownership through local-first storage and portable exports
+- keep trust/security central before adding sync
 
-- Instant thought capture.
-- Semantic rediscovery.
-- Natural linking between notes.
-- Context from projects, people, dates, and daily work.
-- Long-term ownership of personal knowledge.
+Influences:
 
-Benchmarks and influences:
+- Obsidian: local ownership and links
+- Logseq: daily notes and block workflows
+- Mem: meaning-based rediscovery
+- Reflect: calendar/people context and security posture
+- PARA: action-oriented organization
+- Zettelkasten: atomic notes and connection
+- Local-first software: offline, ownership, portability
 
-- Obsidian: local files, ownership, links.
-- Logseq: daily notes, blocks, knowledge workflows.
-- Mem: search and meaning-based rediscovery.
-- Reflect: calendar/people context and encrypted trust posture.
-- PARA: action-oriented organization.
-- Zettelkasten: atomic notes and connections.
-- Local-first software: offline, ownership, portability.
+## What Is Built
 
-## What Was Built
+Implemented app features:
 
-Distill 0.1.1 is a Tauri + React desktop app with SQLite persistence and a signed updater flow.
+- Inbox capture with `#tags`, `[[links]]`, and `@people` extraction
+- Today view and daily-note grouping
+- Search with exact matching plus local semantic-overlap hints
+- Search evidence through matched fields and matched terms
+- Projects and project assignment
+- People index
+- Knowledge graph inferred from unlocked store
+- Archive/restore
+- Inline edit
+- Markdown export
+- JSON export
+- JSON restore
+- Markdown bullet import
+- Encrypted vault backup/restore
+- Startup vault create/unlock screen
+- Normal encrypted local persistence after unlock
+- One-time migration from legacy plaintext local store
+- Explicit clearing of known plaintext legacy data
+- English/Japanese UI
+- PWA/mobile preview path
+- Signed Tauri updater check/install flow
+- Manual update launcher fallback for newer Distill setup packages
 
-Implemented features:
+## Current Persistence Boundary
 
-- Inbox capture.
-- Today view.
-- Search.
-- Projects.
-- People index.
-- Knowledge graph.
-- Archive/restore.
-- Inline edit.
-- Project assignment.
-- Markdown export.
-- JSON export.
-- Manual JSON backup.
-- Automatic latest backup.
-- Validated JSON restore.
-- Markdown bullet import.
-- First-run onboarding.
-- Storage path display.
-- Signed auto-update check/install flow.
-- Manual update launcher fallback for newer Distill setup packages.
-- English/Japanese UI.
-- Windows installer.
+Normal persistence is now encrypted at rest:
 
-## Installed App Status
+- Desktop key: `distill.vault.v1` in the Tauri SQLite `app_store` table
+- Desktop encrypted backup: `backups/distill-encrypted-vault-latest.json`
+- Browser/PWA key: `localStorage:distill.vault.v1`
+- Encryption: PBKDF2 SHA-256 plus AES-256-GCM
+- Search/graph: decrypted in memory after unlock
 
-The app has been installed and verified.
+Legacy plaintext handling:
 
-Installed paths:
+- `load_store_json` remains exposed only for one-time migration reads.
+- `clear_plain_store` removes known plaintext normalized tables, legacy JSON key, and old plaintext backup.
+- Plaintext save/search/graph Tauri commands are no longer exposed to the frontend capability.
 
-```text
-C:\Users\awake\AppData\Local\Distill\app.exe
-C:\Users\awake\AppData\Local\Distill\uninstall.exe
-C:\Users\awake\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Distill.lnk
-```
+Known remaining security limits:
 
-Runtime data paths:
-
-```text
-C:\Users\awake\AppData\Roaming\app.distill.local\distill.sqlite3
-C:\Users\awake\AppData\Roaming\app.distill.local\backups\distill-auto-backup-latest.json
-```
-
-Installed data verification:
-
-- Projects: 3
-- Blocks: 4
-- Tags: 7
-- Links: 7
-- People: 1
-- Concepts: 7
-- Graph edges: 11
-- Full JSON snapshots: 1
-
-Verified user-captured block:
-
-```text
-譏取律縺ｮ莨夊ｭｰ縺ｧ [[讀懃ｴ｢菴馴ｨ転] 繧堤｢ｺ隱阪☆繧・@Aki #meeting
-```
-
-## Current Release Artifact
-
-Installer:
-
-```text
-C:\Users\awake\dev\active\distill\src-tauri\target\release\bundle\nsis\Distill_0.1.1_x64-setup.exe
-```
-
-SHA256:
-
-```text
-5E13BA109491348C58B00A498FBFA5396CD906263A70619D3DF3F1FD77A2CC81
-```
-
-Installed executable hash differs from installer hash because it is the extracted app binary, not the installer package.
+- passphrase remains in app memory while unlocked
+- whole-store encryption, not record-level encryption
+- no passphrase change flow yet
+- no lock-on-idle yet
+- no sync yet
+- browser preview still depends on localStorage for the encrypted envelope
 
 ## Technical Stack
 
@@ -122,8 +93,8 @@ Installed executable hash differs from installer hash because it is the extracte
 - Vite
 - Tauri 2
 - Rust
-- SQLite
-- SQLite FTS5
+- SQLite for encrypted envelope storage and legacy migration
+- WebCrypto for vault encryption
 - Vitest
 - Playwright
 - NSIS packaging
@@ -142,219 +113,140 @@ Run browser dev server:
 npm run dev
 ```
 
-Run desktop dev mode:
+Run desktop dev mode on Windows:
 
 ```powershell
 npm run tauri:dev:windows
 ```
 
-Run all verification:
+Run full verification:
 
 ```powershell
 npm run check:all
 ```
 
-Build Windows installer:
+Run dependency audit:
 
 ```powershell
-npm run tauri:build:windows
+npm run security:audit
 ```
 
-Verify installer hash:
+Build signed Windows release artifacts:
 
 ```powershell
-Get-FileHash src-tauri\target\release\bundle\nsis\Distill_0.1.1_x64-setup.exe -Algorithm SHA256
+npm run release:windows
 ```
 
 ## Current Test Status
 
-Latest full verification:
+Latest full verification before 0.1.8 release packaging:
 
-- `npm test`: 17 passed.
-- `npm run build`: passed.
-- `npm run test:rust`: 8 passed.
-- `npm run test:e2e`: 9 passed.
-- `npm run check:all`: passed.
-- `npm run tauri:build:windows`: passed.
+- `npm test`: 19 passed
+- `npm run build`: passed
+- `npm run test:rust`: 10 passed
+- `npm run test:e2e`: 9 passed
+- `npm run check:all`: passed
 
 E2E coverage includes:
 
-- Japanese default UI.
-- English MVP flow.
-- Capture/search/graph/project/archive.
-- JSON restore.
-- Markdown import.
-- Edit/archive/restore.
-- Markdown/JSON/backup downloads.
-- People index.
-- Graph neighbors.
-- Project assignment persistence after reload.
+- vault creation/unlock
+- Japanese default UI
+- English MVP flow
+- capture/search/graph/project/archive
+- JSON restore
+- Markdown import
+- edit/archive/restore
+- Markdown/JSON/backup downloads
+- browser update boundary
+- people index
+- graph neighbors
+- encrypted vault persistence after reload with no plaintext in localStorage
 
 ## Source Map
 
 Key frontend files:
 
-- `src/App.tsx`: application orchestration.
-- `src/model.ts`: core types, extraction, local search.
-- `src/repository.ts`: immutable mutations.
-- `src/storage.ts`: persistence/search/graph adapter.
-- `src/graph.ts`: graph modeling and neighbors.
-- `src/import.ts`: validated import logic.
-- `src/export.ts`: export/download logic.
-- `src/i18n.ts`: English/Japanese copy.
-- `src/components/`: UI panels.
+- `src/App.tsx`: app orchestration, vault lifecycle, autosave, imports/exports, updater flows
+- `src/components/VaultGate.tsx`: vault setup/unlock UI
+- `src/vaultCrypto.ts`: PBKDF2/AES-GCM vault encryption
+- `src/storage.ts`: encrypted vault and legacy migration adapter
+- `src/model.ts`: core types, extraction, local search
+- `src/repository.ts`: immutable mutations
+- `src/graph.ts`: graph modeling and neighbors
+- `src/import.ts`: validated import logic
+- `src/export.ts`: export/download logic
+- `src/i18n.ts`: English/Japanese copy
+- `src/components/`: UI panels
 
 Key desktop files:
 
-- `src-tauri/src/lib.rs`: Tauri commands, SQLite persistence, FTS, graph, backups.
-- `src-tauri/tauri.conf.json`: desktop packaging and app identity.
+- `src-tauri/src/lib.rs`: Tauri commands, encrypted vault storage, legacy migration clear, updater launcher
+- `src-tauri/capabilities/default.json`: Tauri command exposure boundary
+- `src-tauri/tauri.conf.json`: app identity, CSP, updater config, packaging
+- `src-tauri/build.rs`: generated command permission manifest
 
 Key docs:
 
-- `README.md`: quick project overview.
-- `docs/design_blueprint.md`: product and technical design.
-- `docs/project_context.md`: current context and handoff.
-- `docs/roadmap.md`: phases and next work.
-- `docs/storage_boundary.md`: persistence architecture.
-- `docs/schema.sql`: long-term schema direction.
-- `docs/release_notes_0.1.0.md`: first MVP release notes.
-- `docs/release_manifest_0.1.0.json`: first MVP artifact metadata.
-- `docs/release_notes_0.1.1.md`: signed updater test release notes.
-- `docs/release_manifest_0.1.1.json`: signed updater test artifact metadata.
-- `docs/mvp_qa_checklist.md`: QA checklist.
-- `docs/installed_app_qa_2026-05-06.md`: installed app verification.
+- `README.md`: quick project overview
+- `docs/design_blueprint.md`: product and technical design
+- `docs/project_context.md`: current context and handoff
+- `docs/roadmap.md`: phase plan
+- `docs/vault_encryption_design.md`: current vault boundary and next vault milestones
+- `docs/sync_design.md`: encryption-first sync direction
+- `docs/security_assessment_2026-05-06.md`: current security posture
+- `docs/auto_update_runbook.md`: signed updater workflow
 
 ## Key Design Decisions
 
-### Local-first over SaaS-first
+### Local-first before sync
 
-Reason:
-
-- Personal thoughts are sensitive.
-- Offline speed matters.
-- Long-term ownership is part of the product promise.
+Reason: personal thoughts are sensitive, offline speed matters, and long-term ownership is part of the product promise.
 
 ### Blocks as the core unit
 
-Reason:
+Reason: thought fragments are smaller than pages and can connect to projects, people, tags, concepts, and dates.
 
-- Thought fragments are smaller than pages.
-- Blocks can connect to projects, people, tags, concepts, and dates.
+### Whole-store encrypted vault for 0.1.x
 
-### Full-store mutation boundary for MVP
+Reason: fastest safe path from plaintext MVP to encrypted-at-rest local use.
 
-Reason:
+Tradeoff: whole-store encryption is not ideal for sync/conflict resolution. Record-level encrypted records are the next architecture step.
 
-- Easier to build safely.
-- Repository functions remain pure.
-- SQLite adapter can evolve behind `storage.ts`.
+### In-memory search and graph after unlock
 
-Tradeoff:
+Reason: persistent plaintext SQLite indexes would violate the encrypted-at-rest promise.
 
-- Graph edges and normalized tables are regenerated on full-store saves.
+Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for very large vaults.
 
-### JSON restore as full replacement
+### Sync waits for encryption
 
-Reason:
-
-- Simple and predictable for MVP.
-- Easier to validate than merge.
-
-Tradeoff:
-
-- Future versions should add restore preview and conflict summary.
-
-### Markdown import as append-only
-
-Reason:
-
-- Lower risk than replacing the store.
-- Useful for bringing in simple notes.
-
-### Local semantic overlap before embeddings
-
-Reason:
-
-- Gives a better search experience without external APIs.
-- Keeps app fully local.
-
-Tradeoff:
-
-- It is not real vector search.
-- Alias coverage is limited.
-
-## Known Limits
-
-- Installer is unsigned.
-- Windows SmartScreen trust is not solved.
-- Signed Tauri auto-update is implemented locally; public distribution still requires uploading release files to the configured endpoint.
-- No sync.
-- No encryption.
-- No embedding/vector index.
-- No multi-user collaboration.
-- No conflict resolution.
-- Browser E2E is smoke-level, not exhaustive production regression coverage.
+Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
 ## Recommended Next Steps
 
-### If continuing as a private tool
+### Trust/Security
 
-1. Use Distill daily for 7 days.
-2. Capture real notes.
-3. Back up JSON daily.
-4. Track friction in a project called `Distill Feedback`.
-5. Improve the highest-friction workflow first.
+1. Add passphrase change flow.
+2. Add lock-on-idle and lock-on-sleep.
+3. Add restore preview before replacing a vault.
+4. Add corrupted vault and tamper tests.
+5. Move toward record-level encrypted records.
 
-### If preparing for public distribution
+### Product Quality
 
-1. Acquire code-signing certificate.
-2. Sign installer.
-3. Upload signed updater files to the release host.
-4. Add crash/error reporting policy.
-5. Create download page.
-6. Write install/uninstall docs.
-
-### If improving product quality
-
-1. Implement embedding/vector retrieval.
-2. Add related-note recommendations.
-3. Add daily/weekly review.
-4. Add restore preview/conflict summary.
+1. Improve real Japanese copy quality.
+2. Add daily/weekly review flows.
+3. Add related-note recommendations.
+4. Add restore preview and conflict summary.
 5. Add user-selectable vault location.
-6. Add optional encryption.
 
-## Suggested 7-Day Dogfood Protocol
+### Distribution
 
-Each day:
-
-1. Capture at least 10 thoughts.
-2. Use `#tag` sparingly.
-3. Use `[[concept]]` for reusable ideas.
-4. Use `@person` for conversations.
-5. Search for something from earlier in the day.
-6. Assign at least one block to a project.
-7. Archive at least one low-value block.
-8. Export or back up JSON.
-
-At the end of 7 days, answer:
-
-- Was capture fast enough?
-- Did search recover forgotten ideas?
-- Did graph context help or distract?
-- Did project assignment feel useful?
-- Did backup/restore feel trustworthy?
-- Did Japanese UI feel natural?
-- What felt repetitive or risky?
+1. Keep signed updater release process working for each version.
+2. Acquire a Windows code-signing certificate for SmartScreen trust.
+3. Add release checklist automation.
+4. Create a clear download/install page.
 
 ## Handoff Summary
 
-The project is ready for local private use and evaluation.
-
-The next engineering inflection point is not more MVP polish; it is choosing one of three directions:
-
-- Productization: signing, updates, distribution.
-- Intelligence: embeddings, recommendations, reviews.
-- Trust: encryption, vault selection, backup generations, restore preview.
-
-
-
+Distill is usable as a private local MVP with encrypted-at-rest local persistence. The next major architecture decision is record-level encrypted data plus sync design, not more plaintext SQLite indexing.

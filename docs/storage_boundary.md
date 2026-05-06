@@ -1,93 +1,108 @@
-# Storage Boundary
+﻿# Storage Boundary
 
-Distill currently uses a Tauri-backed SQLite store in desktop mode and browser `localStorage` as a development fallback. The application should treat `src/repository.ts` as the mutation boundary and `src/storage.ts` as the replaceable persistence boundary.
+Distill treats `src/repository.ts` as the mutation boundary and `src/storage.ts` as the replaceable persistence boundary.
 
 ## Current Flow
 
-1. `App.tsx` handles user intent.
-2. `repository.ts` creates immutable store updates.
-3. `storage.ts` persists the complete store through Tauri commands when available.
-4. Desktop search uses a Tauri command backed by SQLite FTS5 plus local semantic-overlap retrieval. Browser search falls back to in-memory matching with the same semantic aliases.
-5. `export.ts` converts the store into portable files.
-6. `import.ts` validates portable JSON backups before replacing the active store.
-7. `import.ts` converts Markdown bullet lists into appended Distill blocks.
+1. `App.tsx` starts in vault setup/unlock mode.
+2. `storage.ts` loads `distill.vault.v1` or reads a legacy plaintext store for one-time migration.
+3. `vaultCrypto.ts` decrypts the vault with the user passphrase.
+4. `App.tsx` keeps the decrypted `DistillStore` in memory while unlocked.
+5. `repository.ts` creates immutable store updates.
+6. `App.tsx` encrypts and saves the complete store after changes.
+7. Search and graph run against the unlocked in-memory store.
+8. `export.ts` and `import.ts` handle portable JSON, Markdown, and encrypted vault files.
 
 ## Current Adapter
 
-The SQLite adapter now writes the `DistillStore` into normalized tables for projects, blocks, tags, links, people, concepts, graph edges, and an FTS5 search table. It still mirrors the full JSON document into `app_store` as a compatibility backup during the transition.
+Desktop mode stores an encrypted vault envelope in SQLite `app_store` under key `distill.vault.v1`.
 
-Tauri commands:
+Browser/PWA preview stores the encrypted vault envelope in `localStorage:distill.vault.v1`.
 
-- `load_store_json`
-- `save_store_json`
-- `search_blocks_json`
-- `load_graph_json`
-- `load_storage_info_json`
-- `start_update_installer`
+Tauri commands exposed to the frontend capability:
 
-SQLite file:
+- `load_store_json`: legacy plaintext migration read only
+- `load_vault_json`: read encrypted vault envelope
+- `save_vault_json`: write encrypted vault envelope
+- `clear_plain_store`: clear known legacy plaintext storage
+- `load_storage_info_json`: show storage and backup paths
+- `start_update_installer`: validated manual update launcher
 
-- App data directory: `distill.sqlite3`
+Commands no longer exposed:
 
-Current normalized tables:
+- plaintext store save
+- plaintext SQLite search
+- plaintext SQLite graph loading
 
-- `projects`
+Desktop files:
+
+- SQLite file: `distill.sqlite3`
+- encrypted latest backup: `backups/distill-encrypted-vault-latest.json`
+- old plaintext backup cleared on migration: `backups/distill-auto-backup-latest.json`
+
+## Vault Contract
+
+Persistent vault envelope:
+
+- type: `distill.encrypted-vault`
+- schema version: 1
+- KDF: PBKDF2 SHA-256
+- cipher: AES-256-GCM
+- payload: encrypted Distill JSON export
+
+Decrypted store contract:
+
 - `blocks`
-- `block_tags`
-- `block_links`
-- `blocks_fts`
-- `people`
-- `block_people`
-- `concepts`
-- `graph_edges`
-- `app_store` as fallback snapshot
+- `projects`
+- block states: `open`, `linked`, `processed`, `archived`
+- tags and links are recomputed by repository updates
+- people and graph data are derived after unlock
 
-Current block states:
+## Portability Contract
 
-- `open`: captured but not yet processed
-- `linked`: assigned to context or carrying explicit links
-- `processed`: triaged and kept in the active knowledge base
-- `archived`: hidden from the active inbox but restorable from Archive
+- JSON export includes `schemaVersion`, `exportedAt`, `blocks`, and `projects`.
+- JSON restore validates project statuses, block states, required fields, tags, and links before saving.
+- Encrypted vault backup exports the same store through the vault envelope.
+- Restore is a full-store replacement and requires user confirmation in the UI.
+- Markdown import appends a new project and blocks; it does not replace the existing store.
+
+## Search And Graph Boundary
 
 Current search result contract:
 
 - `reason`: human-readable retrieval reason
-- `matchedFields`: fields that contributed to the result, such as `content`, `tags`, or `links`
+- `matchedFields`: fields that contributed to the result, such as `content`, `tags`, `links`, or `semantic`
 - `matchedTerms`: normalized query terms found in the block
-- `semantic` matched field: local semantic-overlap terms that explain results when exact words differ
 
-Current portability contract:
+Current derived graph:
 
-- JSON export includes `schemaVersion`, `exportedAt`, `blocks`, and `projects`.
-- JSON restore validates project statuses, block states, required fields, tags, and links before saving.
-- Restore is a full-store replacement and requires user confirmation in the UI.
-- Inspector storage metadata shows the active SQLite path in desktop mode or the `localStorage` key in browser mode.
-- Desktop mode writes an automatic latest backup to the app data `backups` directory after successful saves.
-- Browser mode mirrors the latest backup into `localStorage:distill.backup.latest.v1`.
-- Markdown import appends a new project and blocks; it does not replace the existing store.
-- Manual update launch validates that the selected path points to a Distill setup `.exe`, starts it, then exits the app.
+- People are inferred from `@name`, `[[Person: Name]]`, and `[[People/Name]]`.
+- Concepts are inferred from wiki links.
+- Graph edges are derived from block-project assignment, explicit wiki links, and inferred people mentions.
+- Graph filtering supports `all`, `project`, `person`, and `concept` relationships.
 
-Current derived indexes:
-
-- People are inferred from `@name`, `[[Person: Name]]`, and `[[People/Name]]`, then persisted into `people` and `block_people` in desktop mode.
-- Concepts are inferred from wiki links and persisted into `concepts`.
-- Graph edges are regenerated on save into `graph_edges` from block-project assignment, explicit wiki links, and inferred people mentions.
-- The UI loads `load_graph_json` in Tauri mode and uses the SQLite graph snapshot when available. Browser mode still falls back to the in-memory inferred graph.
-- Graph edge filtering is available for `all`, `project`, `person`, and `concept` relationships.
-- Graph node neighbor inspection shows the selected node's connected project/person/concept/block neighbors in the UI.
+Persistent plaintext indexes are intentionally avoided after vault unlock.
 
 ## Next Adapter
 
-The next step is to promote graph interactions beyond read-only snapshots: select edge types, query neighbors from SQLite, then move toward the fuller `entities`/`links` model in `docs/schema.sql` and replace local semantic-overlap aliases with true embedding retrieval beside FTS5.
+The next storage boundary should move from whole-store vault encryption to record-level encrypted records:
 
-The UI should not call SQLite directly. It should call repository commands or future service functions such as:
+- encrypted block records
+- encrypted project records
+- append-only encrypted mutation log
+- minimal plaintext sync metadata
+- rebuildable local search/vector indexes after unlock
+
+Future service functions should keep the UI away from storage details:
 
 - `captureBlock(content)`
 - `updateBlockState(blockId, state)`
 - `assignBlockToProject(blockId, projectId)`
 - `searchBlocks(query)`
 - `exportVault(format)`
+- `changeVaultPassphrase()`
+- `mergeEncryptedVault()`
 
 ## Reason
 
-This keeps the prototype useful now while protecting the app from a rewrite when the minimal normalized tables grow into the full schema with FTS5 and a vector index.
+This boundary keeps local private use safe now while making the next architecture step clear: encrypted records and sync-safe conflict handling without reintroducing plaintext persistent indexes.

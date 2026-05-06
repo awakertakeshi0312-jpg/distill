@@ -8,7 +8,7 @@ Distill is a local-first personal thinking OS that captures thought fragments, r
 
 Distill should not compete as a generic note app. It should compete as a trusted thinking environment.
 
-The core product promise is:
+Core promise:
 
 ```text
 Capture thoughts instantly, recover them by meaning later, connect them naturally, and keep ownership of the knowledge base.
@@ -19,25 +19,13 @@ Capture thoughts instantly, recover them by meaning later, connect them naturall
 - Capture before structure: the inbox must be fast and forgiving.
 - Meaning before folders: search and related context should help users rediscover ideas even when exact wording is forgotten.
 - Blocks before pages: the main knowledge unit is a thought block, not a long document.
-- Context is first-class: projects, people, dates, tags, links, and graph edges should be part of the data model.
-- Local-first trust: user data should remain usable offline, exportable, restorable, and portable.
+- Context is first-class: projects, people, dates, tags, links, and graph edges are part of the data model.
+- Local-first trust: user data should remain usable offline, exportable, restorable, portable, and encrypted at rest.
 - Explain retrieval: search should show why a result appeared, not only return a score.
-
-## Target User
-
-Primary user:
-
-- A knowledge worker, founder, researcher, creator, or strategist who captures many fragmented ideas.
-- Wants fast capture, later rediscovery, and long-term ownership.
-- Does not want their thinking trapped in a closed SaaS system.
-
-Secondary user:
-
-- A solo builder or small team member who wants a local thinking environment before adopting collaboration/sync.
 
 ## Current MVP Scope
 
-Implemented in 0.1.0:
+Implemented through 0.1.8:
 
 - Inbox capture.
 - `#tag` extraction.
@@ -48,9 +36,6 @@ Implemented in 0.1.0:
 - Archive and restore.
 - Inline edit.
 - Processed/open state.
-- SQLite-backed desktop persistence.
-- Browser `localStorage` fallback.
-- SQLite FTS5 search.
 - Local semantic-overlap retrieval.
 - Search evidence pills for matched fields and terms.
 - Knowledge graph with block/project/person/concept nodes.
@@ -58,24 +43,29 @@ Implemented in 0.1.0:
 - Graph neighbor inspection.
 - Markdown export.
 - JSON export.
-- Manual JSON backup.
-- Automatic latest local backup.
 - Validated JSON restore.
 - Markdown bullet import.
+- Encrypted vault backup/restore.
+- Startup vault create/unlock screen.
+- Normal encrypted local persistence.
+- Legacy plaintext migration and clear.
 - Storage path visibility.
 - First-run onboarding.
 - Signed auto-update check/install flow.
 - Manual update launcher fallback for newer Distill setup packages.
 - English/Japanese UI switching.
+- PWA/mobile preview path.
 - Windows NSIS installer.
 
 Not included yet:
 
-- Embedding/vector search.
+- Real embedding/vector search.
 - Sync.
-- Encryption.
-- Signed installer.
-- Public hosted update feed.
+- Record-level encrypted sync records.
+- Passphrase change flow.
+- Lock-on-idle.
+- Restore preview/conflict summary.
+- Signed code-signing certificate/SmartScreen reputation.
 - Multi-device conflict resolution.
 - AI summarization or review workflows.
 
@@ -83,27 +73,30 @@ Not included yet:
 
 The intended loop:
 
-1. Capture a fragment quickly.
-2. Let Distill extract tags, links, people, and date context.
-3. Revisit by search, project, person, graph, or daily note.
-4. Assign useful blocks to projects.
-5. Archive noise without deleting it.
-6. Export or backup regularly.
+1. Unlock the local vault.
+2. Capture a fragment quickly.
+3. Let Distill extract tags, links, people, and date context.
+4. Revisit by search, project, person, graph, or daily note.
+5. Assign useful blocks to projects.
+6. Archive noise without deleting it.
+7. Export or back up when needed.
 
 ```mermaid
 flowchart LR
-  A["Capture thought"] --> B["Extract tags, links, people"]
-  B --> C["Store locally"]
-  C --> D["Search / Today / Projects / Graph"]
-  D --> E["Edit, assign, archive, restore"]
-  E --> F["Export / backup / import"]
-  F --> C
+  A["Unlock vault"] --> B["Capture thought"]
+  B --> C["Extract tags, links, people"]
+  C --> D["Encrypted local save"]
+  D --> E["Search / Today / Projects / Graph"]
+  E --> F["Edit, assign, archive, restore"]
+  F --> G["Export / backup / import"]
+  G --> D
 ```
 
 ## Information Architecture
 
 Main surfaces:
 
+- Vault Gate: create/unlock encrypted local vault.
 - Inbox: unprocessed active thought blocks.
 - Today: daily-note context and current focus.
 - Search: hybrid retrieval and evidence.
@@ -111,7 +104,7 @@ Main surfaces:
 - Graph: knowledge graph across blocks, projects, people, and concepts.
 - Projects: active knowledge work.
 - Archive: hidden but restorable blocks.
-- Inspector: selected-block context, project assignment, storage, import/export.
+- Inspector: selected-block context, project assignment, storage, import/export, vault backup, updates.
 
 ## Core Data Model
 
@@ -143,30 +136,25 @@ type Project = {
 };
 ```
 
-Current desktop SQLite tables:
+Current persistence:
 
-- `projects`
-- `blocks`
-- `block_tags`
-- `block_links`
-- `blocks_fts`
-- `people`
-- `block_people`
-- `concepts`
-- `graph_edges`
-- `app_store`
+- Encrypted whole-store vault envelope under `distill.vault.v1`.
+- Desktop stores the envelope in SQLite `app_store`.
+- Browser preview stores the envelope in localStorage.
+- Search and graph are derived from the decrypted in-memory store after unlock.
 
 Future target schema expands toward:
 
-- `notes`
-- `blocks`
-- `entities`
-- `links`
-- `tags`
-- `embeddings`
-- `sources`
-- `events`
-- `settings`
+- encrypted block records
+- encrypted project records
+- append-only encrypted mutation log
+- entities
+- links
+- tags
+- embeddings generated after unlock
+- sources
+- events
+- settings
 
 ## Architecture
 
@@ -174,34 +162,38 @@ Current stack:
 
 - Frontend: React + TypeScript + Vite.
 - Desktop shell: Tauri 2.
-- Desktop persistence: SQLite through Rust Tauri commands.
-- Browser fallback: `localStorage` and in-memory search.
+- Desktop persistence: encrypted vault envelope through Rust Tauri commands.
+- Browser fallback: encrypted vault envelope in localStorage.
+- Encryption: WebCrypto PBKDF2 SHA-256 and AES-256-GCM.
 - Testing: Vitest, Rust tests, Playwright E2E.
 - Packaging: Tauri NSIS Windows installer.
 
 Current boundaries:
 
-- `src/App.tsx`: UI orchestration and user intent.
+- `src/App.tsx`: UI orchestration, vault lifecycle, autosave, updater flow.
+- `src/components/VaultGate.tsx`: vault create/unlock UI.
+- `src/vaultCrypto.ts`: vault encryption/decryption.
 - `src/model.ts`: core types, extraction, search model.
 - `src/repository.ts`: immutable store mutation functions.
-- `src/storage.ts`: persistence/search/graph adapter boundary.
+- `src/storage.ts`: encrypted persistence and legacy migration boundary.
 - `src/graph.ts`: graph construction, filtering, layout, neighbors.
 - `src/import.ts`: JSON restore validation and Markdown import.
 - `src/export.ts`: JSON/Markdown export and browser downloads.
-- `src-tauri/src/lib.rs`: SQLite persistence, FTS search, graph snapshots, storage info, backup writing.
+- `src-tauri/src/lib.rs`: encrypted vault storage, legacy plaintext clear, storage info, update launcher.
 
 ```mermaid
 flowchart TB
+  Gate["Vault gate"] --> Crypto["vaultCrypto.ts"]
+  Crypto --> Store["Unlocked DistillStore in memory"]
   UI["React UI"] --> Repo["repository.ts mutations"]
-  UI --> Storage["storage.ts adapter"]
-  Repo --> Store["DistillStore"]
-  Storage --> Tauri["Tauri commands"]
-  Storage --> Browser["localStorage fallback"]
-  Tauri --> SQLite["SQLite normalized tables"]
-  SQLite --> FTS["FTS5 search"]
-  SQLite --> Graph["graph_edges / people / concepts"]
-  UI --> Import["import.ts"]
-  UI --> Export["export.ts"]
+  Repo --> Store
+  Store --> Search["In-memory search"]
+  Store --> Graph["In-memory graph"]
+  Store --> Crypto
+  Crypto --> Storage["storage.ts adapter"]
+  Storage --> Tauri["Tauri encrypted vault commands"]
+  Storage --> Browser["encrypted localStorage preview"]
+  Tauri --> SQLite["SQLite app_store encrypted envelope"]
 ```
 
 ## Search Design
@@ -209,7 +201,7 @@ flowchart TB
 Search has three layers:
 
 - Recent retrieval for empty query.
-- Exact/FTS retrieval over content, tags, and links.
+- Exact retrieval over content, tags, and links.
 - Local semantic-overlap retrieval using controlled aliases.
 
 Search result contract:
@@ -234,7 +226,7 @@ Evidence fields:
 Current limitation:
 
 - Semantic overlap is alias-based, not embedding-based.
-- It improves fuzzy rediscovery but is not a vector search replacement.
+- Persistent plaintext indexes are intentionally avoided.
 
 ## Graph Design
 
@@ -268,56 +260,32 @@ Portability features:
 - Markdown export.
 - Validated JSON restore.
 - Markdown bullet import.
-- Manual JSON backup.
-- Automatic latest local backup.
+- Encrypted vault backup/restore.
+- Encrypted latest desktop backup.
 
-Desktop paths verified on installed app:
+Desktop paths:
 
 ```text
 C:\Users\awake\AppData\Roaming\app.distill.local\distill.sqlite3
-C:\Users\awake\AppData\Roaming\app.distill.local\backups\distill-auto-backup-latest.json
+C:\Users\awake\AppData\Roaming\app.distill.local\backups\distill-encrypted-vault-latest.json
 ```
 
 Trust limitations:
 
-- Installer is unsigned.
-- Signed auto-update is implemented locally; public distribution still requires uploading `latest.json`, installer, and signature to the configured release host.
-- No encryption yet.
+- Installer does not yet have public code-signing certificate reputation.
+- Passphrase is held in app memory while unlocked.
+- Current vault is whole-store encryption, not record-level encryption.
 - No sync yet.
-- No backup generation history yet, only latest automatic backup plus manual timestamped backups.
+- Browser preview depends on localStorage for encrypted envelope storage.
 
 ## Verification Status
 
 Current passing suite:
 
-- Frontend/domain tests: 17 passed.
-- Rust/SQLite tests: 8 passed.
+- Frontend/domain tests: 19 passed.
+- Rust tests: 10 passed.
 - Browser E2E smoke tests: 9 passed.
 - Production frontend build: passing.
-- Windows Tauri build: passing.
-
-Installed-app verification:
-
-- Installed executable found.
-- App process verified.
-- SQLite file verified.
-- Normalized indexes verified.
-- Automatic latest backup verified.
-- Captured Japanese user data verified in SQLite and backup.
-
-## Release Artifact
-
-Installer:
-
-```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.1_x64-setup.exe
-```
-
-SHA256:
-
-```text
-5E13BA109491348C58B00A498FBFA5396CD906263A70619D3DF3F1FD77A2CC81
-```
 
 ## Roadmap
 
@@ -325,67 +293,53 @@ SHA256:
 
 Status: complete.
 
-Goal:
-
-- Create a working local-first personal thinking app.
-
 ### Phase 2: Practical Use Hardening
 
-Status: functionally complete for local MVP.
+Status: complete for local MVP.
+
+### Phase 3: Trust Layer
+
+Status: in progress.
+
+Next:
+
+- Passphrase change.
+- Lock-on-idle.
+- Restore preview.
+- Corrupted/tampered vault tests.
+- User-selectable vault location.
+- Record-level encrypted records.
+
+### Phase 4: Retrieval Upgrade
 
 Goal:
 
-- Make the MVP safe enough for real local use.
+- Replace alias-based semantic overlap with real local embedding/vector retrieval after unlock.
 
-### Phase 3: Retrieval Upgrade
-
-Next major technical phase.
-
-Goal:
-
-- Replace alias-based semantic overlap with real embedding/vector retrieval.
-
-Planned work:
-
-- Embedding generation.
-- Vector index storage.
-- Hybrid FTS + vector ranking.
-- Stronger result explanations.
-- Related-note recommendations.
-
-### Phase 4: Knowledge Maturation
+### Phase 5: Knowledge Maturation
 
 Goal:
 
 - Help users turn fragments into structure notes, reviews, summaries, and outputs.
 
-### Phase 5: Trust Layer
+### Phase 6: Sync
 
 Goal:
 
-- Add encryption, user-selectable vault location, signed installer, and auto-update.
-
-### Phase 6: Context Integrations
-
-Goal:
-
-- Add calendar, meetings, people pages, timelines, and source/document attachments.
+- Add encryption-first multi-device sync using record-level encrypted data.
 
 ## Recommended Next Decision
 
 For private use:
 
 - Use the app for 7 days with real notes.
-- Back up JSON daily.
+- Keep encrypted vault backups.
 - Track friction.
 
 For public distribution:
 
-- Prioritize code signing, installer trust, auto-update, and a public download page.
+- Prioritize code signing, installer trust, auto-update hygiene, and a public download page.
 
 For product quality:
 
-- Prioritize embedding/vector search and daily/weekly review workflows.
-
-
-
+- Prioritize passphrase lifecycle, restore preview, and then embedding/vector search.

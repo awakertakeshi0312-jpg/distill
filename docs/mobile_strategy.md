@@ -32,15 +32,15 @@ https://awakertakeshi0312-jpg.github.io/distill/
 
 - Data is stored locally in that phone browser.
 - Data does not sync with desktop.
-- Data is not encrypted by Distill in PWA mode.
+- Data content is encrypted by Distill in PWA mode after vault setup, but the encrypted envelope still lives in browser localStorage.
 - Encrypted `.distill-vault.json` backup/restore is available for manual transfer.
 - Browser storage can be removed by the browser, profile cleanup, or OS storage pressure.
 
 ### Recommended Mobile Usage
 
 - Use mobile web for capture, triage, and early UX testing.
-- Export JSON regularly.
-- Do not treat mobile PWA as a secure vault until encryption is implemented.
+- Export encrypted vault backups regularly.
+- Do not treat mobile PWA as the only copy of important notes until IndexedDB/native storage and sync are implemented.
 
 ## Track 2: Tauri Mobile Native
 
@@ -100,8 +100,8 @@ Required:
 
 - IndexedDB instead of localStorage for web mode
 - Import size limits
-- Encrypted vault format
-- App-local unlock/passphrase
+- IndexedDB-backed encrypted vault envelope
+- App-local unlock/passphrase lifecycle
 
 ### Phase M3: Native Android
 
@@ -122,7 +122,7 @@ Required:
 
 ### Phase M5: Sync
 
-Do not add sync before encryption. A thought app sync layer should be end-to-end encrypted or local-network/local-file based by design.
+Do not add sync before record-level encrypted data is designed. A thought app sync layer should be end-to-end encrypted or local-network/local-file based by design.
 
 Candidate directions:
 
