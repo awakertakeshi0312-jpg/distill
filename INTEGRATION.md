@@ -30,9 +30,41 @@ npm run org:event -- --type decision.created --summary "共有作業プロトコ
 npm run org:event -- --type decision.created --summary "共有作業プロトコルを採用" --payload-file $payload --dry-run
 ```
 
+Work Packet の検証形式にも対応しています。
+
+```powershell
+node scripts/emit-org-event.js project.blocked --summary "smoke" --dry-run
+```
+
+## Artifact Register
+
+```powershell
+npm run org:artifact -- --title "Distill project context" --path PROJECT_CONTEXT.md --type project_doc --summary "Distill role, commands, boundaries, and completion criteria."
+```
+
+送信前に確認する場合:
+
+```powershell
+npm run org:artifact -- --title "Distill project context" --path PROJECT_CONTEXT.md --type project_doc --summary "Distill role, commands, boundaries, and completion criteria." --dry-run
+```
+
 ## Work Packet 受け入れ条件
 
-- `target_project` が `Distill`。
+- `target_project` が `distill`。プロトコル文書で `target_project_id` と表記されている場合も、現在起動中のKernel APIでは `target_project` として扱う。
 - `files_allowed` が `src/**`、`src-tauri/**`、`docs/**`、`scripts/**` のいずれかに限定されている。
 - vault、backup、release signing、updater に触る変更は `approval_required` を true にする。
 - `commands_to_verify` に `npm test` と `npm run build` を含める。
+
+## Approval Rules
+
+ユーザー承認が必要:
+
+- 外部送信
+- 公開
+- データ削除
+- credential 変更
+- 課金
+- deploy
+- git push
+
+Kernel API へのローカル event/artifact 登録は、秘密情報やprivate note本文を含めない範囲で自動実行可能。
