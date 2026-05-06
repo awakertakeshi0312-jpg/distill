@@ -10,7 +10,7 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.12
+- Current version: 0.1.13
 - Desktop target: Windows x64
 - Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow, device registry, deletion tombstones, stale-packet rejection, and Personal KM summary-only handoff
 
@@ -265,7 +265,7 @@ Current status: manual encrypted sync packets, device registry, and deletion tom
 
 1. Keep signed updater release process working for each version.
 2. Acquire a Windows code-signing certificate for SmartScreen trust.
-3. Add release checklist automation.
+3. Keep `npm run release:check` passing before public distribution.
 4. Create a clear download/install page.
 
 ## Handoff Summary

@@ -33,7 +33,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Tauri updater is registered only for desktop builds.
 - Manual sync packets use record-level encrypted records and deletion tombstones.
 
-### Changes Applied Through 0.1.12
+### Changes Applied Through 0.1.13
 
 - Added startup vault gate for create/unlock.
 - Added normal encrypted local persistence under `distill.vault.v1`.
@@ -153,13 +153,14 @@ Before distributing a new public build:
 1. Run `npm run check:all`.
 2. Run `npm run security:audit`.
 3. Build with `npm run release:windows`.
-4. Verify `release/latest.json`:
+4. Run `npm run release:check`.
+5. Verify `release/latest.json`:
    - no BOM
    - `platforms.windows-x86_64`
    - signature matches `.sig`
    - URL points to the matching installer.
-5. Upload installer, `.sig`, and `latest.json` to GitHub Release.
-6. Test update from the previous installed version.
+6. Upload installer, `.sig`, and `latest.json` to GitHub Release.
+7. Test update from the previous installed version.
 
 ## Next Security Milestones
 

@@ -2,7 +2,7 @@
 
 ## Current Implementation
 
-Distill 0.1.12 uses an encrypted local vault for normal app persistence.
+Distill 0.1.13 uses an encrypted local vault for normal app persistence.
 
 Implemented:
 
