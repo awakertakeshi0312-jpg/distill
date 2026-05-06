@@ -71,6 +71,33 @@ Cons:
 3. Implement encrypted file sync first.
 4. Add E2EE hosted sync only after the record format is stable.
 
+## Current Implementation
+
+Distill now has a pure TypeScript sync packet foundation in `src/sync.ts`.
+
+Implemented:
+
+- `distill.sync.packet` schema version `1`.
+- block-level sync records for `ThoughtBlock`.
+- checkpoint filtering with `since`.
+- deterministic stable hashes for duplicate detection and tie-breaking.
+- deterministic merge rule:
+  - accept a remote block when the local block is missing.
+  - accept a remote block when `remote.updatedAt` is newer.
+  - keep the local block when `local.updatedAt` is newer.
+  - use hash order only when timestamps are equal.
+- parser validation for unsupported sync packet files.
+
+Not implemented yet:
+
+- record-level encryption.
+- project record sync.
+- deletion tombstones.
+- device registry UI.
+- automatic network or cloud sync.
+
+This keeps the risky part small: the app can prove merge behavior before any private data is sent to a network or cloud provider.
+
 ## Sync Record Shape
 
 ```json

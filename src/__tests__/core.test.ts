@@ -23,6 +23,7 @@ import { buildKnowledgeGraph, filterKnowledgeGraph, getGraphNeighbors, layoutKno
 import { exportStoreAsJson } from '../export';
 import { createMarkdownImport, parseDistillImport } from '../import';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
+import { applySyncPacket, buildSyncPacket, parseSyncPacket, serializeSyncPacket } from '../sync';
 
 const now = '2026-05-06T10:00:00.000Z';
 
@@ -282,5 +283,110 @@ describe('encrypted vault backups', () => {
     });
 
     await expect(decryptDistillVault(encrypted, 'incorrect horse battery')).rejects.toThrow();
+  });
+});
+
+describe('sync packets', () => {
+  it('builds a deterministic block sync packet since a checkpoint', () => {
+    const syncStore: DistillStore = {
+      projects: [],
+      blocks: [
+        block({
+          id: 'old',
+          content: 'Already synced',
+          capturedAt: '2026-05-05T01:00:00.000Z',
+          updatedAt: '2026-05-05T02:00:00.000Z',
+        }),
+        block({
+          id: 'fresh',
+          content: 'Needs sync #mobile [[Sync]]',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T02:00:00.000Z',
+          tags: ['mobile'],
+          links: ['Sync'],
+        }),
+      ],
+    };
+
+    const packet = buildSyncPacket(syncStore, {
+      sourceDeviceId: 'windows-dev',
+      since: '2026-05-06T00:00:00.000Z',
+      now: '2026-05-06T03:00:00.000Z',
+    });
+
+    expect(packet).toMatchObject({
+      type: 'distill.sync.packet',
+      schemaVersion: 1,
+      sourceDeviceId: 'windows-dev',
+      createdAt: '2026-05-06T03:00:00.000Z',
+      since: '2026-05-06T00:00:00.000Z',
+    });
+    expect(packet.records.map((record) => record.id)).toEqual(['fresh']);
+    expect(packet.records[0].hash).toMatch(/^fnv1a32:/);
+  });
+
+  it('applies newer incoming blocks while keeping newer local edits', () => {
+    const localStore: DistillStore = {
+      projects: [],
+      blocks: [
+        block({
+          id: 'shared',
+          content: 'Local older text',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T02:00:00.000Z',
+        }),
+        block({
+          id: 'local-newer',
+          content: 'Local newer text',
+          capturedAt: '2026-05-06T01:30:00.000Z',
+          updatedAt: '2026-05-06T05:00:00.000Z',
+        }),
+      ],
+    };
+    const remoteStore: DistillStore = {
+      projects: [],
+      blocks: [
+        block({
+          id: 'shared',
+          content: 'Remote newer text',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T03:00:00.000Z',
+        }),
+        block({
+          id: 'local-newer',
+          content: 'Remote stale text',
+          capturedAt: '2026-05-06T01:30:00.000Z',
+          updatedAt: '2026-05-06T04:00:00.000Z',
+        }),
+        block({
+          id: 'remote-only',
+          content: 'Remote only text',
+          capturedAt: '2026-05-06T02:00:00.000Z',
+          updatedAt: '2026-05-06T02:30:00.000Z',
+        }),
+      ],
+    };
+
+    const merged = applySyncPacket(
+      localStore,
+      buildSyncPacket(remoteStore, { sourceDeviceId: 'mobile-dev', now: '2026-05-06T06:00:00.000Z' }),
+    );
+
+    expect(merged.blocks.find((item) => item.id === 'shared')?.content).toBe('Remote newer text');
+    expect(merged.blocks.find((item) => item.id === 'local-newer')?.content).toBe('Local newer text');
+    expect(merged.blocks.find((item) => item.id === 'remote-only')?.content).toBe('Remote only text');
+  });
+
+  it('parses serialized sync packets and rejects unsupported files', () => {
+    const packet = buildSyncPacket(store, { sourceDeviceId: 'windows-dev', now: '2026-05-06T03:00:00.000Z' });
+
+    expect(parseSyncPacket(serializeSyncPacket(packet)).records.map((record) => record.id)).toEqual([
+      'b-1',
+      'b-2',
+      'b-3',
+    ]);
+    expect(() => parseSyncPacket(JSON.stringify({ type: 'distill.sync.packet', schemaVersion: 999 }))).toThrow(
+      /sync packet/,
+    );
   });
 });
