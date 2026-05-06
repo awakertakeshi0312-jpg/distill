@@ -1,6 +1,6 @@
 {
   "name": "distill",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,6 +16,7 @@
     "tauri:dev:windows": "cmd /c \"\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\LaunchDevCmd.bat\" -arch=x64 -host_arch=x64 && set PATH=%USERPROFILE%\\.cargo\\bin;%PATH% && npm run tauri:dev\"",
     "tauri:build:windows": "cmd /c \"\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\LaunchDevCmd.bat\" -arch=x64 -host_arch=x64 && set PATH=%USERPROFILE%\\.cargo\\bin;%PATH% && npm run tauri:build\"",
     "test:e2e": "playwright test",
+    "security:audit": "npm audit --audit-level=moderate",
     "tauri:build:signed": "powershell -ExecutionPolicy Bypass -File scripts/build-signed-updater.ps1",
     "release:latest-json": "powershell -ExecutionPolicy Bypass -File scripts/create-latest-json.ps1",
     "release:windows": "npm run tauri:build:signed"

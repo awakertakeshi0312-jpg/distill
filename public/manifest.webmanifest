@@ -1,0 +1,19 @@
+{
+  "name": "Distill",
+  "short_name": "Distill",
+  "description": "Local-first thinking OS for capturing and reconnecting thought blocks.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#edf2ec",
+  "theme_color": "#1c2520",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "distill-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

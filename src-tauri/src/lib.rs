@@ -196,11 +196,24 @@ fn validate_update_installer_path(path: &Path) -> Result<PathBuf, String> {
     return Err("Update installer must be a Windows .exe file.".to_string());
   }
 
-  if !file_name.contains("distill") || !file_name.contains("setup") {
-    return Err("Installer file name must look like a Distill setup package.".to_string());
+  if !is_distill_setup_file_name(&file_name) {
+    return Err("Installer file name must match Distill_<version>_x64-setup.exe.".to_string());
   }
 
   Ok(canonical)
+}
+
+fn is_distill_setup_file_name(file_name: &str) -> bool {
+  if !file_name.starts_with("distill_") || !file_name.ends_with("_x64-setup.exe") {
+    return false;
+  }
+
+  let version = file_name
+    .trim_start_matches("distill_")
+    .trim_end_matches("_x64-setup.exe");
+  let parts = version.split('.').collect::<Vec<_>>();
+
+  parts.len() == 3 && parts.iter().all(|part| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit()))
 }
 
 fn normalized_store_exists(connection: &Connection) -> Result<bool, String> {
@@ -1168,6 +1181,14 @@ mod tests {
     let path = std::path::Path::new("not-an-installer.txt");
 
     assert!(validate_update_installer_path(path).is_err());
+  }
+
+  #[test]
+  fn validates_distill_setup_file_name_shape() {
+    assert!(is_distill_setup_file_name("distill_0.1.5_x64-setup.exe"));
+    assert!(!is_distill_setup_file_name("distill_setup.exe"));
+    assert!(!is_distill_setup_file_name("distill_0.1_x64-setup.exe"));
+    assert!(!is_distill_setup_file_name("other_0.1.5_x64-setup.exe"));
   }
 }
 

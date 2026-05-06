@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-load-storage-info-json"
+description = "Enables the load_storage_info_json command without any pre-configured scope."
+commands.allow = ["load_storage_info_json"]
+
+[[permission]]
+identifier = "deny-load-storage-info-json"
+description = "Denies the load_storage_info_json command without any pre-configured scope."
+commands.deny = ["load_storage_info_json"]

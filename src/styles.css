@@ -27,6 +27,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overscroll-behavior-y: none;
 }
 
 button,
@@ -1307,6 +1308,36 @@ button.resultRow:hover {
 }
 
 @media (max-width: 560px) {
+  body {
+    padding-bottom: 82px;
+  }
+
+  .shell {
+    min-height: calc(100vh - 82px);
+  }
+
+  .sidebar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 12;
+    gap: 0;
+    padding: 8px;
+    border-top: 1px solid var(--line);
+    border-bottom: 0;
+    background: rgba(251, 252, 247, 0.96);
+    box-shadow: 0 -16px 40px rgba(28, 37, 32, 0.12);
+  }
+
+  .brand {
+    display: none;
+  }
+
+  .workspace {
+    padding: 16px 12px 22px;
+  }
+
   .topbar {
     align-items: flex-start;
     flex-direction: column;
@@ -1346,7 +1377,49 @@ button.resultRow:hover {
   }
 
   .navList {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(68px, 1fr);
+    grid-template-columns: none;
+    gap: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .navList::-webkit-scrollbar {
+    display: none;
+  }
+
+  .navItem {
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-height: 60px;
+    padding: 5px 4px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .capture textarea {
+    min-height: 142px;
+    font-size: 1rem;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  .thoughtBlock {
+    grid-template-columns: 28px minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .exportActions {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnosticRow {
+    grid-template-columns: 1fr;
   }
 
   .captureActions,
@@ -1379,6 +1452,14 @@ button.resultRow:hover {
   .personCard {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .graphCanvas {
+    min-height: 320px;
+  }
+
+  .graphCanvas svg {
+    height: 360px;
   }
 }
 

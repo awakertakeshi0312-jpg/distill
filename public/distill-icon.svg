@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Distill">
+  <rect width="512" height="512" rx="96" fill="#1c2520"/>
+  <path fill="#f7f5e8" d="M168 128h98c53 0 88 31 88 79 0 28-12 51-33 65 29 13 45 37 45 72 0 52-38 88-96 88H168V128Zm88 119c28 0 45-15 45-38 0-24-17-38-45-38h-37v76h37Zm8 143c31 0 50-17 50-45 0-27-19-43-50-43h-45v88h45Z"/>
+  <path fill="#7bc29a" d="M112 416h288v32H112z"/>
+</svg>

@@ -15,3 +15,4 @@ playwright-report/
 scratch/*.log
 scratch/*.out.log
 scratch/*.err.log
+scratch/*.ps1
