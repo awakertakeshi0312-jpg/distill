@@ -91,8 +91,8 @@ npm run check:all
 
 Current passing suite:
 
-- Frontend/domain tests: 30 passed.
-- Rust/SQLite tests: 11 passed.
+- Frontend/domain tests: 42 passed.
+- Rust/SQLite tests: 14 passed.
 - Browser E2E smoke tests: 10 passed.
 - Production frontend build: passing.
 
@@ -139,19 +139,19 @@ src-tauri/target/release/app.exe
 Current Windows installer output:
 
 ```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.16_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Distill_0.1.17_x64-setup.exe
 ```
 
 Installer SHA256:
 
 ```text
-3425C8440B25D371B13CEF963FB7C7A2674DCF031D2325A9878A3C8FC9F066B8
+D23A4816293B1B49A0E1FF1B8CAABFCAF1602E344E35DC58AB09DADB88BFE3A0
 ```
 
 Signed auto-update flow:
 
 1. Build a signed release with `npm run release:windows`.
-2. Upload `release/Distill_0.1.16_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
+2. Upload `release/Distill_0.1.17_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
 3. Open the installed Distill desktop app.
 4. Click `Check for updates` in the Inspector update section.
 5. Click `Install update` when a newer signed version is available.
@@ -186,6 +186,3 @@ See `docs/roadmap.md` for the current phase plan toward 0.2.0 and beyond.
 - `docs/design_blueprint.md`: product, UX, architecture, data model, and roadmap design.
 - `docs/project_context.md`: current implementation context, verification status, installed-app QA, and next decisions.
 - `docs/desktop_troubleshooting.md`: safe recovery steps for desktop blank-screen/WebView cache issues.
-
-
-
