@@ -55,6 +55,23 @@ npm run org:artifact -- --title "Distill project context" --path PROJECT_CONTEXT
 - vault、backup、release signing、updater に触る変更は `approval_required` を true にする。
 - `commands_to_verify` に `npm test` と `npm run build` を含める。
 
+## Current Central Kernel Bridge
+
+Default destination is the central file-based Kernel:
+
+```text
+C:\Users\awake\dev\active\ai-org-kernel
+```
+
+Use the project-specific wrappers for safe summary-only events:
+
+```powershell
+npm run org:decision -- --summary "Decision summary only"
+npm run org:ready -- --title "Distill artifact" --path docs\ai_org_event_bridge.md --type project_doc --summary "Artifact summary only"
+```
+
+Use `--local-api` only when intentionally posting to the Personal KM local API.
+
 ## Approval Rules
 
 ユーザー承認が必要:

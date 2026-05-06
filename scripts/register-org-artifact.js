@@ -1,7 +1,9 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
-const DEFAULT_KERNEL_URL = 'http://localhost:3001/api/org';
+const DEFAULT_LOCAL_API_URL = 'http://localhost:3001/api/org';
 const DEFAULT_PROJECT_ID = 'distill';
 
 function usage() {
@@ -10,7 +12,9 @@ function usage() {
     '  node scripts/register-org-artifact.js --title <title> --path <path> [options]',
     '',
     'Options:',
-    '  --kernel-url <url>        AI Org Kernel API URL. Default: ORG_API_URL or http://localhost:3001/api/org',
+    '  --kernel-root <path>      AI Org Kernel root. Default: AI_ORG_KERNEL_ROOT or ~/dev/active/ai-org-kernel',
+    '  --local-api               Post to Personal KM local API instead of central Kernel files',
+    '  --kernel-url <url>        Local API URL when --local-api is used',
     '  --project <project_id>    Project id. Default: distill',
     '  --work-packet <id>        Related Work Packet id',
     '  --type <type>             project_doc | code | test | report | release | config | dataset | workflow. Default: project_doc',
@@ -23,31 +27,24 @@ function usage() {
 
 function parseArgs(argv) {
   const args = {};
-
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-
-    if (!token.startsWith('--')) {
-      throw new Error(`Unexpected argument: ${token}`);
-    }
-
+    if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
     const name = token.slice(2);
     const next = argv[index + 1];
-
-    if (name === 'dry-run') {
+    if (name === 'dry-run' || name === 'local-api') {
       args[name] = true;
       continue;
     }
-
-    if (!next || next.startsWith('--')) {
-      throw new Error(`Missing value for --${name}`);
-    }
-
+    if (!next || next.startsWith('--')) throw new Error(`Missing value for --${name}`);
     args[name] = next;
     index += 1;
   }
-
   return args;
+}
+
+function kernelRoot(args) {
+  return args['kernel-root'] || process.env.AI_ORG_KERNEL_ROOT || path.join(os.homedir(), 'dev', 'active', 'ai-org-kernel');
 }
 
 async function postJson(url, payload) {
@@ -57,32 +54,51 @@ async function postJson(url, payload) {
     body: JSON.stringify(payload),
   });
   const body = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(`AI Org Kernel returned ${response.status}: ${JSON.stringify(body)}`);
-  }
-
+  if (!response.ok) throw new Error(`AI Org API returned ${response.status}: ${JSON.stringify(body)}`);
   return body;
+}
+
+async function registerToLocalApi(args, artifact) {
+  const kernelUrl = (args['kernel-url'] ?? process.env.ORG_API_URL ?? DEFAULT_LOCAL_API_URL).replace(/\/$/, '');
+  if (args['dry-run']) {
+    console.log(JSON.stringify({ url: `${kernelUrl}/artifacts`, artifact }, null, 2));
+    return;
+  }
+  console.log(JSON.stringify(await postJson(`${kernelUrl}/artifacts`, artifact), null, 2));
+}
+
+function registerToCentralKernel(args, artifact) {
+  const script = path.join(kernelRoot(args), 'scripts', 'register-artifact.js');
+  if (!fs.existsSync(script)) {
+    throw new Error(`Central Kernel artifact script not found: ${script}`);
+  }
+  const result = spawnSync(process.execPath, [
+    script,
+    '--project', artifact.project,
+    '--type', artifact.type,
+    '--title', artifact.title,
+    '--uri', artifact.uri,
+    '--summary', artifact.summary,
+    '--metadata', JSON.stringify(artifact.metadata),
+    ...(args['dry-run'] ? ['--dry-run'] : []),
+  ], { stdio: 'inherit' });
+  process.exitCode = result.status ?? 1;
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-
   if (!args.title || !args.path) {
     console.error(usage());
     process.exitCode = 1;
     return;
   }
-
   const artifactPath = path.resolve(process.cwd(), args.path);
   if (!fs.existsSync(artifactPath)) {
     throw new Error(`Artifact path does not exist: ${artifactPath}`);
   }
-
-  const kernelUrl = (args['kernel-url'] ?? process.env.ORG_API_URL ?? DEFAULT_KERNEL_URL).replace(/\/$/, '');
   const relativePath = path.relative(process.cwd(), artifactPath);
   const uri = relativePath && !relativePath.startsWith('..') ? relativePath.replace(/\\/g, '/') : artifactPath;
-  const payload = {
+  const artifact = {
     project: args.project ?? DEFAULT_PROJECT_ID,
     type: args.type ?? args.kind ?? 'project_doc',
     title: args.title,
@@ -94,13 +110,11 @@ async function main() {
       status: args.status ?? 'ready',
     },
   };
-
-  if (args['dry-run']) {
-    console.log(JSON.stringify({ url: `${kernelUrl}/artifacts`, artifact: payload }, null, 2));
-    return;
+  if (args['local-api']) {
+    await registerToLocalApi(args, artifact);
+  } else {
+    registerToCentralKernel(args, artifact);
   }
-
-  console.log(JSON.stringify(await postJson(`${kernelUrl}/artifacts`, payload), null, 2));
 }
 
 main().catch((error) => {
