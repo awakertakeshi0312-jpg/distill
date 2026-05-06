@@ -1,5 +1,5 @@
 import { Database, Download, FileText, FileUp, Link2, Network, RefreshCw, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { UiCopy } from '../i18n';
 import type { Project, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
@@ -15,6 +15,9 @@ type InspectorPanelProps = {
   storagePath: string;
   backupPath: string;
   restoreStatus: string;
+  syncStatus: string;
+  deviceId: string;
+  deviceName: string;
   vaultSecurityStatus: string;
   autoLockMinutes: number;
   updateInstallerPath: string;
@@ -35,6 +38,9 @@ type InspectorPanelProps = {
   onRestoreJson: (file: File) => void;
   onRestoreEncryptedVault: (file: File) => void;
   onImportMarkdown: (file: File) => void;
+  onDeviceNameChange: (name: string) => void;
+  onExportEncryptedSyncPacket: () => void;
+  onImportEncryptedSyncPacket: (file: File) => void;
   onChangeVaultPassphrase: (currentPassphrase: string, nextPassphrase: string, confirmation: string) => void;
   onAutoLockMinutesChange: (minutes: number) => void;
   onUpdateInstallerPathChange: (path: string) => void;
@@ -53,6 +59,9 @@ export function InspectorPanel({
   storagePath,
   backupPath,
   restoreStatus,
+  syncStatus,
+  deviceId,
+  deviceName,
   vaultSecurityStatus,
   autoLockMinutes,
   updateInstallerPath,
@@ -73,6 +82,9 @@ export function InspectorPanel({
   onRestoreJson,
   onRestoreEncryptedVault,
   onImportMarkdown,
+  onDeviceNameChange,
+  onExportEncryptedSyncPacket,
+  onImportEncryptedSyncPacket,
   onChangeVaultPassphrase,
   onAutoLockMinutesChange,
   onUpdateInstallerPathChange,
@@ -83,6 +95,11 @@ export function InspectorPanel({
   const [currentVaultPassphrase, setCurrentVaultPassphrase] = useState('');
   const [nextVaultPassphrase, setNextVaultPassphrase] = useState('');
   const [confirmVaultPassphrase, setConfirmVaultPassphrase] = useState('');
+  const [draftDeviceName, setDraftDeviceName] = useState(deviceName);
+
+  useEffect(() => {
+    setDraftDeviceName(deviceName);
+  }, [deviceName]);
   const updateLabels =
     ui.navInbox === 'Inbox'
       ? {
@@ -151,12 +168,36 @@ export function InspectorPanel({
             { value: 60, label: '60分' },
           ],
         };
+  const syncLabels =
+    ui.navInbox === 'Inbox'
+      ? {
+          title: 'Encrypted sync packet',
+          hint: 'Manual device-to-device sync. Packet records are encrypted with the current vault passphrase before export.',
+          deviceName: 'Device name',
+          deviceId: 'Device ID',
+          rename: 'Save device name',
+          export: 'Export sync packet',
+          import: 'Import sync packet',
+        }
+      : {
+          title: '暗号化同期パケット',
+          hint: '手動の端末間同期です。出力前に、同期レコードは現在のVaultパスフレーズで暗号化されます。',
+          deviceName: '端末名',
+          deviceId: '端末ID',
+          rename: '端末名を保存',
+          export: '同期パケットを書き出す',
+          import: '同期パケットを取り込む',
+        };
 
   function submitPassphraseChange() {
     onChangeVaultPassphrase(currentVaultPassphrase, nextVaultPassphrase, confirmVaultPassphrase);
     setCurrentVaultPassphrase('');
     setNextVaultPassphrase('');
     setConfirmVaultPassphrase('');
+  }
+
+  function submitDeviceName() {
+    onDeviceNameChange(draftDeviceName);
   }
 
   return (
@@ -401,6 +442,42 @@ export function InspectorPanel({
             {vaultSecurityLabels.change}
           </button>
           {vaultSecurityStatus ? <span className="restoreStatus">{vaultSecurityStatus}</span> : null}
+        </div>
+
+        <div className="restoreBox syncBox">
+          <strong>{syncLabels.title}</strong>
+          <span>{syncLabels.hint}</span>
+          <label>
+            {syncLabels.deviceName}
+            <input value={draftDeviceName} onChange={(event) => setDraftDeviceName(event.target.value)} />
+          </label>
+          <button className="restoreButton" type="button" onClick={submitDeviceName}>
+            <RefreshCw size={16} />
+            {syncLabels.rename}
+          </button>
+          <span className="storagePath">
+            {syncLabels.deviceId}: {deviceId}
+          </span>
+          <button className="restoreButton" type="button" onClick={onExportEncryptedSyncPacket}>
+            <Download size={16} />
+            {syncLabels.export}
+          </button>
+          <label className="restoreButton">
+            <FileUp size={16} />
+            {syncLabels.import}
+            <input
+              accept="application/json,.json,.distill-sync,.distill-sync.json"
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.currentTarget.value = '';
+                if (file) {
+                  onImportEncryptedSyncPacket(file);
+                }
+              }}
+            />
+          </label>
+          {syncStatus ? <span className="restoreStatus">{syncStatus}</span> : null}
         </div>
 
         <div className="restoreBox">

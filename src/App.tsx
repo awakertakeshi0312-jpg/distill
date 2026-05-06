@@ -2,8 +2,15 @@ import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { exportStoreAsJson, exportStoreAsMarkdown, downloadTextFile } from './export';
 import { createMarkdownImport, parseDistillImport } from './import';
 import { decryptDistillVault, encryptDistillVault } from './vaultCrypto';
+import { getOrCreateDeviceIdentity, renameDeviceIdentity, type DeviceIdentity } from './device';
 import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
 import { initialStore, type DistillStore, type Project, type SearchResult } from './model';
+import {
+  applyEncryptedSyncPacket,
+  buildEncryptedSyncPacket,
+  parseEncryptedSyncPacket,
+  serializeEncryptedSyncPacket,
+} from './sync';
 import {
   addCapture,
   archiveBlock,
@@ -90,6 +97,14 @@ function App() {
   const [storagePath, setStoragePath] = useState('');
   const [backupPath, setBackupPath] = useState('');
   const [restoreStatus, setRestoreStatus] = useState('');
+  const [syncStatus, setSyncStatus] = useState('');
+  const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    return getOrCreateDeviceIdentity();
+  });
   const [updateInstallerPath, setUpdateInstallerPath] = useState('');
   const [updateStatus, setUpdateStatus] = useState('');
   const [autoUpdateStatus, setAutoUpdateStatus] = useState('');
@@ -174,6 +189,12 @@ function App() {
   useEffect(() => {
     localStorage.setItem(UI_LOCALE_KEY, locale);
   }, [locale]);
+
+  useEffect(() => {
+    if (!deviceIdentity && typeof window !== 'undefined') {
+      setDeviceIdentity(getOrCreateDeviceIdentity());
+    }
+  }, [deviceIdentity]);
 
   useEffect(() => {
     localStorage.setItem(AUTO_LOCK_MINUTES_KEY, String(autoLockMinutes));
@@ -627,6 +648,99 @@ function App() {
         };
   }
 
+  function syncLabels() {
+    return locale === 'en'
+      ? {
+          passphraseRequired: 'Unlock the encrypted vault before exporting or importing sync packets.',
+          exportSuccess: (records: number, deviceName: string) =>
+            `Encrypted sync packet exported from ${deviceName} with ${records} records.`,
+          importConfirm: (records: number, deviceId: string) =>
+            `Merge ${records} encrypted sync records from device ${deviceId}? Newer records replace older local records.`,
+          importSuccess: (records: number, deviceId: string) =>
+            `Merged ${records} encrypted sync records from device ${deviceId}.`,
+          importInvalid: 'Could not import that encrypted sync packet. Check the file and vault passphrase.',
+          deviceRenamed: 'Device name updated.',
+        }
+      : {
+          passphraseRequired: '暗号化Vaultを開いてから同期パケットを出力・取り込みしてください。',
+          exportSuccess: (records: number, deviceName: string) =>
+            `${deviceName} から ${records} 件の暗号化同期パケットを出力しました。`,
+          importConfirm: (records: number, deviceId: string) =>
+            `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しますか？新しいレコードが古いローカルレコードを置き換えます。`,
+          importSuccess: (records: number, deviceId: string) =>
+            `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しました。`,
+          importInvalid: '暗号化同期パケットを取り込めませんでした。ファイルとVaultパスフレーズを確認してください。',
+          deviceRenamed: '端末名を更新しました。',
+        };
+  }
+
+  function renameCurrentDevice(name: string) {
+    const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
+    setDeviceIdentity(renameDeviceIdentity(identity, name));
+    setSyncStatus(syncLabels().deviceRenamed);
+  }
+
+  async function exportEncryptedSyncPacket() {
+    const labels = syncLabels();
+    const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
+
+    if (!vaultPassphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    try {
+      const packet = await buildEncryptedSyncPacket(store, {
+        sourceDeviceId: identity.id,
+        passphrase: vaultPassphrase,
+      });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+      downloadTextFile(
+        `distill-sync-${timestamp}.distill-sync.json`,
+        serializeEncryptedSyncPacket(packet),
+        'application/json',
+      );
+      setSyncStatus(labels.exportSuccess(packet.records.length, identity.name));
+    } catch (error) {
+      console.warn('Failed to export encrypted Distill sync packet.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
+    }
+  }
+
+  async function importEncryptedSyncPacket(file: File) {
+    const labels = syncLabels();
+
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setSyncStatus(vaultLabels().fileTooLarge);
+      return;
+    }
+
+    if (!vaultPassphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    setSyncStatus('');
+
+    try {
+      const packet = parseEncryptedSyncPacket(await file.text());
+      const confirmed = window.confirm(labels.importConfirm(packet.records.length, packet.sourceDeviceId));
+
+      if (!confirmed) {
+        return;
+      }
+
+      const mergedStore = await applyEncryptedSyncPacket(store, packet, vaultPassphrase);
+      setStore(mergedStore);
+      setSelectedBlockId(mergedStore.blocks[0]?.id);
+      setSyncStatus(labels.importSuccess(packet.records.length, packet.sourceDeviceId));
+    } catch (error) {
+      console.warn('Failed to import encrypted Distill sync packet.', error);
+      setSyncStatus(labels.importInvalid);
+    }
+  }
+
   async function backupEncryptedVault() {
     const labels = vaultLabels();
     const passphrase = window.prompt(labels.passphrase);
@@ -982,6 +1096,9 @@ function App() {
             storagePath={storagePath}
             backupPath={backupPath}
             restoreStatus={restoreStatus}
+            syncStatus={syncStatus}
+            deviceId={deviceIdentity?.id ?? ''}
+            deviceName={deviceIdentity?.name ?? ''}
             vaultSecurityStatus={vaultSecurityStatus}
             autoLockMinutes={autoLockMinutes}
             updateInstallerPath={updateInstallerPath}
@@ -1005,6 +1122,9 @@ function App() {
             onRestoreJson={restoreJson}
             onRestoreEncryptedVault={restoreEncryptedVault}
             onImportMarkdown={importMarkdown}
+            onDeviceNameChange={renameCurrentDevice}
+            onExportEncryptedSyncPacket={() => void exportEncryptedSyncPacket()}
+            onImportEncryptedSyncPacket={(file) => void importEncryptedSyncPacket(file)}
             onChangeVaultPassphrase={(currentPassphrase, nextPassphrase, confirmation) =>
               void changeVaultPassphrase(currentPassphrase, nextPassphrase, confirmation)
             }

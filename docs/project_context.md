@@ -12,7 +12,7 @@ This document is the handoff context for Distill so another person or future age
 - Product type: local-first desktop/PWA thinking app
 - Current version: 0.1.9
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault and signed updater flow
+- Current state: local MVP plus encrypted local vault, signed updater flow, and manual encrypted sync packet flow
 
 ## Product Direction
 
@@ -60,6 +60,8 @@ Implemented app features:
 - PWA/mobile preview path
 - Signed Tauri updater check/install flow
 - Manual update launcher fallback for newer Distill setup packages
+- Stable local device identity for sync packet source tracking
+- Manual encrypted sync packet export/import using record-level encrypted records
 
 ## Current Persistence Boundary
 
@@ -80,9 +82,9 @@ Legacy plaintext handling:
 Known remaining security limits:
 
 - passphrase remains in app memory while unlocked
-- whole-store encryption, not record-level encryption
+- normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - no restore preview yet
-- no sync yet
+- no automatic/background sync yet
 - browser preview still depends on localStorage for the encrypted envelope
 
 ## Technical Stack
@@ -138,9 +140,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest full verification before 0.1.9 release packaging:
+Latest full verification after manual encrypted sync UI:
 
-- `npm test`: 19 passed
+- `npm test`: 26 passed
 - `npm run build`: passed
 - `npm run test:rust`: 10 passed
 - `npm run test:e2e`: 10 passed
@@ -161,6 +163,7 @@ E2E coverage includes:
 - people index
 - graph neighbors
 - encrypted vault persistence after reload with no plaintext in localStorage
+- encrypted sync packet export download
 
 ## Source Map
 
@@ -169,6 +172,8 @@ Key frontend files:
 - `src/App.tsx`: app orchestration, vault lifecycle, autosave, imports/exports, updater flows
 - `src/components/VaultGate.tsx`: vault setup/unlock UI
 - `src/vaultCrypto.ts`: PBKDF2/AES-GCM vault encryption
+- `src/sync.ts`: sync packet build/parse/merge and record-level encrypted sync packets
+- `src/device.ts`: stable local device identity
 - `src/storage.ts`: encrypted vault and legacy migration adapter
 - `src/model.ts`: core types, extraction, local search
 - `src/repository.ts`: immutable mutations
@@ -222,15 +227,17 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
+Current status: manual encrypted sync packets exist. Automatic cloud/background sync is still blocked until device registry, deletion tombstones, and recovery behavior are specified.
+
 ## Recommended Next Steps
 
 ### Trust/Security
 
 1. Add restore preview before replacing a vault.
 2. Add corrupted/tampered vault tests.
-3. Move toward record-level encrypted records.
+3. Add sync deletion tombstones.
 4. Add corrupted vault and tamper tests.
-5. Move toward record-level encrypted records.
+5. Add multi-device sync registry.
 
 ### Product Quality
 
@@ -249,4 +256,4 @@ Reason: syncing before the encryption model is stable risks leaking or locking p
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence. The next major architecture decision is record-level encrypted data plus sync design, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence and manual encrypted sync packets. The next major architecture decision is deletion/device lifecycle for sync, not more plaintext SQLite indexing.

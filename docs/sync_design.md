@@ -85,6 +85,8 @@ Implemented:
 - record-level AES-GCM encrypted sync records.
 - wrong-passphrase rejection for encrypted sync packets.
 - metadata tamper detection between encrypted wrappers and decrypted records.
+- stable per-device identity stored locally as `distill.device.v1`.
+- manual encrypted sync packet export/import UI.
 - deterministic merge rule:
   - accept a remote block when the local block is missing.
   - accept a remote block when `remote.updatedAt` is newer.
@@ -96,7 +98,7 @@ Not implemented yet:
 
 - project record sync.
 - deletion tombstones.
-- device registry UI.
+- multi-device registry UI.
 - automatic network or cloud sync.
 
 This keeps the risky part small: the app can prove merge behavior before any private data is sent to a network or cloud provider.
@@ -125,6 +127,20 @@ This keeps the risky part small: the app can prove merge behavior before any pri
 ```
 
 The outer wrapper contains only the fields required for sync routing, ordering, and deterministic tie-breaking. The decrypted record contains the full `ThoughtBlock` payload. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging.
+
+## Manual Sync Workflow
+
+The current UI supports local manual sync only:
+
+1. Unlock the vault.
+2. Confirm or rename the local device name in Inspector.
+3. Export an encrypted sync packet.
+4. Move the `.distill-sync.json` file to another device manually.
+5. Unlock the other device with the same vault passphrase.
+6. Import the encrypted sync packet.
+7. Distill decrypts records in memory, verifies wrapper metadata, and applies the deterministic merge.
+
+This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
 ## Sync Record Shape
 
@@ -198,8 +214,8 @@ Encrypted file sync MVP:
 
 1. Export encrypted `.distill-vault.json`.
 2. Import encrypted `.distill-vault.json` on another device.
-3. Add record-level encrypted append-only log. Current status: encrypted record packets exist in code, but no file UI exists yet.
-4. Add a manual "merge encrypted vault" command.
+3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
+4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import merges block records.
 5. Automate file read/write through a user-selected folder later.
 
 ## Security Gate

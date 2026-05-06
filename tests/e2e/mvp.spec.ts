@@ -147,7 +147,7 @@ test('Edit, archive, and restore keep a block usable', async ({ page }) => {
   const block = page.locator('#inbox .thoughtBlock').filter({ hasText: 'Archive workflow' });
   await block.getByRole('button', { name: 'Edit' }).click();
   await page.getByLabel('Edit thought block').fill('Edited archive workflow [[Restore Test]] #qa #edited');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.locator('.editBlockForm').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Edited archive workflow' })).toBeVisible();
   await expect(page.getByText('edited').first()).toBeVisible();
 
@@ -175,6 +175,11 @@ test('Markdown, JSON, and backup exports download files', async ({ page }) => {
   const backupDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Backup JSON' }).click();
   expect((await backupDownload).suggestedFilename()).toMatch(/^distill-backup-.+\.json$/);
+
+  await page.locator('.syncBox').scrollIntoViewIfNeeded();
+  const syncDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export sync packet' }).click();
+  expect((await syncDownload).suggestedFilename()).toMatch(/^distill-sync-.+\.distill-sync\.json$/);
 });
 
 test('Update section validates installer launch boundary in browser fallback', async ({ page }) => {

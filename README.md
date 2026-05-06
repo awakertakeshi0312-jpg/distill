@@ -21,6 +21,8 @@ Implemented:
 - Validated JSON restore for portable backups.
 - Markdown import for bullet-based notes.
 - Manual JSON backup and encrypted vault backup.
+- Manual encrypted sync packet export/import.
+- Stable local device identity for sync packet source tracking.
 - First-run onboarding for capture/search/export workflow.
 - Encrypted local vault gate with passphrase-based unlock.
 - One-time migration from legacy plaintext local storage to encrypted vault storage.
@@ -31,7 +33,7 @@ Implemented:
 Not included in this MVP:
 
 - Real embedding/vector search.
-- Cloud sync or multi-device replication.
+- Automatic cloud sync or background multi-device replication.
 - Signed installer/certificate trust.
 - Production-grade multi-browser E2E coverage beyond the included Chrome smoke test.
 
@@ -85,7 +87,7 @@ npm run check:all
 
 Current passing suite:
 
-- Frontend/domain tests: 19 passed.
+- Frontend/domain tests: 26 passed.
 - Rust/SQLite tests: 10 passed.
 - Browser E2E smoke tests: 10 passed.
 - Production frontend build: passing.

@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.9 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, and record-level encrypted sync packets now exist as a code-level foundation.
+Distill 0.1.9 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, and record-level encrypted sync packets now have a manual export/import path.
 
 ## Phase 1: Desktop MVP
 
@@ -64,7 +64,7 @@ Next:
 - Corrupted/tampered vault tests.
 - Restore preview before replacing vault.
 - User-selectable vault location.
-- Record-level encrypted records. Complete as a pure sync packet foundation; UI and automatic file sync are not enabled yet.
+- Record-level encrypted records. Complete for manual sync packet export/import; automatic file sync is not enabled yet.
 - Optional platform keyring or Tauri Stronghold convenience unlock.
 
 ## Phase 4: Retrieval Upgrade

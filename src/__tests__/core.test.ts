@@ -23,6 +23,7 @@ import { buildKnowledgeGraph, filterKnowledgeGraph, getGraphNeighbors, layoutKno
 import { exportStoreAsJson } from '../export';
 import { createMarkdownImport, parseDistillImport } from '../import';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
+import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
 import {
   applyEncryptedSyncPacket,
   applySyncPacket,
@@ -474,5 +475,37 @@ describe('sync packets', () => {
     };
 
     await expect(decryptEncryptedSyncPacket(tampered, 'correct horse battery staple')).rejects.toThrow(/metadata/);
+  });
+});
+
+describe('device identity', () => {
+  it('creates and renames a stable local device identity', () => {
+    const storage = new Map<string, string>();
+    const previousLocalStorage = globalThis.localStorage;
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+        removeItem: (key: string) => storage.delete(key),
+      },
+    });
+
+    try {
+      const created = getOrCreateDeviceIdentity();
+      const loaded = getOrCreateDeviceIdentity();
+      const renamed = renameDeviceIdentity(created, 'Travel laptop');
+
+      expect(created.id).toBe(loaded.id);
+      expect(created.name).toBeTruthy();
+      expect(renamed).toMatchObject({ id: created.id, name: 'Travel laptop' });
+      expect(readDeviceIdentity()?.name).toBe('Travel laptop');
+      expect(storage.get(DEVICE_IDENTITY_KEY)).toContain('Travel laptop');
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        value: previousLocalStorage,
+      });
+    }
   });
 });

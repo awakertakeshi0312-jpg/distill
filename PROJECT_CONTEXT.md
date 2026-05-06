@@ -12,6 +12,7 @@
 - React + TypeScript + Vite + Tauri。
 - ブラウザ開発ポートは `4173`。
 - encrypted local vault gate、パスフレーズ変更、自動ロック、ローカル保存を持つ。
+- 手動の暗号化sync packet export/importと端末IDを持つ。
 - Inbox、Today、Search、Graph、Projects、Archive、Export/Import、言語切替を実装済み。
 - MVP は Windows で buildable。
 
