@@ -89,6 +89,7 @@ Implemented:
 - manual encrypted sync packet export/import UI.
 - desktop sync-folder path for writing encrypted packet files, scanning packet candidates, and loading a selected packet into the existing preview flow.
 - import preview before applying encrypted sync packets, with add/update/skip/delete counts.
+- decision-review counts in sync previews for remote wins, local wins, same-time tie-breaks, and local changes/deletes.
 - known device registry persisted in the encrypted vault metadata.
 - revoked device registry and rejection of future packets from locally revoked devices.
 - deletion tombstones for permanent thought-block deletion.
@@ -181,7 +182,7 @@ The current UI supports local manual sync only:
 5. Unlock the other device with the same vault passphrase.
 6. Import the encrypted sync packet.
 7. Distill decrypts records in memory and shows a sync preview before changing the vault.
-8. The preview summarizes incoming records, devices, block additions, block updates, skipped blocks, and block deletions.
+8. The preview summarizes incoming records, devices, block additions, block updates, skipped blocks, block deletions, remote wins, local wins, same-time tie-breaks, and local changes/deletes.
 9. If the user applies the preview, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
 10. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
 11. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.

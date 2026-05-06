@@ -12,7 +12,7 @@ This document is the handoff context for Distill so another person or future age
 - Product type: local-first desktop/PWA thinking app
 - Current version: 0.1.16
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, desktop sync-folder packet exchange prototype, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview and decision-review counts, desktop sync-folder packet exchange prototype, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -65,6 +65,7 @@ Implemented app features:
 - Manual encrypted sync packet export/import using record-level encrypted records
 - Desktop sync-folder path for writing, scanning, and previewing encrypted sync packet files
 - Sync packet apply preview with add/update/skip/delete counts before merging
+- Sync packet decision review with remote wins, local wins, same-time tie-breaks, and local changes/deletes
 - Manual sync device registry in the Inspector
 - Sync device trust revocation and revoked-device packet rejection
 - Permanent archive deletion with sync tombstones
@@ -150,7 +151,7 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after sync-folder packet exchange prototype:
+Latest verification after sync decision-review update:
 
 - `npm test`: 42 passed
 - `npm run build`: passed

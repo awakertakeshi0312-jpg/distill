@@ -759,6 +759,10 @@ describe('sync packets', () => {
       skippedBlocks: 1,
       deletedBlocks: 1,
       skippedDeletions: 0,
+      remoteWins: 2,
+      localWins: 1,
+      timestampTies: 0,
+      destructiveChanges: 2,
       replay: false,
     });
 
@@ -940,6 +944,10 @@ describe('sync packets', () => {
       skippedBlocks: 1,
       deletedBlocks: 0,
       skippedDeletions: 0,
+      remoteWins: 0,
+      localWins: 0,
+      timestampTies: 0,
+      destructiveChanges: 0,
       replay: true,
     });
   });

@@ -315,6 +315,11 @@ export function InspectorPanel({
           updated: 'Updated',
           skipped: 'Skipped',
           deleted: 'Deleted locally',
+          decisions: 'Decision review',
+          remoteWins: 'Remote wins',
+          localWins: 'Local wins',
+          timestampTies: 'Same-time tie-breaks',
+          destructiveChanges: 'Local changes/deletes',
           warning: 'This packet is stale or already imported. Applying will not change the vault.',
           apply: 'Apply sync',
           dismiss: 'Dismiss packet',
@@ -334,6 +339,11 @@ export function InspectorPanel({
           updated: '更新',
           skipped: 'スキップ',
           deleted: 'ローカル削除',
+          decisions: '判定レビュー',
+          remoteWins: '相手側を採用',
+          localWins: 'ローカルを維持',
+          timestampTies: '同時刻の決着',
+          destructiveChanges: '更新・削除されるローカル',
           warning: 'このパケットは古い、または取り込み済みです。適用してもVaultは変更されません。',
           apply: '同期を適用',
           dismiss: 'パケットを閉じる',
@@ -837,6 +847,21 @@ export function InspectorPanel({
                 </span>
                 <span>
                   {syncPreviewLabels.skipped}: {syncPreview.diff.skippedDeletions}
+                </span>
+              </div>
+              <div className="restorePreviewGrid" aria-label={syncPreviewLabels.decisions}>
+                <b>{syncPreviewLabels.decisions}</b>
+                <span>
+                  {syncPreviewLabels.remoteWins}: {syncPreview.diff.remoteWins}
+                </span>
+                <span>
+                  {syncPreviewLabels.localWins}: {syncPreview.diff.localWins}
+                </span>
+                <span>
+                  {syncPreviewLabels.timestampTies}: {syncPreview.diff.timestampTies}
+                </span>
+                <span>
+                  {syncPreviewLabels.destructiveChanges}: {syncPreview.diff.destructiveChanges}
                 </span>
               </div>
               {syncPreview.diff.replay ? <span className="restoreWarning">{syncPreviewLabels.warning}</span> : null}

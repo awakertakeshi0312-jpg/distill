@@ -17,6 +17,10 @@ export type SyncPreviewDiff = {
   skippedBlocks: number;
   deletedBlocks: number;
   skippedDeletions: number;
+  remoteWins: number;
+  localWins: number;
+  timestampTies: number;
+  destructiveChanges: number;
   replay: boolean;
 };
 
@@ -87,6 +91,10 @@ export function buildSyncPreview(store: DistillStore, packet: DistillSyncPacket)
     skippedBlocks: 0,
     deletedBlocks: 0,
     skippedDeletions: 0,
+    remoteWins: 0,
+    localWins: 0,
+    timestampTies: 0,
+    destructiveChanges: 0,
     replay,
   };
 
@@ -104,6 +112,7 @@ export function buildSyncPreview(store: DistillStore, packet: DistillSyncPacket)
     if (record.kind === 'thought-block-deletion') {
       if (!acceptsIncomingTombstone(tombstonesById.get(record.id), record)) {
         diff.skippedDeletions += 1;
+        diff.localWins += 1;
         continue;
       }
 
@@ -112,13 +121,19 @@ export function buildSyncPreview(store: DistillStore, packet: DistillSyncPacket)
       const localBlock = blocksById.get(record.id);
       if (!localBlock || record.value.deletedAt >= localBlock.updatedAt) {
         if (localBlock) {
+          if (record.value.deletedAt === localBlock.updatedAt) {
+            diff.timestampTies += 1;
+          }
           diff.deletedBlocks += 1;
+          diff.remoteWins += 1;
+          diff.destructiveChanges += 1;
         } else {
           diff.skippedDeletions += 1;
         }
         blocksById.delete(record.id);
       } else {
         diff.skippedDeletions += 1;
+        diff.localWins += 1;
       }
 
       continue;
@@ -128,6 +143,10 @@ export function buildSyncPreview(store: DistillStore, packet: DistillSyncPacket)
 
     if (tombstone && !blockBeatsTombstone(record, tombstone)) {
       diff.skippedBlocks += 1;
+      diff.localWins += 1;
+      if (record.updatedAt === tombstone.deletedAt) {
+        diff.timestampTies += 1;
+      }
       continue;
     }
 
@@ -135,11 +154,22 @@ export function buildSyncPreview(store: DistillStore, packet: DistillSyncPacket)
 
     if (!acceptsIncomingBlock(localBlock, record)) {
       diff.skippedBlocks += 1;
+      diff.localWins += 1;
+      if (localBlock && record.updatedAt === localBlock.updatedAt) {
+        diff.timestampTies += 1;
+      }
       continue;
     }
 
     if (localBlock) {
       diff.updatedBlocks += 1;
+      if (record.hash !== stableHash(localBlock)) {
+        diff.remoteWins += 1;
+        diff.destructiveChanges += 1;
+      }
+      if (record.updatedAt === localBlock.updatedAt) {
+        diff.timestampTies += 1;
+      }
     } else {
       diff.addedBlocks += 1;
     }

@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.16 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, device registry, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews.
+Distill 0.1.16 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, device registry, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews with decision-review counts.
 
 ## Phase 1: Desktop MVP
 
@@ -41,7 +41,7 @@ Completed:
 
 Remaining polish:
 
-- Conflict summary beyond full-store restore replacement. Sync packet previews are complete; richer full-vault conflict review remains.
+- Conflict summary beyond full-store restore replacement. Sync packet previews now show decision-review counts; richer full-vault conflict review remains.
 - Empty-state and error-state polish.
 - Better Japanese product copy.
 
@@ -65,7 +65,7 @@ Next:
 - Restore preview before replacing vault. Complete.
 - Corrupted/tampered vault tests. Complete for unsupported envelope and tampered payload coverage.
 - User-selectable vault location.
-- Record-level encrypted records. Complete for manual sync packet export/import with apply preview, deletion tombstones, device registry, device trust revocation, stale packet rejection, chained checkpoint validation, and explicit desktop sync-folder packet exchange; automatic background sync is not enabled yet.
+- Record-level encrypted records. Complete for manual sync packet export/import with apply preview, deletion tombstones, device registry, device trust revocation, stale packet rejection, chained checkpoint validation, sync decision-review counts, and explicit desktop sync-folder packet exchange; automatic background sync is not enabled yet.
 - Optional platform keyring or Tauri Stronghold convenience unlock.
 
 ## Phase 4: Retrieval Upgrade
@@ -103,6 +103,7 @@ Status: Foundation in code.
 - Apply-before-confirm preview for encrypted sync packets.
 - Device trust revocation and revoked-device rejection.
 - Desktop sync-folder packet writing, scanning, and selected-packet preview.
+- Sync preview decision review for remote wins, local wins, same-time tie-breaks, and local changes/deletes.
 - Manual encrypted file sync first.
 - Conflict handling.
 - Optional E2EE hosted sync after record format is stable.
