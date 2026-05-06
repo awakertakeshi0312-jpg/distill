@@ -39,6 +39,7 @@ import {
   buildEncryptedSyncPacket,
   buildSyncPacket,
   computeSyncPacketHash,
+  createSyncAutoExportFingerprint,
   decryptEncryptedSyncPacket,
   forgetRevokedSyncDevice,
   getSyncPacketCheckpointStatus,
@@ -880,6 +881,46 @@ describe('sync packets', () => {
       packet.packetHash,
     );
     expect(nextPacket.previousPacketHash).toBe(packet.packetHash);
+  });
+
+  it('fingerprints outbound sync content without looping on source checkpoint metadata', () => {
+    const sourceDevice = { id: 'windows-dev', name: 'Windows desk' };
+    const baseStore: DistillStore = {
+      projects: [],
+      blocks: [
+        block({
+          id: 'source-export',
+          content: 'Exported local packet',
+          capturedAt: '2026-05-06T03:00:00.000Z',
+          updatedAt: '2026-05-06T04:00:00.000Z',
+        }),
+      ],
+    };
+    const packet = buildSyncPacket(baseStore, {
+      sourceDeviceId: sourceDevice.id,
+      sourceDeviceName: sourceDevice.name,
+      now: '2026-05-06T06:00:00.000Z',
+    });
+    const checkpointed = registerSyncPacketCheckpoint(baseStore, packet);
+
+    expect(createSyncAutoExportFingerprint(checkpointed, sourceDevice)).toBe(
+      createSyncAutoExportFingerprint(baseStore, sourceDevice),
+    );
+    expect(
+      createSyncAutoExportFingerprint(
+        {
+          ...baseStore,
+          blocks: [{ ...baseStore.blocks[0], content: 'Changed outbound content' }],
+        },
+        sourceDevice,
+      ),
+    ).not.toBe(createSyncAutoExportFingerprint(baseStore, sourceDevice));
+    expect(
+      createSyncAutoExportFingerprint(
+        revokeSyncDevice(registerSyncDevice(baseStore, { id: 'phone-dev', name: 'Phone' }), 'phone-dev'),
+        sourceDevice,
+      ),
+    ).not.toBe(createSyncAutoExportFingerprint(baseStore, sourceDevice));
   });
 
   it('rejects newer packets that do not continue the known checkpoint chain', () => {

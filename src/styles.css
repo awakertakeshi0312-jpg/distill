@@ -959,6 +959,15 @@ button:disabled {
   color: var(--muted);
 }
 
+.syncAutoExportGate {
+  border-color: rgba(159, 104, 36, 0.32);
+  background: #fff8ea;
+}
+
+.syncAutoExportGate small {
+  color: var(--muted);
+}
+
 .restorePreviewActions {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -105,6 +105,23 @@ export function stableHash(value: unknown) {
   return `fnv1a32:${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
+export function createSyncAutoExportFingerprint(
+  store: DistillStore,
+  sourceDevice: Pick<SyncDevice, 'id' | 'name'>,
+) {
+  const sync = normalizeSyncMetadata(store.sync);
+
+  return stableHash({
+    sourceDevice: {
+      id: sourceDevice.id,
+      name: sourceDevice.name.trim() || sourceDevice.id,
+    },
+    blocks: store.blocks.map(cloneBlock).sort((a, b) => a.id.localeCompare(b.id)),
+    tombstones: sync.tombstones.map(cloneTombstone).sort((a, b) => a.id.localeCompare(b.id)),
+    revokedDevices: sync.revokedDevices.map(cloneRevokedDevice).sort((a, b) => a.id.localeCompare(b.id)),
+  });
+}
+
 export type SyncPacketCheckpointStatus =
   | 'valid'
   | 'missing-packet-hash'

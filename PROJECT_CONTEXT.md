@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-06)
 
-- Current version: 0.1.23.
+- Current version: 0.1.24.
 - Current phase: Trust Layer / Phase 6 Sync hardening.
-- Current completion estimate: 57% overall; this phase advanced +2pt in this pass.
-- Implemented in this pass: monitor-only sync-folder review queue. Distill can refresh the safety review queue every minute while still requiring manual preview/apply.
-- Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring never auto-previews or auto-applies; sync apply is still gated by a local encrypted recovery snapshot, and saved recovery snapshots can be reopened through Restore preview.
-- Still not implemented: automatic/background sync, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.23.md`.
+- Current completion estimate: 60% overall; this phase advanced +3pt in this pass.
+- Implemented in this pass: outbound sync-folder auto-export. Distill can write encrypted outbound packets when local content changes while still requiring manual preview/apply for incoming packets.
+- Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-preview or auto-apply incoming packets; sync apply is still gated by a local encrypted recovery snapshot, and saved recovery snapshots can be reopened through Restore preview.
+- Still not implemented: automatic inbound sync/apply, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.24.md`.
 ## 役割
 
 思考の断片を捕まえ、タグ・リンク・検索・グラフ・レビューを通じて、判断や知識に蒸留するローカルファーストのデスクトップアプリ。

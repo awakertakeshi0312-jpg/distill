@@ -63,6 +63,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added encrypted pre-sync recovery snapshots so sync is not applied unless a recovery point is saved first.
 - Added in-app listing and Restore preview for saved encrypted pre-sync recovery snapshots.
 - Added monitor-only sync-folder review refresh that updates safety classifications without auto-preview or auto-apply.
+- Added outbound sync-folder auto-export for encrypted packets only; inbound preview/apply remains manual.
 
 ## Findings
 
@@ -177,6 +178,6 @@ Before distributing a new public build:
 
 1. Add device removal and trust revocation flow.
 2. Add OS-native idle/sleep integration and optional keyring convenience unlock.
-3. Add automatic encrypted folder sync only after recovery drills are documented and exercised.
+3. Add automatic inbound encrypted folder sync only after recovery drills, signed-device assurance, and rollback drills are documented and exercised.
 4. Add signed checkpoint or trusted-device verification for higher assurance sync.
 5. Add user-selectable vault location and backup rotation.

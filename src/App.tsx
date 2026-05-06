@@ -8,6 +8,7 @@ import { initialStore, normalizeSyncMetadata, type DistillStore, type Project, t
 import {
   applySyncPacket,
   buildEncryptedSyncPacket,
+  createSyncAutoExportFingerprint,
   decryptEncryptedSyncPacket,
   forgetRevokedSyncDevice,
   getSyncPacketCheckpointStatus,
@@ -93,7 +94,10 @@ const ONBOARDING_KEY = 'distill.onboarding.dismissed';
 const AUTO_LOCK_MINUTES_KEY = 'distill.autoLockMinutes';
 const SYNC_FOLDER_PATH_KEY = 'distill.syncFolderPath';
 const SYNC_FOLDER_MONITOR_ENABLED_KEY = 'distill.syncFolderMonitor.enabled';
+const SYNC_FOLDER_AUTO_EXPORT_ENABLED_KEY = 'distill.syncFolderAutoExport.enabled';
+const SYNC_FOLDER_AUTO_EXPORT_FINGERPRINT_KEY = 'distill.syncFolderAutoExport.fingerprint';
 const SYNC_FOLDER_MONITOR_INTERVAL_MS = 60_000;
+const SYNC_FOLDER_AUTO_EXPORT_INTERVAL_MS = 120_000;
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 type VaultStatus = 'checking' | 'locked' | 'setup' | 'unlocked';
 
@@ -156,6 +160,23 @@ function App() {
     return localStorage.getItem(SYNC_FOLDER_MONITOR_ENABLED_KEY) === 'true';
   });
   const [syncFolderLastCheckedAt, setSyncFolderLastCheckedAt] = useState('');
+  const [syncFolderAutoExportEnabled, setSyncFolderAutoExportEnabled] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return localStorage.getItem(SYNC_FOLDER_AUTO_EXPORT_ENABLED_KEY) === 'true';
+  });
+  const [syncFolderAutoExportFingerprint, setSyncFolderAutoExportFingerprint] = useState(() => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+
+    return localStorage.getItem(SYNC_FOLDER_AUTO_EXPORT_FINGERPRINT_KEY) ?? '';
+  });
+  const [syncFolderAutoExportLastAt, setSyncFolderAutoExportLastAt] = useState('');
+  const [syncFolderAutoExportLastFile, setSyncFolderAutoExportLastFile] = useState('');
+  const syncFolderAutoExportInFlight = useRef(false);
   const [personalKmHandoffStatus, setPersonalKmHandoffStatus] = useState('');
   const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(() => {
     if (typeof window === 'undefined') {
@@ -268,6 +289,14 @@ function App() {
   }, [syncFolderMonitorEnabled]);
 
   useEffect(() => {
+    localStorage.setItem(SYNC_FOLDER_AUTO_EXPORT_ENABLED_KEY, String(syncFolderAutoExportEnabled));
+  }, [syncFolderAutoExportEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem(SYNC_FOLDER_AUTO_EXPORT_FINGERPRINT_KEY, syncFolderAutoExportFingerprint);
+  }, [syncFolderAutoExportFingerprint]);
+
+  useEffect(() => {
     if (vaultStatus !== 'unlocked' || autoLockMinutes <= 0) {
       return;
     }
@@ -345,6 +374,33 @@ function App() {
 
     return () => window.clearInterval(timer);
   }, [vaultStatus, syncFolderMonitorEnabled, syncFolderPath, vaultPassphrase, store]);
+
+  useEffect(() => {
+    if (
+      vaultStatus !== 'unlocked' ||
+      !syncFolderAutoExportEnabled ||
+      !syncFolderPath.trim() ||
+      !vaultPassphrase ||
+      !isDesktopRuntime()
+    ) {
+      return;
+    }
+
+    void runSyncFolderAutoExportTick();
+    const timer = window.setInterval(() => {
+      void runSyncFolderAutoExportTick();
+    }, SYNC_FOLDER_AUTO_EXPORT_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [
+    vaultStatus,
+    syncFolderAutoExportEnabled,
+    syncFolderPath,
+    vaultPassphrase,
+    store,
+    deviceIdentity,
+    syncFolderAutoExportFingerprint,
+  ]);
 
   useEffect(() => {
     function handleGlobalShortcut(event: KeyboardEvent) {
@@ -764,6 +820,9 @@ function App() {
       setSyncRiskAccepted(false);
       setSyncFolderMonitorEnabled(false);
       setSyncFolderLastCheckedAt('');
+      setSyncFolderAutoExportEnabled(false);
+      setSyncFolderAutoExportLastAt('');
+      setSyncFolderAutoExportLastFile('');
       setVaultSecurityStatus('');
     }
   }
@@ -847,8 +906,13 @@ function App() {
           syncFolderMonitorDisabled: 'Sync folder monitor disabled.',
           syncFolderMonitorUpdated: (files: number, ready: number, risky: number, blocked: number) =>
             `Monitor refreshed ${files} packets: ${ready} ready, ${risky} risk review, ${blocked} blocked/invalid.`,
+          syncFolderAutoExportEnabled:
+            'Sync folder auto-export enabled. Distill will write encrypted outbound packets when local content changes, but will not import or apply anything automatically.',
+          syncFolderAutoExportDisabled: 'Sync folder auto-export disabled.',
+          syncFolderAutoExportSuccess: (records: number, filePath: string) =>
+            `Auto-export wrote ${records} encrypted sync records to ${filePath}. Incoming packets still require manual preview/apply.`,
           syncFolderReviewReady: (records: number, deviceId: string) =>
-            `Ready: ${records} records from ${deviceId}. Preview before applying.`,
+            'Ready: ' + records + ' records from ' + deviceId + '. Preview before applying.',
           syncFolderReviewRisky: (destructiveChanges: number, timestampTies: number) =>
             `Risk review required: ${destructiveChanges} local updates/deletes and ${timestampTies} same-time ties.`,
           syncFolderReviewStale: 'Stale or already imported. Applying will not change the vault.',
@@ -919,6 +983,11 @@ function App() {
           syncFolderMonitorDisabled: '同期フォルダ監視を無効にしました。',
           syncFolderMonitorUpdated: (files: number, ready: number, risky: number, blocked: number) =>
             `監視で${files}件を更新しました。安全候補${ready}件、リスク確認${risky}件、ブロック/無効${blocked}件です。`,
+          syncFolderAutoExportEnabled:
+            '同期フォルダへの自動書き出しを有効にしました。ローカル内容が変わった時だけ暗号化パケットを書き出しますが、受信パケットは自動適用しません。',
+          syncFolderAutoExportDisabled: '同期フォルダへの自動書き出しを無効にしました。',
+          syncFolderAutoExportSuccess: (records: number, filePath: string) =>
+            `自動書き出しで${records}件の暗号化同期レコードを${filePath}へ保存しました。受信パケットは引き続き手動プレビュー/適用が必要です。`,
           syncFolderReviewReady: (records: number, deviceId: string) =>
             `安全候補: ${deviceId} からの ${records} 件です。適用前にプレビューしてください。`,
           syncFolderReviewRisky: (destructiveChanges: number, timestampTies: number) =>
@@ -1000,6 +1069,18 @@ function App() {
     };
   }
 
+  async function writeCurrentEncryptedSyncPacketToFolder() {
+    const { identity, packet, serializedPacket } = await createCurrentEncryptedSyncPacket();
+    const filePath = await writeEncryptedSyncPacketFile(syncFolderPath.trim(), createSyncPacketFileName(), serializedPacket);
+
+    setDeviceIdentity(identity);
+    setStore((current) => registerSyncPacketCheckpoint(registerSyncDevice(current, identity), packet));
+    setSyncFolderPackets(await listEncryptedSyncPacketFiles(syncFolderPath.trim()));
+    setSyncFolderPacketReviews([]);
+
+    return { identity, packet, filePath };
+  }
+
   async function exportEncryptedSyncPacket() {
     const labels = syncLabels();
     setSyncPreview(null);
@@ -1011,11 +1092,11 @@ function App() {
     }
 
     try {
-      const { identity, packet, registeredStore, serializedPacket } = await createCurrentEncryptedSyncPacket();
+      const { identity, packet, serializedPacket } = await createCurrentEncryptedSyncPacket();
 
       downloadTextFile(createSyncPacketFileName(), serializedPacket, 'application/json');
       setDeviceIdentity(identity);
-      setStore(registerSyncPacketCheckpoint(registeredStore, packet));
+      setStore((current) => registerSyncPacketCheckpoint(registerSyncDevice(current, identity), packet));
       setSyncStatus(labels.exportSuccess(packet.records.length, identity.name));
     } catch (error) {
       console.warn('Failed to export encrypted Distill sync packet.', error);
@@ -1219,6 +1300,79 @@ function App() {
     }
   }
 
+  async function runSyncFolderAutoExportTick() {
+    const labels = syncLabels();
+
+    if (syncFolderAutoExportInFlight.current) {
+      return;
+    }
+
+    if (!syncFolderPath.trim()) {
+      setSyncStatus(labels.syncFolderRequired);
+      return;
+    }
+
+    if (!vaultPassphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    if (!isDesktopRuntime()) {
+      setSyncStatus(labels.syncFolderDesktopRequired);
+      return;
+    }
+
+    const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
+    const fingerprint = createSyncAutoExportFingerprint(store, identity);
+
+    if (fingerprint === syncFolderAutoExportFingerprint) {
+      return;
+    }
+
+    syncFolderAutoExportInFlight.current = true;
+
+    try {
+      const { packet, filePath } = await writeCurrentEncryptedSyncPacketToFolder();
+
+      setSyncFolderAutoExportFingerprint(fingerprint);
+      setSyncFolderAutoExportLastAt(new Date().toLocaleString());
+      setSyncFolderAutoExportLastFile(filePath);
+      setSyncStatus(labels.syncFolderAutoExportSuccess(packet.records.length, filePath));
+    } catch (error) {
+      console.warn('Failed to auto-export encrypted Distill sync packet to folder.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
+    } finally {
+      syncFolderAutoExportInFlight.current = false;
+    }
+  }
+
+  function toggleSyncFolderAutoExport(enabled: boolean) {
+    const labels = syncLabels();
+
+    if (enabled && !syncFolderPath.trim()) {
+      setSyncStatus(labels.syncFolderRequired);
+      return;
+    }
+
+    if (enabled && !vaultPassphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    if (enabled && !isDesktopRuntime()) {
+      setSyncStatus(labels.syncFolderDesktopRequired);
+      return;
+    }
+
+    setSyncFolderAutoExportEnabled(enabled);
+    setSyncStatus(enabled ? labels.syncFolderAutoExportEnabled : labels.syncFolderAutoExportDisabled);
+
+    if (!enabled) {
+      setSyncFolderAutoExportLastAt('');
+      setSyncFolderAutoExportLastFile('');
+    }
+  }
+
   async function previewRecommendedSyncFolderPacket() {
     const labels = syncLabels();
     const reviews = await collectSyncFolderPacketReviews();
@@ -1266,14 +1420,11 @@ function App() {
     }
 
     try {
-      const { identity, packet, registeredStore, serializedPacket } = await createCurrentEncryptedSyncPacket();
-      const filePath = await writeEncryptedSyncPacketFile(syncFolderPath.trim(), createSyncPacketFileName(), serializedPacket);
+      const fingerprint = createSyncAutoExportFingerprint(store, deviceIdentity ?? getOrCreateDeviceIdentity());
+      const { packet, filePath } = await writeCurrentEncryptedSyncPacketToFolder();
 
-      setDeviceIdentity(identity);
-      setStore(registerSyncPacketCheckpoint(registeredStore, packet));
+      setSyncFolderAutoExportFingerprint(fingerprint);
       setSyncStatus(labels.syncFolderExportSuccess(packet.records.length, filePath));
-      setSyncFolderPackets(await listEncryptedSyncPacketFiles(syncFolderPath.trim()));
-      setSyncFolderPacketReviews([]);
     } catch (error) {
       console.warn('Failed to export encrypted Distill sync packet to folder.', error);
       setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
@@ -1956,6 +2107,9 @@ function App() {
             syncFolderPath={syncFolderPath}
             syncFolderMonitorEnabled={syncFolderMonitorEnabled}
             syncFolderLastCheckedAt={syncFolderLastCheckedAt}
+            syncFolderAutoExportEnabled={syncFolderAutoExportEnabled}
+            syncFolderAutoExportLastAt={syncFolderAutoExportLastAt}
+            syncFolderAutoExportLastFile={syncFolderAutoExportLastFile}
             syncFolderPackets={syncFolderPackets}
             syncFolderPacketReviews={syncFolderPacketReviews}
             personalKmHandoffStatus={personalKmHandoffStatus}
@@ -1998,6 +2152,7 @@ function App() {
               setSyncFolderPacketReviews([]);
             }}
             onSyncFolderMonitorToggle={toggleSyncFolderMonitor}
+            onSyncFolderAutoExportToggle={toggleSyncFolderAutoExport}
             onExportEncryptedSyncPacketToFolder={() => void exportEncryptedSyncPacketToFolder()}
             onRefreshSyncFolderPackets={() => void refreshSyncFolderPackets()}
             onReviewSyncFolderPackets={() => void reviewSyncFolderPackets()}

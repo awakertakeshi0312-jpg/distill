@@ -48,6 +48,9 @@ type InspectorPanelProps = {
   syncFolderPath: string;
   syncFolderMonitorEnabled: boolean;
   syncFolderLastCheckedAt: string;
+  syncFolderAutoExportEnabled: boolean;
+  syncFolderAutoExportLastAt: string;
+  syncFolderAutoExportLastFile: string;
   syncFolderPackets: SyncFolderPacketFile[];
   syncFolderPacketReviews: SyncFolderPacketReview[];
   personalKmHandoffStatus: string;
@@ -84,6 +87,7 @@ type InspectorPanelProps = {
   onImportEncryptedSyncPacket: (file: File) => void;
   onSyncFolderPathChange: (path: string) => void;
   onSyncFolderMonitorToggle: (enabled: boolean) => void;
+  onSyncFolderAutoExportToggle: (enabled: boolean) => void;
   onExportEncryptedSyncPacketToFolder: () => void;
   onRefreshSyncFolderPackets: () => void;
   onReviewSyncFolderPackets: () => void;
@@ -122,6 +126,9 @@ export function InspectorPanel({
   syncFolderPath,
   syncFolderMonitorEnabled,
   syncFolderLastCheckedAt,
+  syncFolderAutoExportEnabled,
+  syncFolderAutoExportLastAt,
+  syncFolderAutoExportLastFile,
   syncFolderPackets,
   syncFolderPacketReviews,
   personalKmHandoffStatus,
@@ -158,6 +165,7 @@ export function InspectorPanel({
   onImportEncryptedSyncPacket,
   onSyncFolderPathChange,
   onSyncFolderMonitorToggle,
+  onSyncFolderAutoExportToggle,
   onExportEncryptedSyncPacketToFolder,
   onRefreshSyncFolderPackets,
   onReviewSyncFolderPackets,
@@ -282,6 +290,12 @@ export function InspectorPanel({
           monitorOn: 'Monitor on',
           monitorOff: 'Monitor off',
           monitorHint: 'Refreshes the safety review queue every minute. Distill never applies packets automatically.',
+          autoExportOn: 'Auto-export on',
+          autoExportOff: 'Auto-export off',
+          autoExportHint:
+            'Writes an encrypted outbound packet when local content changes. Incoming packets still require manual preview/apply.',
+          lastExport: 'Last export',
+          lastExportFile: 'File',
           lastChecked: 'Last checked',
           folderPackets: 'Folder packets',
           noFolderPackets: 'No packet files found yet',
@@ -322,6 +336,12 @@ export function InspectorPanel({
           monitorOn: '監視オン',
           monitorOff: '監視オフ',
           monitorHint: '1分ごとに安全レビューキューを更新します。Distillはパケットを自動適用しません。',
+          autoExportOn: '自動書き出しオン',
+          autoExportOff: '自動書き出しオフ',
+          autoExportHint:
+            'ローカル内容が変わった時だけ暗号化パケットを書き出します。受信パケットは手動プレビュー/適用が必要です。',
+          lastExport: '最終書き出し',
+          lastExportFile: 'ファイル',
           lastChecked: '最終確認',
           folderPackets: 'フォルダ内パケット',
           noFolderPackets: '同期パケットはまだ見つかっていません',
@@ -917,6 +937,27 @@ export function InspectorPanel({
               type="checkbox"
               checked={syncFolderMonitorEnabled}
               onChange={(event) => onSyncFolderMonitorToggle(event.target.checked)}
+            />
+          </label>
+          <label className="riskGate syncAutoExportGate">
+            <span>
+              <strong>{syncFolderAutoExportEnabled ? syncLabels.autoExportOn : syncLabels.autoExportOff}</strong>
+              {syncLabels.autoExportHint}
+              {syncFolderAutoExportLastAt ? (
+                <small>
+                  {syncLabels.lastExport}: {syncFolderAutoExportLastAt}
+                </small>
+              ) : null}
+              {syncFolderAutoExportLastFile ? (
+                <small>
+                  {syncLabels.lastExportFile}: {syncFolderAutoExportLastFile}
+                </small>
+              ) : null}
+            </span>
+            <input
+              type="checkbox"
+              checked={syncFolderAutoExportEnabled}
+              onChange={(event) => onSyncFolderAutoExportToggle(event.target.checked)}
             />
           </label>
           <div className="exportActions stackedActions">
