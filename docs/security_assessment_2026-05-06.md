@@ -33,7 +33,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Tauri updater is registered only for desktop builds.
 - Manual sync packets use record-level encrypted records and deletion tombstones.
 - Sync packet imports show an apply preview before changing the vault.
-- Known sync devices now keep `lastPacketHash`, and newer packets must continue the known checkpoint chain.
+- Known sync devices now keep `lastPacketHash`, newer packets must continue the known checkpoint chain, and first-seen signed devices require a public-key verification-code match before apply.
 
 ### Changes Applied Through 0.1.16
 
@@ -57,7 +57,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added encrypted sync packet apply preview with add/update/skip/delete counts before merging.
 - Added chained sync checkpoint validation using packet hashes.
 - Added signed device checkpoints with per-device ECDSA P-256 keys and trusted-device signature verification.
-- Added unknown-device trust confirmation before applying first-seen source-device sync packets.
+- Added source-device verification codes for first-seen signed sync packets, plus legacy unknown-device trust confirmation for unsigned packets.
 - Added sync device trust revocation and revoked-device packet rejection.
 - Added explicit desktop sync-folder packet exchange with Tauri-side file name, schema, and size validation.
 - Added sync-folder safety scan that decrypts packet candidates in memory, classifies revoked-source/checkpoint-risk/invalid packets before preview, and keeps quarantine available.

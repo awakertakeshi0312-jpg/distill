@@ -1,14 +1,14 @@
 # Distill Project Context
 
-## Current Status (2026-05-06)
+## Current Status (2026-05-07)
 
-- Current version: 0.1.26.
+- Current version: 0.1.27.
 - Current phase: Trust Layer / Phase 6 Sync hardening.
-- Current completion estimate: 65% overall; this phase advanced +3pt in this pass.
-- Implemented in this pass: signed device checkpoints for sync packets. Distill now generates a local ECDSA P-256 signing key per device, signs outbound encrypted sync packets, verifies trusted-device signatures before apply, and blocks key mismatch, missing trusted signatures, or tampered signed packets.
-- Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, unknown-device trust confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
-- Still not implemented: automatic inbound sync/apply, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate, cross-device QR/key verification UX.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.26.md`.
+- Current completion estimate: 68% overall; this phase advanced +3pt in this pass.
+- Implemented in this pass: source-device verification codes for signed sync packets. Distill now derives a human-checkable SHA-256 fingerprint from each device signing public key, shows this device's verification code in the sync panel, and requires first-seen signed source devices to match the code before sync apply.
+- Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
+- Still not implemented: automatic inbound sync/apply, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate, actual QR scanner/rendering for mobile pairing, and device removal beyond revocation.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.27.md`.
 ## 役割
 
 思考の断片を捕まえ、タグ・リンク・検索・グラフ・レビューを通じて、判断や知識に蒸留するローカルファーストのデスクトップアプリ。

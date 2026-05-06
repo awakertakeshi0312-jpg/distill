@@ -26,7 +26,13 @@ import { createMarkdownImport, parseDistillImport } from '../import';
 import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
-import { createDeviceSigningKeyPair, reviewSyncPacketSignature, signSyncPacket } from '../deviceSigning';
+import {
+  createDeviceSigningKeyPair,
+  deviceFingerprintMatches,
+  formatDevicePublicKeyFingerprint,
+  reviewSyncPacketSignature,
+  signSyncPacket,
+} from '../deviceSigning';
 import { buildRestorePreview } from '../restorePreview';
 import { buildSyncPreview } from '../syncPreview';
 import {
@@ -1111,6 +1117,17 @@ describe('sync packets', () => {
       requiresTrust: false,
       signatureValid: true,
     });
+    expect(trustedReview.fingerprint).toMatch(/^[A-F0-9]{4}(?:-[A-F0-9]{4}){7}$/);
+    expect(trustedReview.verificationPayload).toContain(trustedReview.fingerprint);
+  });
+
+  it('formats device public key fingerprints for out-of-band trust checks', async () => {
+    const signingKeyPair = await createDeviceSigningKeyPair();
+    const fingerprint = await formatDevicePublicKeyFingerprint(signingKeyPair.publicKey);
+
+    expect(fingerprint).toMatch(/^[A-F0-9]{4}(?:-[A-F0-9]{4}){7}$/);
+    expect(deviceFingerprintMatches(fingerprint, fingerprint.toLowerCase().replace(/-/g, ' '))).toBe(true);
+    expect(deviceFingerprintMatches(fingerprint, '0000 0000 0000 0000 0000 0000 0000 0000')).toBe(false);
   });
 
   it('blocks signed packets that do not match the trusted source-device key', async () => {

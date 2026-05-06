@@ -15,6 +15,16 @@ export type DeviceSigningKeyPair = {
   createdAt: string;
 };
 
+export type DeviceVerificationPayload = {
+  type: 'distill-device-verification';
+  version: 1;
+  algorithm: typeof SYNC_SIGNATURE_ALGORITHM;
+  deviceId: string;
+  deviceName: string;
+  fingerprint: string;
+  publicKey: string;
+};
+
 export type SyncPacketSignatureStatus =
   | 'trusted-valid'
   | 'trusted-missing-signature'
@@ -31,6 +41,8 @@ export type SyncPacketSignatureReview = {
   requiresTrust: boolean;
   signatureValid: boolean;
   publicKey?: string;
+  fingerprint?: string;
+  verificationPayload?: string;
 };
 
 function getSubtleCrypto() {
@@ -62,6 +74,77 @@ function base64ToBytes(value: string) {
   }
 
   return bytes;
+}
+
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+function groupFingerprint(value: string) {
+  return value.match(/.{1,4}/g)?.join('-') ?? value;
+}
+
+export async function formatDevicePublicKeyFingerprint(publicKey: string) {
+  const digest = await getSubtleCrypto().digest('SHA-256', base64ToBytes(publicKey));
+  return groupFingerprint(bytesToHex(new Uint8Array(digest)).slice(0, 32));
+}
+
+async function createDeviceSignaturePublicKeyReviewFields(
+  publicKey: string | undefined,
+  deviceId: string,
+  deviceName: string,
+) {
+  if (!publicKey) {
+    return {};
+  }
+
+  let fingerprint = '';
+
+  try {
+    fingerprint = await formatDevicePublicKeyFingerprint(publicKey);
+  } catch {
+    return { publicKey };
+  }
+
+  return {
+    publicKey,
+    fingerprint,
+    verificationPayload: buildDeviceVerificationPayload({
+      deviceId,
+      deviceName,
+      publicKey,
+      fingerprint,
+    }),
+  };
+}
+
+export function normalizeDeviceFingerprintInput(value: string) {
+  return value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
+export function deviceFingerprintMatches(expectedFingerprint: string | undefined, userInput: string) {
+  if (!expectedFingerprint) {
+    return false;
+  }
+
+  return normalizeDeviceFingerprintInput(expectedFingerprint) === normalizeDeviceFingerprintInput(userInput);
+}
+
+export function buildDeviceVerificationPayload(input: {
+  deviceId: string;
+  deviceName: string;
+  publicKey: string;
+  fingerprint: string;
+}): string {
+  return JSON.stringify({
+    type: 'distill-device-verification',
+    version: 1,
+    algorithm: SYNC_SIGNATURE_ALGORITHM,
+    deviceId: input.deviceId,
+    deviceName: input.deviceName,
+    fingerprint: input.fingerprint,
+    publicKey: input.publicKey,
+  } satisfies DeviceVerificationPayload);
 }
 
 function isDeviceSigningKeyPair(value: unknown): value is DeviceSigningKeyPair {
@@ -204,6 +287,7 @@ export async function reviewSyncPacketSignature(
 ): Promise<SyncPacketSignatureReview> {
   const trustedPublicKey = getTrustedSyncDevicePublicKey(store, packet.sourceDeviceId);
   const isKnownDevice = normalizeSyncMetadata(store.sync).devices.some((device) => device.id === packet.sourceDeviceId);
+  const sourceDeviceName = packet.sourceDeviceName || packet.sourceDeviceId;
 
   if (!packet.signature) {
     if (trustedPublicKey) {
@@ -212,7 +296,7 @@ export async function reviewSyncPacketSignature(
         blocksApply: true,
         requiresTrust: false,
         signatureValid: false,
-        publicKey: trustedPublicKey,
+        ...(await createDeviceSignaturePublicKeyReviewFields(trustedPublicKey, packet.sourceDeviceId, sourceDeviceName)),
       };
     }
 
@@ -221,7 +305,7 @@ export async function reviewSyncPacketSignature(
       blocksApply: false,
       requiresTrust: !isKnownDevice,
       signatureValid: false,
-      publicKey: trustedPublicKey,
+      ...(await createDeviceSignaturePublicKeyReviewFields(trustedPublicKey, packet.sourceDeviceId, sourceDeviceName)),
     };
   }
 
@@ -231,7 +315,11 @@ export async function reviewSyncPacketSignature(
       blocksApply: true,
       requiresTrust: false,
       signatureValid: false,
-      publicKey: trustedPublicKey ?? packet.signature.publicKey,
+      ...(await createDeviceSignaturePublicKeyReviewFields(
+        trustedPublicKey ?? packet.signature.publicKey,
+        packet.sourceDeviceId,
+        sourceDeviceName,
+      )),
     };
   }
 
@@ -241,7 +329,7 @@ export async function reviewSyncPacketSignature(
       blocksApply: true,
       requiresTrust: false,
       signatureValid: false,
-      publicKey: trustedPublicKey,
+      ...(await createDeviceSignaturePublicKeyReviewFields(trustedPublicKey, packet.sourceDeviceId, sourceDeviceName)),
     };
   }
 
@@ -259,7 +347,7 @@ export async function reviewSyncPacketSignature(
         blocksApply: true,
         requiresTrust: false,
         signatureValid: false,
-        publicKey: verificationKey,
+        ...(await createDeviceSignaturePublicKeyReviewFields(verificationKey, packet.sourceDeviceId, sourceDeviceName)),
       };
     }
 
@@ -268,7 +356,7 @@ export async function reviewSyncPacketSignature(
       blocksApply: false,
       requiresTrust: !trustedPublicKey,
       signatureValid: true,
-      publicKey: verificationKey,
+      ...(await createDeviceSignaturePublicKeyReviewFields(verificationKey, packet.sourceDeviceId, sourceDeviceName)),
     };
   } catch {
     return {
@@ -276,7 +364,11 @@ export async function reviewSyncPacketSignature(
       blocksApply: true,
       requiresTrust: false,
       signatureValid: false,
-      publicKey: trustedPublicKey ?? packet.signature.publicKey,
+      ...(await createDeviceSignaturePublicKeyReviewFields(
+        trustedPublicKey ?? packet.signature.publicKey,
+        packet.sourceDeviceId,
+        sourceDeviceName,
+      )),
     };
   }
 }

@@ -890,6 +890,17 @@ button:disabled {
   color: var(--ink);
 }
 
+.restoreBox textarea {
+  min-height: 78px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  background: var(--paper-strong);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
 .restoreBox span,
 .storagePath,
 .restoreStatus {
@@ -957,6 +968,49 @@ button:disabled {
 
 .trustGate b {
   color: #2f664e;
+}
+
+.fingerprintGate {
+  grid-template-columns: 1fr;
+}
+
+.fingerprintGate input {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 9px;
+  font-family: "Courier New", monospace;
+  letter-spacing: 0.05em;
+}
+
+.deviceVerificationCard {
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  border: 1px solid rgba(47, 102, 78, 0.28);
+  background: #f5fbf4;
+}
+
+.deviceVerificationCard code {
+  width: fit-content;
+  padding: 4px 6px;
+  border: 1px solid rgba(47, 102, 78, 0.24);
+  background: var(--paper-strong);
+  color: var(--ink);
+  font-family: "Courier New", monospace;
+  font-size: 0.82rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.deviceVerificationCard small,
+.deviceVerificationCard summary {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.deviceVerificationCard summary {
+  cursor: pointer;
+  font-weight: 800;
 }
 
 .syncMonitorGate {

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { UiCopy } from '../i18n';
-import type { SyncPacketSignatureStatus } from '../deviceSigning';
+import { deviceFingerprintMatches, type SyncPacketSignatureStatus } from '../deviceSigning';
 import type { Project, RevokedSyncDevice, SyncDevice, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
 import type { RestorePreview } from '../restorePreview';
@@ -39,6 +39,10 @@ function syncPreviewRequiresDeviceTrust(preview: SyncPreview | null) {
   );
 }
 
+function syncPreviewRequiresFingerprintVerification(preview: SyncPreview | null) {
+  return Boolean(syncPreviewRequiresDeviceTrust(preview) && preview?.signatureReview?.fingerprint);
+}
+
 type InspectorPanelProps = {
   ui: UiCopy;
   projects: Project[];
@@ -55,6 +59,7 @@ type InspectorPanelProps = {
   syncPreview: SyncPreview | null;
   syncRiskAccepted: boolean;
   syncDeviceTrustAccepted: boolean;
+  syncDeviceVerificationCode: string;
   syncFolderPath: string;
   syncFolderMonitorEnabled: boolean;
   syncFolderLastCheckedAt: string;
@@ -66,6 +71,8 @@ type InspectorPanelProps = {
   personalKmHandoffStatus: string;
   deviceId: string;
   deviceName: string;
+  deviceSigningFingerprint: string;
+  deviceVerificationPayload: string;
   syncDevices: SyncDevice[];
   revokedSyncDevices: RevokedSyncDevice[];
   vaultSecurityStatus: string;
@@ -108,6 +115,7 @@ type InspectorPanelProps = {
   onCancelSyncPreview: () => void;
   onSyncRiskAcceptedChange: (accepted: boolean) => void;
   onSyncDeviceTrustAcceptedChange: (accepted: boolean) => void;
+  onSyncDeviceVerificationCodeChange: (value: string) => void;
   onRevokeSyncDevice: (deviceId: string) => void;
   onForgetRevokedSyncDevice: (deviceId: string) => void;
   onHandoffToPersonalKm: () => void;
@@ -135,6 +143,7 @@ export function InspectorPanel({
   syncPreview,
   syncRiskAccepted,
   syncDeviceTrustAccepted,
+  syncDeviceVerificationCode,
   syncFolderPath,
   syncFolderMonitorEnabled,
   syncFolderLastCheckedAt,
@@ -146,6 +155,8 @@ export function InspectorPanel({
   personalKmHandoffStatus,
   deviceId,
   deviceName,
+  deviceSigningFingerprint,
+  deviceVerificationPayload,
   syncDevices,
   revokedSyncDevices,
   vaultSecurityStatus,
@@ -188,6 +199,7 @@ export function InspectorPanel({
   onCancelSyncPreview,
   onSyncRiskAcceptedChange,
   onSyncDeviceTrustAcceptedChange,
+  onSyncDeviceVerificationCodeChange,
   onRevokeSyncDevice,
   onForgetRevokedSyncDevice,
   onHandoffToPersonalKm,
@@ -291,6 +303,10 @@ export function InspectorPanel({
           hint: 'Manual device-to-device sync. Packet records are encrypted with the current vault passphrase before export.',
           deviceName: 'Device name',
           deviceId: 'Device ID',
+          deviceFingerprint: 'Device verification code',
+          deviceVerificationPayload: 'QR payload',
+          deviceVerificationHint:
+            'Show this code on the source device and compare it before trusting a new sync source.',
           rename: 'Save device name',
           export: 'Export sync packet',
           import: 'Import sync packet',
@@ -337,6 +353,10 @@ export function InspectorPanel({
           hint: '手動の端末間同期です。出力前に、同期レコードは現在のVaultパスフレーズで暗号化されます。',
           deviceName: '端末名',
           deviceId: '端末ID',
+          deviceFingerprint: '端末確認コード',
+          deviceVerificationPayload: 'QR用データ',
+          deviceVerificationHint:
+            '新しい同期元を信頼する前に、送信元端末のこのコードと取り込み側プレビューのコードを見比べてください。',
           rename: '端末名を保存',
           export: '同期パケットを書き出す',
           import: '同期パケットを取り込む',
@@ -470,6 +490,13 @@ export function InspectorPanel({
           trustCopy:
             'This is the first packet from this device in this vault. Confirm only if you intentionally set up this device.',
           trustAccepted: 'I trust this source device',
+          incomingFingerprint: 'Incoming verification code',
+          fingerprintTitle: 'Compare the source-device code',
+          fingerprintCopy:
+            'Read the verification code on the other device and type it here. Do not copy the code from this preview unless you already verified the source device out-of-band.',
+          fingerprintInput: 'Verification code from source device',
+          fingerprintPlaceholder: 'ABCD-1234-...',
+          fingerprintAccepted: 'Verification code matches this signed source device',
           warning: 'This packet is stale or already imported. Applying will not change the vault.',
           apply: 'Apply sync',
           dismiss: 'Dismiss packet',
@@ -513,6 +540,13 @@ export function InspectorPanel({
           trustCopy:
             'このVaultでは初めて見る端末からのパケットです。自分で設定した端末だと確認できる場合だけチェックしてください。',
           trustAccepted: 'この送信元端末を信頼します',
+          incomingFingerprint: '取り込みパケットの確認コード',
+          fingerprintTitle: '送信元端末のコードを照合',
+          fingerprintCopy:
+            '別端末の画面に表示されている確認コードを読み取り、ここに入力してください。送信元を別経路で確認していない限り、このプレビュー上のコードをそのままコピーしないでください。',
+          fingerprintInput: '送信元端末の確認コード',
+          fingerprintPlaceholder: 'ABCD-1234-...',
+          fingerprintAccepted: '確認コードがこの署名済み送信元端末と一致しています',
           warning: 'このパケットは古い、または取り込み済みです。適用してもVaultは変更されません。',
           apply: '同期を適用',
           dismiss: 'パケットを閉じる',
@@ -900,6 +934,19 @@ export function InspectorPanel({
           <span className="storagePath">
             {syncLabels.deviceId}: {deviceId}
           </span>
+          {deviceSigningFingerprint ? (
+            <div className="deviceVerificationCard">
+              <strong>{syncLabels.deviceFingerprint}</strong>
+              <code>{deviceSigningFingerprint}</code>
+              <small>{syncLabels.deviceVerificationHint}</small>
+              {deviceVerificationPayload ? (
+                <details>
+                  <summary>{syncLabels.deviceVerificationPayload}</summary>
+                  <textarea readOnly value={deviceVerificationPayload} />
+                </details>
+              ) : null}
+            </div>
+          ) : null}
           <span className="storagePath">{syncLabels.knownDevices}</span>
           {syncDevices.length > 0 ? (
             <div className="deviceList">
@@ -1180,7 +1227,28 @@ export function InspectorPanel({
                 </span>
               </div>
               {syncPreview.diff.replay ? <span className="restoreWarning">{syncPreviewLabels.warning}</span> : null}
-              {syncPreviewRequiresDeviceTrust(syncPreview) ? (
+              {syncPreview.signatureReview?.fingerprint ? (
+                <span>
+                  {syncPreviewLabels.incomingFingerprint}: {syncPreview.signatureReview.fingerprint}
+                </span>
+              ) : null}
+              {syncPreviewRequiresFingerprintVerification(syncPreview) ? (
+                <label className="riskGate trustGate fingerprintGate">
+                  <span>
+                    <strong>{syncPreviewLabels.fingerprintTitle}</strong>
+                    {syncPreviewLabels.fingerprintCopy}
+                  </span>
+                  <input
+                    aria-label={syncPreviewLabels.fingerprintInput}
+                    placeholder={syncPreviewLabels.fingerprintPlaceholder}
+                    value={syncDeviceVerificationCode}
+                    onChange={(event) => onSyncDeviceVerificationCodeChange(event.target.value)}
+                  />
+                  {deviceFingerprintMatches(syncPreview.signatureReview?.fingerprint, syncDeviceVerificationCode) ? (
+                    <b>{syncPreviewLabels.fingerprintAccepted}</b>
+                  ) : null}
+                </label>
+              ) : syncPreviewRequiresDeviceTrust(syncPreview) ? (
                 <label className="riskGate trustGate">
                   <span>
                     <strong>{syncPreviewLabels.trustTitle}</strong>

@@ -3,7 +3,14 @@ import { exportStoreAsJson, exportStoreAsMarkdown, downloadTextFile } from './ex
 import { createMarkdownImport, parseDistillImport } from './import';
 import { decryptDistillVault, encryptDistillVault } from './vaultCrypto';
 import { getOrCreateDeviceIdentity, renameDeviceIdentity, type DeviceIdentity } from './device';
-import { getOrCreateDeviceSigningKeyPair, reviewSyncPacketSignature, signSyncPacket } from './deviceSigning';
+import {
+  buildDeviceVerificationPayload,
+  deviceFingerprintMatches,
+  formatDevicePublicKeyFingerprint,
+  getOrCreateDeviceSigningKeyPair,
+  reviewSyncPacketSignature,
+  signSyncPacket,
+} from './deviceSigning';
 import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
 import { initialStore, normalizeSyncMetadata, type DistillStore, type Project, type SearchResult } from './model';
 import {
@@ -122,6 +129,10 @@ function syncPreviewHasBlockingSignature(preview: SyncPreview | null) {
   return Boolean(preview && !preview.diff.replay && preview.signatureReview?.blocksApply);
 }
 
+function syncPreviewRequiresFingerprintVerification(preview: SyncPreview | null) {
+  return Boolean(syncPreviewRequiresDeviceTrust(preview) && preview?.signatureReview?.fingerprint);
+}
+
 function App() {
   const [locale, setLocale] = useState<Locale>(getInitialLocale);
   const [store, setStore] = useState(initialStore);
@@ -157,6 +168,7 @@ function App() {
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
   const [syncRiskAccepted, setSyncRiskAccepted] = useState(false);
   const [syncDeviceTrustAccepted, setSyncDeviceTrustAccepted] = useState(false);
+  const [syncDeviceVerificationCode, setSyncDeviceVerificationCode] = useState('');
   const [syncFolderPath, setSyncFolderPath] = useState(() => {
     if (typeof window === 'undefined') {
       return '';
@@ -199,6 +211,8 @@ function App() {
 
     return getOrCreateDeviceIdentity();
   });
+  const [deviceSigningFingerprint, setDeviceSigningFingerprint] = useState('');
+  const [deviceVerificationPayload, setDeviceVerificationPayload] = useState('');
   const [updateInstallerPath, setUpdateInstallerPath] = useState('');
   const [updateStatus, setUpdateStatus] = useState('');
   const [autoUpdateStatus, setAutoUpdateStatus] = useState('');
@@ -288,6 +302,48 @@ function App() {
     if (!deviceIdentity && typeof window !== 'undefined') {
       setDeviceIdentity(getOrCreateDeviceIdentity());
     }
+  }, [deviceIdentity]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDeviceVerification() {
+      if (!deviceIdentity || typeof window === 'undefined') {
+        return;
+      }
+
+      try {
+        const signingKeyPair = await getOrCreateDeviceSigningKeyPair();
+        const fingerprint = await formatDevicePublicKeyFingerprint(signingKeyPair.publicKey);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setDeviceSigningFingerprint(fingerprint);
+        setDeviceVerificationPayload(
+          buildDeviceVerificationPayload({
+            deviceId: deviceIdentity.id,
+            deviceName: deviceIdentity.name,
+            publicKey: signingKeyPair.publicKey,
+            fingerprint,
+          }),
+        );
+      } catch (error) {
+        console.warn('Failed to prepare Distill device verification fingerprint.', error);
+
+        if (isMounted) {
+          setDeviceSigningFingerprint('');
+          setDeviceVerificationPayload('');
+        }
+      }
+    }
+
+    void loadDeviceVerification();
+
+    return () => {
+      isMounted = false;
+    };
   }, [deviceIdentity]);
 
   useEffect(() => {
@@ -833,6 +889,7 @@ function App() {
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      setSyncDeviceVerificationCode('');
       setSyncFolderMonitorEnabled(false);
       setSyncFolderLastCheckedAt('');
       setSyncFolderAutoExportEnabled(false);
@@ -912,6 +969,8 @@ function App() {
           revokedSourceRejected: (deviceId: string) => `Blocked a sync packet from revoked device ${deviceId}.`,
           syncDeviceTrustRequired: (deviceName: string) =>
             `This sync packet is from an untrusted device (${deviceName}). Confirm device trust before applying.`,
+          syncDeviceFingerprintRequired: (deviceName: string) =>
+            `Type the verification code shown on ${deviceName} before trusting this source device.`,
           syncSignatureRejected: (status: string) =>
             `This sync packet failed device signature verification (${status}) and was not applied.`,
           syncFolderRequired: 'Enter a desktop sync folder path first.',
@@ -998,6 +1057,8 @@ function App() {
             `信頼解除済み端末 ${deviceId} からの同期パケットを拒否しました。`,
           syncDeviceTrustRequired: (deviceName: string) =>
             `この同期パケットは未信頼の端末（${deviceName}）から届いています。適用前に端末を信頼する確認をしてください。`,
+          syncDeviceFingerprintRequired: (deviceName: string) =>
+            `${deviceName} の画面に表示されている確認コードを入力してから、この送信元端末を信頼してください。`,
           syncSignatureRejected: (status: string) =>
             `端末署名の検証に失敗したため、この同期パケットは適用しませんでした（${status}）。`,
           syncFolderRequired: '同期フォルダのパスを先に入力してください。',
@@ -1129,6 +1190,7 @@ function App() {
     setSyncPreview(null);
     setSyncRiskAccepted(false);
     setSyncDeviceTrustAccepted(false);
+    setSyncDeviceVerificationCode('');
 
     if (!vaultPassphrase) {
       setSyncStatus(labels.passphraseRequired);
@@ -1478,6 +1540,7 @@ function App() {
     setSyncPreview(null);
     setSyncRiskAccepted(false);
     setSyncDeviceTrustAccepted(false);
+    setSyncDeviceVerificationCode('');
 
     if (!syncFolderPath.trim()) {
       setSyncStatus(labels.syncFolderRequired);
@@ -1511,6 +1574,7 @@ function App() {
     setSyncPreview(null);
     setSyncRiskAccepted(false);
     setSyncDeviceTrustAccepted(false);
+    setSyncDeviceVerificationCode('');
 
     if (!vaultPassphrase) {
       setSyncStatus(labels.passphraseRequired);
@@ -1528,6 +1592,7 @@ function App() {
         setSyncPreview(null);
         setSyncRiskAccepted(false);
         setSyncDeviceTrustAccepted(false);
+        setSyncDeviceVerificationCode('');
         return;
       }
 
@@ -1543,11 +1608,13 @@ function App() {
         setSyncPreview(null);
         setSyncRiskAccepted(false);
         setSyncDeviceTrustAccepted(false);
+        setSyncDeviceVerificationCode('');
         return;
       }
 
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      setSyncDeviceVerificationCode('');
       setSyncPreview(preview);
       setSyncStatus(
         readyMessage
@@ -1562,6 +1629,7 @@ function App() {
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      setSyncDeviceVerificationCode('');
     }
   }
 
@@ -1571,6 +1639,7 @@ function App() {
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      setSyncDeviceVerificationCode('');
       return;
     }
 
@@ -1599,6 +1668,7 @@ function App() {
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      setSyncDeviceVerificationCode('');
     }
   }
 
@@ -1621,6 +1691,7 @@ function App() {
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      setSyncDeviceVerificationCode('');
       setSyncFolderPacketReviews((current) => current.filter((review) => review.path !== packetFile.path));
       setSyncStatus(labels.syncFolderQuarantineSuccess(packetFile.fileName, quarantinePath));
 
@@ -1650,24 +1721,40 @@ function App() {
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      setSyncDeviceVerificationCode('');
       return;
     }
 
     const signatureReview = await reviewSyncPacketSignature(store, syncPreview.packet);
+    const verifiedPreview = { ...syncPreview, signatureReview };
 
-    if (syncPreviewHasBlockingSignature({ ...syncPreview, signatureReview })) {
+    if (syncPreviewHasBlockingSignature(verifiedPreview)) {
       setSyncStatus(labels.syncSignatureRejected(signatureReview.status));
       return;
     }
 
-    if (syncPreviewRequiresDeviceTrust(syncPreview) && !syncDeviceTrustAccepted) {
+    if (
+      syncPreviewRequiresFingerprintVerification(verifiedPreview) &&
+      !deviceFingerprintMatches(signatureReview.fingerprint, syncDeviceVerificationCode)
+    ) {
+      setSyncStatus(
+        labels.syncDeviceFingerprintRequired(syncPreview.packet.sourceDeviceName || syncPreview.packet.sourceDeviceId),
+      );
+      return;
+    }
+
+    if (
+      syncPreviewRequiresDeviceTrust(verifiedPreview) &&
+      !syncPreviewRequiresFingerprintVerification(verifiedPreview) &&
+      !syncDeviceTrustAccepted
+    ) {
       setSyncStatus(
         labels.syncDeviceTrustRequired(syncPreview.packet.sourceDeviceName || syncPreview.packet.sourceDeviceId),
       );
       return;
     }
 
-    if (syncPreviewRequiresRiskAcknowledgement(syncPreview) && !syncRiskAccepted) {
+    if (syncPreviewRequiresRiskAcknowledgement(verifiedPreview) && !syncRiskAccepted) {
       setSyncStatus(labels.syncRiskAcknowledgementRequired);
       return;
     }
@@ -1696,6 +1783,7 @@ function App() {
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      setSyncDeviceVerificationCode('');
       void refreshSyncRecoveryVaultSnapshots(true);
     } catch (error) {
       console.warn('Failed to apply encrypted Distill sync preview.', error);
@@ -1703,6 +1791,7 @@ function App() {
       setSyncPreview(null);
       setSyncRiskAccepted(false);
       setSyncDeviceTrustAccepted(false);
+      setSyncDeviceVerificationCode('');
     }
   }
 
@@ -1710,6 +1799,7 @@ function App() {
     setSyncPreview(null);
     setSyncRiskAccepted(false);
     setSyncDeviceTrustAccepted(false);
+    setSyncDeviceVerificationCode('');
     setSyncStatus(syncLabels().previewCanceled);
   }
 
@@ -2210,6 +2300,7 @@ function App() {
             syncPreview={syncPreview}
             syncRiskAccepted={syncRiskAccepted}
             syncDeviceTrustAccepted={syncDeviceTrustAccepted}
+            syncDeviceVerificationCode={syncDeviceVerificationCode}
             syncFolderPath={syncFolderPath}
             syncFolderMonitorEnabled={syncFolderMonitorEnabled}
             syncFolderLastCheckedAt={syncFolderLastCheckedAt}
@@ -2221,6 +2312,8 @@ function App() {
             personalKmHandoffStatus={personalKmHandoffStatus}
             deviceId={deviceIdentity?.id ?? ''}
             deviceName={deviceIdentity?.name ?? ''}
+            deviceSigningFingerprint={deviceSigningFingerprint}
+            deviceVerificationPayload={deviceVerificationPayload}
             syncDevices={syncDevices}
             revokedSyncDevices={revokedSyncDevices}
             vaultSecurityStatus={vaultSecurityStatus}
@@ -2269,6 +2362,7 @@ function App() {
             onCancelSyncPreview={cancelSyncPreview}
             onSyncRiskAcceptedChange={setSyncRiskAccepted}
             onSyncDeviceTrustAcceptedChange={setSyncDeviceTrustAccepted}
+            onSyncDeviceVerificationCodeChange={setSyncDeviceVerificationCode}
             onRevokeSyncDevice={revokeKnownSyncDevice}
             onForgetRevokedSyncDevice={forgetRevokedDeviceRecord}
             onHandoffToPersonalKm={() => void handoffToPersonalKm()}
