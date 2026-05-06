@@ -48,6 +48,8 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added manual encrypted sync packet export/import.
 - Added local device identity and known-device registry.
 - Added deletion tombstones so stale packets cannot resurrect permanently deleted archived blocks.
+- Added restore preview before JSON or encrypted vault replacement.
+- Added a React render error boundary so UI failures show recovery steps instead of a blank screen.
 
 ## Findings
 
@@ -95,13 +97,13 @@ Recommended remediation:
 
 ### P2: Import limits are basic
 
-JSON, Markdown, and encrypted vault imports have a 5 MB file cap and schema validation, but no full resource exhaustion policy.
+JSON, Markdown, and encrypted vault imports have a 5 MB file cap and schema validation. JSON and encrypted vault restore now show a preview before replacement, but there is still no full resource exhaustion policy.
 
 Recommended remediation:
 
 - Add maximum block/project counts per import.
-- Add restore preview before replacing the vault.
 - Add corrupted encrypted vault test cases.
+- Add richer conflict review for restore and sync merges.
 
 ### P3: GitHub Pages web preview has no sync or account boundary
 
@@ -159,7 +161,7 @@ Before distributing a new public build:
 
 ## Next Security Milestones
 
-1. Add restore preview and corrupted vault tests.
+1. Add corrupted vault tests.
 2. Define replay/rollback protection for sync packets.
 3. Add OS-native idle/sleep integration and optional keyring convenience unlock.
 4. Add automatic encrypted folder sync only after replay/recovery behavior is documented.

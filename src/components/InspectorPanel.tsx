@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { UiCopy } from '../i18n';
 import type { Project, SyncDevice, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
+import type { RestorePreview } from '../restorePreview';
 import { HelpNote } from './HelpNote';
 
 type InspectorPanelProps = {
@@ -15,6 +16,7 @@ type InspectorPanelProps = {
   storagePath: string;
   backupPath: string;
   restoreStatus: string;
+  restorePreview: RestorePreview | null;
   syncStatus: string;
   deviceId: string;
   deviceName: string;
@@ -38,6 +40,8 @@ type InspectorPanelProps = {
   onExportJson: () => void;
   onRestoreJson: (file: File) => void;
   onRestoreEncryptedVault: (file: File) => void;
+  onApplyRestorePreview: () => void;
+  onCancelRestorePreview: () => void;
   onImportMarkdown: (file: File) => void;
   onDeviceNameChange: (name: string) => void;
   onExportEncryptedSyncPacket: () => void;
@@ -60,6 +64,7 @@ export function InspectorPanel({
   storagePath,
   backupPath,
   restoreStatus,
+  restorePreview,
   syncStatus,
   deviceId,
   deviceName,
@@ -83,6 +88,8 @@ export function InspectorPanel({
   onExportJson,
   onRestoreJson,
   onRestoreEncryptedVault,
+  onApplyRestorePreview,
+  onCancelRestorePreview,
   onImportMarkdown,
   onDeviceNameChange,
   onExportEncryptedSyncPacket,
@@ -195,6 +202,47 @@ export function InspectorPanel({
           knownDevices: '同期済み端末',
           noKnownDevices: '同期済み端末はまだありません',
           thisDevice: 'この端末',
+        };
+
+  const restorePreviewLabels =
+    ui.navInbox === 'Inbox'
+      ? {
+          title: 'Restore preview',
+          source: 'Source',
+          json: 'JSON backup',
+          encrypted: 'Encrypted vault',
+          incoming: 'Incoming',
+          blocks: 'Blocks',
+          projects: 'Projects',
+          added: 'Added',
+          updated: 'Updated',
+          removed: 'Removed',
+          unchanged: 'Unchanged',
+          sync: 'Sync metadata',
+          tombstones: 'Tombstones',
+          devices: 'Devices',
+          warning: 'Applying this preview replaces the current local store.',
+          apply: 'Apply restore',
+          cancel: 'Cancel',
+        }
+      : {
+          title: '復元プレビュー',
+          source: '種類',
+          json: 'JSONバックアップ',
+          encrypted: '暗号化Vault',
+          incoming: '読み込み内容',
+          blocks: 'ブロック',
+          projects: 'プロジェクト',
+          added: '追加',
+          updated: '更新',
+          removed: '削除',
+          unchanged: '変更なし',
+          sync: '同期メタデータ',
+          tombstones: '削除履歴',
+          devices: '端末',
+          warning: '適用すると現在のローカルストアを置き換えます。',
+          apply: '復元を適用',
+          cancel: 'キャンセル',
         };
 
   function submitPassphraseChange() {
@@ -374,6 +422,62 @@ export function InspectorPanel({
             />
           </label>
           {restoreStatus ? <span className="restoreStatus">{restoreStatus}</span> : null}
+          {restorePreview ? (
+            <div className="restorePreviewBox">
+              <strong>{restorePreviewLabels.title}</strong>
+              <span>
+                {restorePreviewLabels.source}:{' '}
+                {restorePreview.kind === 'encrypted-vault' ? restorePreviewLabels.encrypted : restorePreviewLabels.json}
+              </span>
+              <span>
+                {restorePreviewLabels.incoming}: {restorePreview.store.blocks.length} {restorePreviewLabels.blocks} /{' '}
+                {restorePreview.store.projects.length} {restorePreviewLabels.projects}
+              </span>
+              <div className="restorePreviewGrid" aria-label={restorePreviewLabels.blocks}>
+                <b>{restorePreviewLabels.blocks}</b>
+                <span>
+                  {restorePreviewLabels.added}: {restorePreview.diff.addedBlocks}
+                </span>
+                <span>
+                  {restorePreviewLabels.updated}: {restorePreview.diff.updatedBlocks}
+                </span>
+                <span>
+                  {restorePreviewLabels.removed}: {restorePreview.diff.removedBlocks}
+                </span>
+                <span>
+                  {restorePreviewLabels.unchanged}: {restorePreview.diff.unchangedBlocks}
+                </span>
+              </div>
+              <div className="restorePreviewGrid" aria-label={restorePreviewLabels.projects}>
+                <b>{restorePreviewLabels.projects}</b>
+                <span>
+                  {restorePreviewLabels.added}: {restorePreview.diff.addedProjects}
+                </span>
+                <span>
+                  {restorePreviewLabels.updated}: {restorePreview.diff.updatedProjects}
+                </span>
+                <span>
+                  {restorePreviewLabels.removed}: {restorePreview.diff.removedProjects}
+                </span>
+                <span>
+                  {restorePreviewLabels.unchanged}: {restorePreview.diff.unchangedProjects}
+                </span>
+              </div>
+              <span>
+                {restorePreviewLabels.sync}: {restorePreview.diff.tombstones} {restorePreviewLabels.tombstones} /{' '}
+                {restorePreview.diff.devices} {restorePreviewLabels.devices}
+              </span>
+              <span className="restoreWarning">{restorePreviewLabels.warning}</span>
+              <div className="restorePreviewActions">
+                <button className="restoreButton dangerButton" type="button" onClick={onApplyRestorePreview}>
+                  {restorePreviewLabels.apply}
+                </button>
+                <button className="restoreButton" type="button" onClick={onCancelRestorePreview}>
+                  {restorePreviewLabels.cancel}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="restoreBox vaultBox">

@@ -25,6 +25,7 @@ import { exportStoreAsJson } from '../export';
 import { createMarkdownImport, parseDistillImport } from '../import';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
+import { buildRestorePreview } from '../restorePreview';
 import {
   applyEncryptedSyncPacket,
   applySyncPacket,
@@ -283,6 +284,50 @@ describe('portable imports', () => {
       tags: ['meeting'],
       links: ['Roadmap'],
       state: 'linked',
+    });
+  });
+
+  it('builds a restore preview diff before replacing the store', () => {
+    const incoming: DistillStore = {
+      projects: [
+        { id: 'p-active', name: 'Active Project Renamed', signal: 'Current work', status: 'Active' },
+        { id: 'p-imported', name: 'Imported Project', signal: 'Restore test', status: 'Next' },
+      ],
+      blocks: [
+        block({
+          id: 'b-1',
+          content: 'Discuss semantic trust with @Aki [[Person: Mina]] #search [[Semantic Retrieval]]',
+          tags: ['search'],
+          links: ['Person: Mina', 'Semantic Retrieval'],
+          projectId: 'p-active',
+          state: 'linked',
+        }),
+        block({
+          id: 'b-2',
+          content: 'Updated restored thought',
+          updatedAt: '2026-05-06T11:00:00.000Z',
+        }),
+        block({ id: 'b-imported', content: 'Imported restored thought' }),
+      ],
+      sync: {
+        tombstones: [{ kind: 'thought-block', id: 'deleted', deletedAt: now }],
+        devices: [{ id: 'phone', name: 'Phone', firstSeenAt: now, lastSeenAt: now }],
+      },
+    };
+
+    const preview = buildRestorePreview(store, incoming, 'json');
+
+    expect(preview.diff).toMatchObject({
+      addedBlocks: 1,
+      updatedBlocks: 1,
+      removedBlocks: 1,
+      unchangedBlocks: 1,
+      addedProjects: 1,
+      updatedProjects: 1,
+      removedProjects: 1,
+      unchangedProjects: 0,
+      tombstones: 1,
+      devices: 1,
     });
   });
 });

@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.11 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, and record-level encrypted sync packets now have manual export/import, device registry, and deletion tombstones.
+Distill 0.1.11 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, and deletion tombstones.
 
 ## Phase 1: Desktop MVP
 
@@ -30,6 +30,7 @@ Completed:
 - Storage path visibility.
 - Validated JSON restore.
 - JSON restore confirmation before replacing the current store.
+- Restore preview before replacing the current store.
 - Manual JSON backup.
 - Markdown import for bullet notes.
 - Local semantic-overlap retrieval.
@@ -40,7 +41,7 @@ Completed:
 
 Remaining polish:
 
-- Restore preview and conflict summary.
+- Conflict summary beyond full-store restore replacement.
 - Empty-state and error-state polish.
 - Better Japanese product copy.
 
@@ -61,8 +62,8 @@ Next:
 
 - Passphrase change flow. Complete.
 - Lock-on-idle and lock-on-hidden. Complete.
+- Restore preview before replacing vault. Complete.
 - Corrupted/tampered vault tests.
-- Restore preview before replacing vault.
 - User-selectable vault location.
 - Record-level encrypted records. Complete for manual sync packet export/import with deletion tombstones and device registry; automatic file sync is not enabled yet.
 - Optional platform keyring or Tauri Stronghold convenience unlock.
@@ -114,7 +115,7 @@ Status: Not started.
 ## Release Gate For 0.2.0
 
 - Encrypted local vault is stable through multiple installed updates.
-- Passphrase change is implemented; restore preview is implemented before 0.2.0.
+- Passphrase change and restore preview are implemented before 0.2.0.
 - No known data-loss path in normal use.
 - Search, edit, project assignment, archive, restore, import, export, people, graph, vault unlock, and encrypted persistence smoke tests are automated.
 - Sync design has record-level encryption, device registry, deletion tombstones, and deterministic conflict strategy before automatic transport.

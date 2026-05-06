@@ -16,6 +16,7 @@ Implemented:
 - Search and graph are generated from the decrypted in-memory store after unlock, not from a persistent plaintext SQLite index.
 - Users can change the vault passphrase from the Inspector.
 - Distill can auto-lock after inactivity and locks when the document is hidden.
+- JSON and encrypted vault restore now build a preview before replacing the current store.
 - Manual sync packets use record-level encrypted records, device registry metadata, and deletion tombstones.
 
 Vault envelope:
@@ -109,11 +110,11 @@ When no encrypted vault exists:
 ## Next Vault Milestones
 
 1. Add emergency recovery/export guidance in the UI.
-2. Add restore preview before replacing a vault.
-3. Move normal persistence from whole-store encryption to record-level encrypted records if automatic sync requires it.
-4. Add encrypted append-only record log for automatic sync.
-5. Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
-6. Add tamper/corruption test cases for modified vault envelopes.
+2. Move normal persistence from whole-store encryption to record-level encrypted records if automatic sync requires it.
+3. Add encrypted append-only record log for automatic sync.
+4. Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
+5. Add tamper/corruption test cases for modified vault envelopes.
+6. Add user-selectable vault location and recovery guidance.
 
 ## Release Gate Before Sync
 

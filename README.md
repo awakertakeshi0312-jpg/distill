@@ -19,6 +19,7 @@ Implemented:
 - Projects, Archive, restore, inline edit, and processed/open state toggles.
 - Markdown and JSON export.
 - Validated JSON restore for portable backups.
+- Restore preview with added/updated/removed/unchanged counts before replacing the current store.
 - Markdown import for bullet-based notes.
 - Manual JSON backup and encrypted vault backup.
 - Manual encrypted sync packet export/import.
@@ -31,6 +32,7 @@ Implemented:
 - Storage path visibility in the inspector.
 - English/Japanese UI switching.
 - Tauri capability exposure limited to encrypted vault read/write, legacy migration read, plaintext clear, storage info, and update launch.
+- React render error boundary so runtime UI failures show recovery steps instead of a blank screen.
 
 Not included in this MVP:
 
@@ -89,7 +91,7 @@ npm run check:all
 
 Current passing suite:
 
-- Frontend/domain tests: 29 passed.
+- Frontend/domain tests: 30 passed.
 - Rust/SQLite tests: 11 passed.
 - Browser E2E smoke tests: 10 passed.
 - Production frontend build: passing.
@@ -183,6 +185,7 @@ See `docs/roadmap.md` for the current phase plan toward 0.2.0 and beyond.
 
 - `docs/design_blueprint.md`: product, UX, architecture, data model, and roadmap design.
 - `docs/project_context.md`: current implementation context, verification status, installed-app QA, and next decisions.
+- `docs/desktop_troubleshooting.md`: safe recovery steps for desktop blank-screen/WebView cache issues.
 
 
 

@@ -12,7 +12,7 @@ This document is the handoff context for Distill so another person or future age
 - Product type: local-first desktop/PWA thinking app
 - Current version: 0.1.11
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, manual encrypted sync packet flow, device registry, and deletion tombstones
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow, device registry, and deletion tombstones
 
 ## Product Direction
 
@@ -50,6 +50,7 @@ Implemented app features:
 - Markdown export
 - JSON export
 - JSON restore
+- Restore preview with added/updated/removed/unchanged counts before JSON or encrypted vault replacement
 - Markdown bullet import
 - Encrypted vault backup/restore
 - Startup vault create/unlock screen
@@ -64,6 +65,7 @@ Implemented app features:
 - Manual encrypted sync packet export/import using record-level encrypted records
 - Manual sync device registry in the Inspector
 - Permanent archive deletion with sync tombstones
+- React render error boundary that shows recovery guidance instead of a blank screen
 
 ## Current Persistence Boundary
 
@@ -85,7 +87,7 @@ Known remaining security limits:
 
 - passphrase remains in app memory while unlocked
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
-- no restore preview yet
+- restore preview exists, but restore still replaces the full local store after user approval
 - no automatic/background sync yet
 - browser preview still depends on localStorage for the encrypted envelope
 
@@ -142,9 +144,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest full verification after deletion tombstones and device registry:
+Latest verification after restore preview and blank-screen recovery boundary:
 
-- `npm test`: 29 passed
+- `npm test`: 30 passed
 - `npm run build`: passed
 - `npm run test:rust`: 11 passed
 - `npm run test:e2e`: 10 passed
@@ -159,6 +161,7 @@ E2E coverage includes:
 - English MVP flow
 - capture/search/graph/project/archive
 - JSON restore
+- restore preview before JSON replacement
 - Markdown import
 - edit/archive/restore
 - Markdown/JSON/backup downloads
@@ -183,6 +186,7 @@ Key frontend files:
 - `src/repository.ts`: immutable mutations
 - `src/graph.ts`: graph modeling and neighbors
 - `src/import.ts`: validated import logic
+- `src/restorePreview.ts`: restore diff calculation before replacing the current store
 - `src/export.ts`: export/download logic
 - `src/i18n.ts`: English/Japanese copy
 - `src/components/`: UI panels
@@ -237,18 +241,18 @@ Current status: manual encrypted sync packets, device registry, and deletion tom
 
 ### Trust/Security
 
-1. Add restore preview before replacing a vault.
-2. Add corrupted/tampered vault tests.
-3. Add sync replay/rollback policy.
-4. Add corrupted vault and tamper tests.
-5. Add automatic encrypted folder sync prototype.
+1. Add corrupted/tampered vault tests.
+2. Add sync replay/rollback policy.
+3. Add automatic encrypted folder sync prototype.
+4. Add device removal and trust revocation.
+5. Add user-selectable vault location.
 
 ### Product Quality
 
 1. Improve real Japanese copy quality.
 2. Add daily/weekly review flows.
 3. Add related-note recommendations.
-4. Add restore preview and conflict summary.
+4. Add richer conflict summary beyond full-store restore preview.
 5. Add user-selectable vault location.
 
 ### Distribution

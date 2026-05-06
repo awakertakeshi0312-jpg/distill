@@ -82,12 +82,6 @@ test('JSON backup can be restored through the UI', async ({ page }) => {
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
 
-  page.on('dialog', async (dialog) => {
-    expect(dialog.message()).toContain('Replace the current Distill store');
-    expect(dialog.message()).toContain('1 blocks and 1 projects');
-    await dialog.accept();
-  });
-
   await page.locator('input[type="file"]').first().setInputFiles({
     name: 'distill-import.json',
     mimeType: 'application/json',
@@ -113,6 +107,10 @@ test('JSON backup can be restored through the UI', async ({ page }) => {
     ),
   });
 
+  await expect(page.getByText('Restore preview ready for 1 blocks and 1 projects.')).toBeVisible();
+  await expect(page.locator('.restorePreviewBox')).toContainText('Added: 1');
+  await expect(page.locator('.restorePreviewBox')).toContainText('Removed: 3');
+  await page.getByRole('button', { name: 'Apply restore' }).click();
   await expect(page.getByText('Restored 1 blocks and 1 projects.')).toBeVisible();
   await page.locator('#search input').fill('Imported');
   await expect(page.locator('.resultRow').filter({ hasText: 'Imported backup block' })).toBeVisible();

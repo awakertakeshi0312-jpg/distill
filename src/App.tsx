@@ -65,6 +65,7 @@ import { Topbar } from './components/Topbar';
 import { VaultGate } from './components/VaultGate';
 import { copy, getInitialLocale, UI_LOCALE_KEY, type Locale } from './i18n';
 import { emitCaptureSaved, emitExportArtifact, emitReviewDecision } from './aiOrg';
+import { buildRestorePreview, type RestorePreview } from './restorePreview';
 
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
 const AUTO_LOCK_MINUTES_KEY = 'distill.autoLockMinutes';
@@ -100,6 +101,7 @@ function App() {
   const [storagePath, setStoragePath] = useState('');
   const [backupPath, setBackupPath] = useState('');
   const [restoreStatus, setRestoreStatus] = useState('');
+  const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
   const [syncStatus, setSyncStatus] = useState('');
   const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(() => {
     if (typeof window === 'undefined') {
@@ -632,6 +634,7 @@ function App() {
       setVaultStatus('locked');
       setVaultNotice(notice);
       setRestoreStatus('');
+      setRestorePreview(null);
       setVaultSecurityStatus('');
     }
   }
@@ -685,6 +688,27 @@ function App() {
           deviceRenamed: '端末名を更新しました。',
           deleteConfirm: (content: string) =>
             `このアーカイブ済みブロックを完全削除し、削除履歴を同期しますか？\n\n${content}`,
+        };
+  }
+
+  function restorePreviewLabels() {
+    return locale === 'en'
+      ? {
+          previewReady: (blocks: number, projects: number) =>
+            `Restore preview ready for ${blocks} blocks and ${projects} projects. Review the diff before applying.`,
+          jsonSuccess: (blocks: number, projects: number) => `Restored ${blocks} blocks and ${projects} projects.`,
+          encryptedSuccess: (blocks: number, projects: number) =>
+            `Restored encrypted vault with ${blocks} blocks and ${projects} projects.`,
+          canceled: 'Restore preview canceled. Current vault was not changed.',
+        }
+      : {
+          previewReady: (blocks: number, projects: number) =>
+            `${blocks}件のブロックと${projects}件のプロジェクトの復元プレビューを作成しました。差分を確認してから適用してください。`,
+          jsonSuccess: (blocks: number, projects: number) =>
+            `${blocks}件のブロックと${projects}件のプロジェクトを復元しました。`,
+          encryptedSuccess: (blocks: number, projects: number) =>
+            `暗号化Vaultから${blocks}件のブロックと${projects}件のプロジェクトを復元しました。`,
+          canceled: '復元プレビューをキャンセルしました。現在のVaultは変更されていません。',
         };
   }
 
@@ -815,6 +839,7 @@ function App() {
 
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       setRestoreStatus(labels.fileTooLarge);
+      setRestorePreview(null);
       return;
     }
 
@@ -825,27 +850,23 @@ function App() {
     }
 
     setRestoreStatus('');
+    setRestorePreview(null);
 
     try {
       const decrypted = await decryptDistillVault(await file.text(), passphrase);
       const importedStore = parseDistillImport(decrypted);
-      const confirmed = window.confirm(ui.restoreConfirm(importedStore.blocks.length, importedStore.projects.length));
-
-      if (!confirmed) {
-        return;
-      }
-
-      setStore(importedStore);
-      setSelectedBlockId(importedStore.blocks[0]?.id);
-      setRestoreStatus(labels.encryptedRestoreSuccess(importedStore.blocks.length, importedStore.projects.length));
+      setRestorePreview(buildRestorePreview(store, importedStore, 'encrypted-vault'));
+      setRestoreStatus(restorePreviewLabels().previewReady(importedStore.blocks.length, importedStore.projects.length));
     } catch (error) {
       console.warn('Failed to restore encrypted Distill vault.', error);
       setRestoreStatus(labels.encryptedRestoreInvalid);
+      setRestorePreview(null);
     }
   }
 
   async function restoreJson(file: File) {
     setRestoreStatus('');
+    setRestorePreview(null);
 
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       setRestoreStatus(vaultLabels().fileTooLarge);
@@ -854,23 +875,41 @@ function App() {
 
     try {
       const importedStore = parseDistillImport(await file.text());
-      const confirmed = window.confirm(ui.restoreConfirm(importedStore.blocks.length, importedStore.projects.length));
-
-      if (!confirmed) {
-        return;
-      }
-
-      setStore(importedStore);
-      setSelectedBlockId(importedStore.blocks[0]?.id);
-      setRestoreStatus(ui.restoreSuccess(importedStore.blocks.length, importedStore.projects.length));
+      setRestorePreview(buildRestorePreview(store, importedStore, 'json'));
+      setRestoreStatus(restorePreviewLabels().previewReady(importedStore.blocks.length, importedStore.projects.length));
     } catch (error) {
       console.warn('Failed to import Distill JSON.', error);
       setRestoreStatus(ui.restoreInvalid as string);
+      setRestorePreview(null);
     }
+  }
+
+  function applyRestorePreview() {
+    if (!restorePreview) {
+      return;
+    }
+
+    const labels = restorePreviewLabels();
+    const incomingStore = restorePreview.store;
+
+    setStore(incomingStore);
+    setSelectedBlockId(incomingStore.blocks[0]?.id);
+    setRestoreStatus(
+      restorePreview.kind === 'encrypted-vault'
+        ? labels.encryptedSuccess(incomingStore.blocks.length, incomingStore.projects.length)
+        : labels.jsonSuccess(incomingStore.blocks.length, incomingStore.projects.length),
+    );
+    setRestorePreview(null);
+  }
+
+  function cancelRestorePreview() {
+    setRestorePreview(null);
+    setRestoreStatus(restorePreviewLabels().canceled);
   }
 
   async function importMarkdown(file: File) {
     setRestoreStatus('');
+    setRestorePreview(null);
 
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       setRestoreStatus(vaultLabels().fileTooLarge);
@@ -1151,6 +1190,7 @@ function App() {
             storagePath={storagePath}
             backupPath={backupPath}
             restoreStatus={restoreStatus}
+            restorePreview={restorePreview}
             syncStatus={syncStatus}
             deviceId={deviceIdentity?.id ?? ''}
             deviceName={deviceIdentity?.name ?? ''}
@@ -1177,6 +1217,8 @@ function App() {
             onExportJson={exportJson}
             onRestoreJson={restoreJson}
             onRestoreEncryptedVault={restoreEncryptedVault}
+            onApplyRestorePreview={applyRestorePreview}
+            onCancelRestorePreview={cancelRestorePreview}
             onImportMarkdown={importMarkdown}
             onDeviceNameChange={renameCurrentDevice}
             onExportEncryptedSyncPacket={() => void exportEncryptedSyncPacket()}

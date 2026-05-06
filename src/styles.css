@@ -30,6 +30,52 @@ body {
   overscroll-behavior-y: none;
 }
 
+.appErrorBoundary {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(45, 106, 79, 0.12), transparent 30%),
+    linear-gradient(135deg, #f4f5ee, #dde8df);
+}
+
+.appErrorCard {
+  display: grid;
+  max-width: 680px;
+  gap: 12px;
+  padding: 28px;
+  border: 1px solid rgba(28, 37, 32, 0.18);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.appErrorCard p {
+  margin: 0;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.appErrorCard h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+}
+
+.appErrorCard span,
+.appErrorCard li,
+.appErrorCard small {
+  color: var(--muted);
+}
+
+.appErrorActions button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(28, 37, 32, 0.18);
+  background: var(--green);
+  color: white;
+}
+
 button,
 textarea,
 input,
@@ -850,6 +896,43 @@ button:disabled {
   color: var(--muted);
   font-size: 0.82rem;
   overflow-wrap: anywhere;
+}
+
+.restorePreviewBox {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 10px;
+  border: 1px solid rgba(47, 111, 78, 0.28);
+  background: rgba(237, 242, 236, 0.72);
+}
+
+.restorePreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper-strong);
+}
+
+.restorePreviewGrid b {
+  grid-column: 1 / -1;
+}
+
+.restoreWarning {
+  color: #8a4b0f !important;
+}
+
+.restorePreviewActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dangerButton {
+  border-color: rgba(138, 75, 15, 0.38) !important;
+  background: #fff7e8 !important;
 }
 
 .deviceList {
