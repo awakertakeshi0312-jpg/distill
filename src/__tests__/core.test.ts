@@ -23,6 +23,7 @@ import {
 import { buildKnowledgeGraph, filterKnowledgeGraph, getGraphNeighbors, layoutKnowledgeGraph } from '../graph';
 import { exportStoreAsJson } from '../export';
 import { createMarkdownImport, parseDistillImport } from '../import';
+import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
 import { buildRestorePreview } from '../restorePreview';
@@ -32,6 +33,7 @@ import {
   buildEncryptedSyncPacket,
   buildSyncPacket,
   decryptEncryptedSyncPacket,
+  isSyncPacketReplay,
   parseEncryptedSyncPacket,
   parseSyncPacket,
   registerSyncDevice,
@@ -184,6 +186,22 @@ describe('selectors', () => {
     expect(getDailyNotes(active).map((note) => note.noteId)).toEqual(['daily-2026-05-06', 'daily-2026-05-05']);
     expect(projectCounts.find((project) => project.id === 'p-active')?.blocks).toBe(1);
     expect(getFocusProjects(projectCounts).map((project) => project.id)).toEqual(['p-active']);
+  });
+});
+
+describe('Personal KM handoff', () => {
+  it('builds summary-only handoff items for processed blocks', () => {
+    const items = buildPersonalKmHandoffItems(store);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      title: 'Distill reviewed block b-2',
+      status: 'new',
+      tags: ['distill', 'reviewed', 'summary-only'],
+    });
+    expect(items[0].source_refs).toEqual(expect.arrayContaining(['distill:block:b-2', 'distill:note:daily-2026-05-05']));
+    expect(items[0].body).toContain('Privacy: summary_only_no_note_body');
+    expect(items[0].body).not.toContain('Semantic Retrieval should explain resurfaced thoughts');
   });
 });
 
@@ -352,6 +370,36 @@ describe('encrypted vault backups', () => {
     });
 
     await expect(decryptDistillVault(encrypted, 'incorrect horse battery')).rejects.toThrow();
+  });
+
+  it('rejects tampered encrypted vault payloads', async () => {
+    const encrypted = await encryptDistillVault(exportStoreAsJson(store), 'correct horse battery staple', {
+      iterations: 1_000,
+    });
+    const envelope = JSON.parse(encrypted) as { payload: string };
+    const payload = Uint8Array.from(atob(envelope.payload), (char) => char.charCodeAt(0));
+    payload[0] ^= 0xff;
+    envelope.payload = btoa(String.fromCharCode(...payload));
+
+    await expect(decryptDistillVault(JSON.stringify(envelope), 'correct horse battery staple')).rejects.toThrow();
+  });
+
+  it('rejects unsupported encrypted vault envelopes before decrypting', async () => {
+    const encrypted = await encryptDistillVault(exportStoreAsJson(store), 'correct horse battery staple', {
+      iterations: 1_000,
+    });
+    const envelope = JSON.parse(encrypted) as { schemaVersion: number; type: string };
+
+    envelope.schemaVersion = 999;
+    await expect(decryptDistillVault(JSON.stringify(envelope), 'correct horse battery staple')).rejects.toThrow(
+      /supported Distill encrypted payload/,
+    );
+
+    envelope.schemaVersion = 1;
+    envelope.type = 'distill.encrypted-sync-record';
+    await expect(decryptDistillVault(JSON.stringify(envelope), 'correct horse battery staple')).rejects.toThrow(
+      /supported Distill encrypted payload/,
+    );
   });
 });
 
@@ -526,6 +574,47 @@ describe('sync packets', () => {
 
     expect(applySyncPacket(tombstoneStore, stalePacket).blocks).toEqual([]);
     expect(applySyncPacket(staleStore, tombstonePacket).blocks).toEqual([]);
+  });
+
+  it('ignores replayed or rollback packets from a known device', () => {
+    const newerPacket = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [
+          block({
+            id: 'remote-latest',
+            content: 'Latest remote block',
+            capturedAt: '2026-05-06T04:00:00.000Z',
+            updatedAt: '2026-05-06T05:00:00.000Z',
+          }),
+        ],
+      },
+      { sourceDeviceId: 'mobile-dev', sourceDeviceName: 'Phone', now: '2026-05-06T06:00:00.000Z' },
+    );
+    const afterNewer = applySyncPacket({ projects: [], blocks: [] }, newerPacket);
+    const rollbackPacket = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [
+          block({
+            id: 'remote-rollback',
+            content: 'Older packet should not appear',
+            capturedAt: '2026-05-06T03:00:00.000Z',
+            updatedAt: '2026-05-06T04:00:00.000Z',
+          }),
+        ],
+      },
+      { sourceDeviceId: 'mobile-dev', sourceDeviceName: 'Phone', now: '2026-05-06T05:00:00.000Z' },
+    );
+
+    expect(isSyncPacketReplay(afterNewer, newerPacket)).toBe(true);
+    expect(isSyncPacketReplay(afterNewer, rollbackPacket)).toBe(true);
+    const afterRollback = applySyncPacket(afterNewer, rollbackPacket);
+
+    expect(afterRollback.blocks.map((item) => item.id)).toEqual(['remote-latest']);
+    expect(afterRollback.sync?.devices.find((device) => device.id === 'mobile-dev')?.lastPacketAt).toBe(
+      '2026-05-06T06:00:00.000Z',
+    );
   });
 
   it('parses serialized sync packets and rejects unsupported files', () => {

@@ -1,0 +1,803 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-06T08:58:57.347Z",
+  "source_project": "distill",
+  "target_project": "personal-km",
+  "work_packet_id": "wp_20260506_connect-distill-reviewed-artifacts-to-personal-km",
+  "privacy": {
+    "mode": "summary_only_no_note_body",
+    "omitted_keys_matching": "(body|content|text|raw|vault|passphrase|password|secret|token|credential|export|private)"
+  },
+  "personal_km_ingestion": {
+    "preferred_route": "POST /api/review",
+    "fallback_file": "docs/distill_personal_km_handoff.json",
+    "review_item_shape": {
+      "title": "<record.title>",
+      "body": "<record.summary>\\nSource: <record.source_ref>",
+      "tags": [
+        "distill",
+        "handoff",
+        "<record.kind>"
+      ],
+      "source_refs": [
+        "<record.source_ref>"
+      ]
+    }
+  },
+  "record_count": 28,
+  "records": [
+    {
+      "id": "distill_event_c5f189534771",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506084227345_04b29052",
+      "source_ref": "ai-org://event/evt_20260506084227345_04b29052",
+      "kind": "ready_artifact",
+      "title": "Distill Personal KM handoff",
+      "summary": "Distill Personal KM handoff",
+      "created_at": "2026-05-06T08:42:27.345Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_a43b24f2",
+        "uri": "docs/distill_personal_km_handoff.md",
+        "type": "project_doc"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_350150ea0ba5",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506083907505_c0434512",
+      "source_ref": "ai-org://event/evt_20260506083907505_c0434512",
+      "kind": "ready_artifact",
+      "title": "Distill Personal KM handoff exporter",
+      "summary": "Distill Personal KM handoff exporter",
+      "created_at": "2026-05-06T08:39:07.505Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_90d2c502",
+        "uri": "scripts/export-personal-km-handoff.js",
+        "type": "code"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_175636667543",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506083907471_a8988864",
+      "source_ref": "ai-org://event/evt_20260506083907471_a8988864",
+      "kind": "ready_artifact",
+      "title": "Distill to Personal KM handoff manifest",
+      "summary": "Distill to Personal KM handoff manifest",
+      "created_at": "2026-05-06T08:39:07.471Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_6d07eb39",
+        "uri": "docs/distill_personal_km_handoff.json",
+        "type": "dataset"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_3fecc6490c1b",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506083907346_477f61a4",
+      "source_ref": "ai-org://event/evt_20260506083907346_477f61a4",
+      "kind": "ready_artifact",
+      "title": "Distill to Personal KM handoff contract",
+      "summary": "Distill to Personal KM handoff contract",
+      "created_at": "2026-05-06T08:39:07.346Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_02d434e0",
+        "uri": "docs/distill_personal_km_handoff.md",
+        "type": "project_doc"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_8fb20d21c63c",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506080024325_501dda69",
+      "source_ref": "ai-org://event/evt_20260506080024325_501dda69",
+      "kind": "ready_artifact",
+      "title": "Distill AI Org integration",
+      "summary": "Distill AI Org integration",
+      "created_at": "2026-05-06T08:00:24.325Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_b004fa27",
+        "uri": "INTEGRATION.md",
+        "type": "project_doc"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_d7127d5ffe2a",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506080024229_630c3d31",
+      "source_ref": "ai-org://event/evt_20260506080024229_630c3d31",
+      "kind": "reviewed_decision",
+      "title": "M5 bridge verified: Distill can emit decision events",
+      "summary": "M5 bridge verified: Distill can emit decision events",
+      "created_at": "2026-05-06T08:00:24.230Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "decision.created"
+      ],
+      "metadata": {
+        "event_type": "decision.created"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_fa5dac213a54",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506073625502_c5e3b759",
+      "source_ref": "ai-org://event/evt_20260506073625502_c5e3b759",
+      "kind": "ready_artifact",
+      "title": "Distill 0.1.11 release manifest",
+      "summary": "Distill 0.1.11 release manifest",
+      "created_at": "2026-05-06T07:36:25.502Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_19b1d972",
+        "uri": "release/latest.json",
+        "type": "release"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_e37fb8714a0d",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506073625477_9df2ad27",
+      "source_ref": "ai-org://event/evt_20260506073625477_9df2ad27",
+      "kind": "reviewed_decision",
+      "title": "Ship Distill 0.1.11 sync tombstones and summary-only app events",
+      "summary": "Ship Distill 0.1.11 sync tombstones and summary-only app events",
+      "created_at": "2026-05-06T07:36:25.478Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "decision.created"
+      ],
+      "metadata": {
+        "event_type": "decision.created",
+        "decision_summary": "Ship Distill 0.1.11 sync tombstones and summary-only app events",
+        "artifact_path": "docs\\sync_design.md",
+        "privacy": "summary_only_no_note_body"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_e64b9f9b232d",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506071828700_d472220c",
+      "source_ref": "ai-org://event/evt_20260506071828700_d472220c",
+      "kind": "ready_artifact",
+      "title": "Distill real app AI Org event hooks",
+      "summary": "Distill real app AI Org event hooks",
+      "created_at": "2026-05-06T07:18:28.700Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_e949cbac",
+        "uri": "src/aiOrg.ts;src-tauri/src/lib.rs;docs/ai_org_event_bridge.md",
+        "type": "code"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_5c6aba29f095",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506071413468_54f01902",
+      "source_ref": "ai-org://event/evt_20260506071413468_54f01902",
+      "kind": "reviewed_decision",
+      "title": "Distill app event hooks remain summary-only by default",
+      "summary": "Distill app event hooks remain summary-only by default",
+      "created_at": "2026-05-06T07:14:13.469Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "decision.created"
+      ],
+      "metadata": {
+        "event_type": "decision.created",
+        "decision_summary": "Distill app event hooks remain summary-only by default",
+        "artifact_path": "docs\\ai_org_event_bridge.md",
+        "privacy": "summary_only_no_note_body",
+        "work_packet_id": "wp_20260506_wire-distill-real-app-events_93d72238"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_272ddcbea146",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506071413447_3fec8479",
+      "source_ref": "ai-org://event/evt_20260506071413447_3fec8479",
+      "kind": "ready_artifact",
+      "title": "Distill real app event hooks",
+      "summary": "Distill real app event hooks",
+      "created_at": "2026-05-06T07:14:13.447Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_f47ce508",
+        "uri": "docs/ai_org_event_bridge.md",
+        "type": "project_doc"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_b0e3dd4a04cf",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506065553882_60cbd157",
+      "source_ref": "ai-org://event/evt_20260506065553882_60cbd157",
+      "kind": "ready_artifact",
+      "title": "Distill build health restored",
+      "summary": "Distill build health restored",
+      "created_at": "2026-05-06T06:55:53.882Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_fb7827fc",
+        "uri": "src/__tests__/core.test.ts;src/components/ArchivePanel.tsx;src/styles.css",
+        "type": "code"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_c4dbdad5b939",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506063410759_c3badbc8",
+      "source_ref": "ai-org://event/evt_20260506063410759_c3badbc8",
+      "kind": "ready_artifact",
+      "title": "Distill 0.1.10 release manifest",
+      "summary": "Distill 0.1.10 release manifest",
+      "created_at": "2026-05-06T06:34:10.759Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_be17fd6e",
+        "uri": "release/latest.json",
+        "type": "release"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_640b39fb6e56",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506063410530_b9e7243f",
+      "source_ref": "ai-org://event/evt_20260506063410530_b9e7243f",
+      "kind": "reviewed_decision",
+      "title": "Ship Distill 0.1.10 with manual encrypted sync packet UI",
+      "summary": "Ship Distill 0.1.10 with manual encrypted sync packet UI",
+      "created_at": "2026-05-06T06:34:10.531Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "decision.created"
+      ],
+      "metadata": {
+        "event_type": "decision.created",
+        "decision_summary": "Ship Distill 0.1.10 with manual encrypted sync packet UI",
+        "artifact_path": "docs\\sync_design.md",
+        "privacy": "summary_only_no_note_body"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_7f53d6923276",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506062011806_014871bb",
+      "source_ref": "ai-org://event/evt_20260506062011806_014871bb",
+      "kind": "ready_artifact",
+      "title": "Distill AI Org event bridge",
+      "summary": "Distill AI Org event bridge",
+      "created_at": "2026-05-06T06:20:11.806Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready",
+        "artifact_id": "art_20260506_a3fe55a5",
+        "uri": "docs/ai_org_event_bridge.md",
+        "type": "project_doc"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_58469c5e9fdc",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506062011799_da8ee37f",
+      "source_ref": "ai-org://event/evt_20260506062011799_da8ee37f",
+      "kind": "reviewed_decision",
+      "title": "Distill summary-only AI Org bridge adopted",
+      "summary": "Distill summary-only AI Org bridge adopted",
+      "created_at": "2026-05-06T06:20:11.800Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "decision.created"
+      ],
+      "metadata": {
+        "event_type": "decision.created",
+        "decision_summary": "Distill summary-only AI Org bridge adopted",
+        "artifact_path": "docs\\ai_org_event_bridge.md",
+        "privacy": "summary_only_no_note_body",
+        "work_packet_id": "wp_20260506_connect-distill-decision-and-artifact-events_57cf3bda"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_event_52d8a62f8c62",
+      "source": "ai_org_event",
+      "source_id": "evt_20260506053706891_adca6f7f",
+      "source_ref": "ai-org://event/evt_20260506053706891_adca6f7f",
+      "kind": "ready_artifact",
+      "title": "AI Org Kernel integration files installed",
+      "summary": "AI Org Kernel integration files installed",
+      "created_at": "2026-05-06T05:37:06.893Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "ai-org",
+        "artifact.ready"
+      ],
+      "metadata": {
+        "event_type": "artifact.ready"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_2fc43a2d6394",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_a43b24f2",
+      "source_ref": "ai-org://artifact/art_20260506_a43b24f2",
+      "kind": "registered_artifact",
+      "title": "Distill Personal KM handoff",
+      "summary": "Summary-only Distill reviewed decision and artifact handoff manifest for Personal KM review ingestion.",
+      "created_at": "2026-05-06T08:42:27.344Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "project_doc"
+      ],
+      "metadata": {
+        "artifact_type": "project_doc",
+        "uri": "docs/distill_personal_km_handoff.md",
+        "status": "ready",
+        "work_packet_id": "wp_20260506_connect-distill-reviewed-artifacts-to-personal-km"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_92bb324a90ac",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_90d2c502",
+      "source_ref": "ai-org://artifact/art_20260506_90d2c502",
+      "kind": "registered_artifact",
+      "title": "Distill Personal KM handoff exporter",
+      "summary": "Exporter that derives Personal KM handoff records from central Kernel summary-only Distill events and artifacts.",
+      "created_at": "2026-05-06T08:39:07.503Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "code"
+      ],
+      "metadata": {
+        "artifact_type": "code",
+        "uri": "scripts/export-personal-km-handoff.js",
+        "status": "ready",
+        "work_packet_id": "wp_20260506_connect-distill-reviewed-artifacts-to-personal-km"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_ddde0af96182",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_6d07eb39",
+      "source_ref": "ai-org://artifact/art_20260506_6d07eb39",
+      "kind": "registered_artifact",
+      "title": "Distill to Personal KM handoff manifest",
+      "summary": "Machine-readable summary-only Distill handoff records for Personal KM review ingestion.",
+      "created_at": "2026-05-06T08:39:07.469Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "dataset"
+      ],
+      "metadata": {
+        "artifact_type": "dataset",
+        "uri": "docs/distill_personal_km_handoff.json",
+        "status": "ready",
+        "work_packet_id": "wp_20260506_connect-distill-reviewed-artifacts-to-personal-km"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_396879e1785a",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_02d434e0",
+      "source_ref": "ai-org://artifact/art_20260506_02d434e0",
+      "kind": "registered_artifact",
+      "title": "Distill to Personal KM handoff contract",
+      "summary": "Summary-only Distill to Personal KM handoff contract and generated record table.",
+      "created_at": "2026-05-06T08:39:07.344Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "project_doc"
+      ],
+      "metadata": {
+        "artifact_type": "project_doc",
+        "uri": "docs/distill_personal_km_handoff.md",
+        "status": "ready",
+        "work_packet_id": "wp_20260506_connect-distill-reviewed-artifacts-to-personal-km"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_ddeb077d0663",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_b004fa27",
+      "source_ref": "ai-org://artifact/art_20260506_b004fa27",
+      "kind": "registered_artifact",
+      "title": "Distill AI Org integration",
+      "summary": "Distill can emit decision and artifact bridge events.",
+      "created_at": "2026-05-06T08:00:24.322Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "project_doc"
+      ],
+      "metadata": {
+        "artifact_type": "project_doc",
+        "uri": "INTEGRATION.md",
+        "status": "ready"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_92afe6bdc1b3",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_19b1d972",
+      "source_ref": "ai-org://artifact/art_20260506_19b1d972",
+      "kind": "registered_artifact",
+      "title": "Distill 0.1.11 release manifest",
+      "summary": "Signed Windows update 0.1.11 with sync tombstones, device registry, and summary-only AI Org app events.",
+      "created_at": "2026-05-06T07:36:25.500Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "release"
+      ],
+      "metadata": {
+        "artifact_type": "release",
+        "uri": "release/latest.json",
+        "status": "ready"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_6bcbf88f664b",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_e949cbac",
+      "source_ref": "ai-org://artifact/art_20260506_e949cbac",
+      "kind": "registered_artifact",
+      "title": "Distill real app AI Org event hooks",
+      "summary": "Real Distill app flows emit summary-only memory.save_requested, decision.created, and artifact.ready events without note bodies or vault payloads.",
+      "created_at": "2026-05-06T07:18:28.698Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "code"
+      ],
+      "metadata": {
+        "artifact_type": "code",
+        "uri": "src/aiOrg.ts;src-tauri/src/lib.rs;docs/ai_org_event_bridge.md"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_cee0ece2591a",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_f47ce508",
+      "source_ref": "ai-org://artifact/art_20260506_f47ce508",
+      "kind": "registered_artifact",
+      "title": "Distill real app event hooks",
+      "summary": "Distill app capture, review, and export paths now emit summary-only AI Org events through a Tauri command without note bodies or vault contents.",
+      "created_at": "2026-05-06T07:14:13.445Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "project_doc"
+      ],
+      "metadata": {
+        "artifact_type": "project_doc",
+        "uri": "docs/ai_org_event_bridge.md",
+        "status": "ready",
+        "work_packet_id": "wp_20260506_wire-distill-real-app-events_93d72238"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_0231a6a1df24",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_fb7827fc",
+      "source_ref": "ai-org://artifact/art_20260506_fb7827fc",
+      "kind": "registered_artifact",
+      "title": "Distill build health restored",
+      "summary": "Work Packet wp_20260506_restore-distill-build-health_bc7dfaef: restores Distill TypeScript build by narrowing encrypted sync record unions and wiring archived block permanent dele...",
+      "created_at": "2026-05-06T06:55:53.880Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "code"
+      ],
+      "metadata": {
+        "artifact_type": "code",
+        "uri": "src/__tests__/core.test.ts;src/components/ArchivePanel.tsx;src/styles.css"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_58199bcf3434",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_be17fd6e",
+      "source_ref": "ai-org://artifact/art_20260506_be17fd6e",
+      "kind": "registered_artifact",
+      "title": "Distill 0.1.10 release manifest",
+      "summary": "Signed Windows update 0.1.10 with manual encrypted sync packets and stable device identity.",
+      "created_at": "2026-05-06T06:34:10.757Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "release"
+      ],
+      "metadata": {
+        "artifact_type": "release",
+        "uri": "release/latest.json",
+        "status": "ready"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    },
+    {
+      "id": "distill_artifact_50d81c99df54",
+      "source": "artifact_registry",
+      "source_id": "art_20260506_a3fe55a5",
+      "source_ref": "ai-org://artifact/art_20260506_a3fe55a5",
+      "kind": "registered_artifact",
+      "title": "Distill AI Org event bridge",
+      "summary": "Summary-only decision and artifact bridge from Distill to the central AI Org Kernel.",
+      "created_at": "2026-05-06T06:20:11.804Z",
+      "project": "distill",
+      "tags": [
+        "distill",
+        "artifact",
+        "project_doc"
+      ],
+      "metadata": {
+        "artifact_type": "project_doc",
+        "uri": "docs/ai_org_event_bridge.md",
+        "status": "ready",
+        "work_packet_id": "wp_20260506_connect-distill-decision-and-artifact-events_57cf3bda"
+      },
+      "personal_km_target": {
+        "route": "POST /api/review",
+        "status": "new",
+        "artifact_type": "distill_handoff"
+      },
+      "privacy": "summary_only_no_note_body"
+    }
+  ]
+}

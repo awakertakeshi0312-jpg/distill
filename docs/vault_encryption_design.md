@@ -18,6 +18,7 @@ Implemented:
 - Distill can auto-lock after inactivity and locks when the document is hidden.
 - JSON and encrypted vault restore now build a preview before replacing the current store.
 - Manual sync packets use record-level encrypted records, device registry metadata, and deletion tombstones.
+- Tests cover wrong passphrases, unsupported encrypted vault envelopes, and tampered vault payloads.
 
 Vault envelope:
 
@@ -113,8 +114,8 @@ When no encrypted vault exists:
 2. Move normal persistence from whole-store encryption to record-level encrypted records if automatic sync requires it.
 3. Add encrypted append-only record log for automatic sync.
 4. Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
-5. Add tamper/corruption test cases for modified vault envelopes.
-6. Add user-selectable vault location and recovery guidance.
+5. Add user-selectable vault location and recovery guidance.
+6. Add stronger crash-safe vault backup rotation.
 
 ## Release Gate Before Sync
 

@@ -23,7 +23,8 @@
     "org:event": "node scripts/emit-org-event.js",
     "org:artifact": "node scripts/register-org-artifact.js",
     "org:decision": "node scripts/emit-decision-event.js",
-    "org:ready": "node scripts/emit-artifact-ready.js"
+    "org:ready": "node scripts/emit-artifact-ready.js",
+    "org:handoff": "node scripts/export-personal-km-handoff.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",

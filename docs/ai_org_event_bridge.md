@@ -48,6 +48,37 @@ npm run org:event -- --local-api --type decision.created --summary "Local API te
 npm run org:artifact -- --local-api --title "Local API artifact" --path docs\ai_org_event_bridge.md --summary "Local API test"
 ```
 
+## Personal KM Handoff
+
+Generate a summary-only handoff manifest for reviewed decisions and ready artifacts:
+
+```powershell
+npm run org:handoff
+```
+
+Outputs:
+
+```text
+docs\distill_personal_km_handoff.json
+docs\distill_personal_km_handoff.md
+```
+
+The manifest is designed for Personal KM review ingestion through:
+
+```text
+POST /api/review
+```
+
+Each handoff record contains source IDs, source references, kind, title, summary, tags, and scalar metadata only. It does not copy Distill note bodies, vault payloads, raw exports, passphrases, secrets, tokens, credentials, or private note text.
+
+The desktop app also has an Inspector action named `Personal KM handoff`. It sends processed blocks to the Personal KM review queue as summary-only records through:
+
+```text
+http://localhost:3001/api/review
+```
+
+The app handoff sends block IDs, note IDs, states, project IDs, counts, timestamps, and privacy markers only. It does not send the block content field.
+
 ## Privacy Contract
 
 Allowed by default:
@@ -72,6 +103,7 @@ This satisfies the current central Work Packet:
 
 ```text
 wp_20260506_connect-distill-decision-and-artifact-events_57cf3bda
+wp_20260506_connect-distill-reviewed-artifacts-to-personal-km
 ```
 
 Completion evidence:
@@ -89,6 +121,7 @@ Current hooks:
 - capture saved -> `memory.save_requested`
 - review item marked processed -> `decision.created`
 - Markdown/JSON/backup export generated -> `artifact.ready`
+- Personal KM handoff generated -> `artifact.ready`
 
 The hook module is:
 

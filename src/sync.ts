@@ -508,9 +508,24 @@ function blockBeatsTombstone(block: ThoughtBlockSyncRecord, tombstone: DeletionT
   return block.hash > stableHash(tombstone);
 }
 
+export function isSyncPacketReplay(store: DistillStore, packet: Pick<DistillSyncPacket, 'sourceDeviceId' | 'createdAt'>) {
+  const sync = normalizeSyncMetadata(store.sync);
+  const knownDevice = sync.devices.find((device) => device.id === packet.sourceDeviceId);
+
+  return Boolean(knownDevice?.lastPacketAt && packet.createdAt <= knownDevice.lastPacketAt);
+}
+
 export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket): DistillStore {
   const blocksById = new Map(store.blocks.map((block) => [block.id, cloneBlock(block)]));
   const sync = normalizeSyncMetadata(store.sync);
+
+  if (isSyncPacketReplay(store, packet)) {
+    return {
+      ...store,
+      sync,
+    };
+  }
+
   const tombstonesById = new Map(sync.tombstones.map((tombstone) => [tombstone.id, cloneTombstone(tombstone)]));
   const devices = mergeSyncDevices(sync.devices, packet.devices ?? [], [packetSourceDevice(packet)]);
 

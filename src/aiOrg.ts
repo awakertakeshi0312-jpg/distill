@@ -79,7 +79,12 @@ export function emitReviewDecision(block: ThoughtBlock, store: DistillStore) {
   });
 }
 
-export function emitExportArtifact(kind: 'markdown' | 'json' | 'backup-json', store: DistillStore) {
+export function emitExportArtifact(
+  kind: 'markdown' | 'json' | 'backup-json' | 'personal-km-handoff',
+  store: DistillStore,
+  workPacketId = WORK_PACKET_ID,
+  extraPayload: Record<string, unknown> = {},
+) {
   return emitAiOrgEvent({
     eventType: 'artifact.ready',
     summary: `Distill ${kind} export generated`,
@@ -87,7 +92,9 @@ export function emitExportArtifact(kind: 'markdown' | 'json' | 'backup-json', st
       artifact_kind: kind,
       block_count: store.blocks.length,
       project_count: store.projects.length,
-      export_channel: 'user_download',
+      export_channel: kind === 'personal-km-handoff' ? 'personal_km_review_queue' : 'user_download',
+      ...extraPayload,
     },
+    workPacketId,
   });
 }

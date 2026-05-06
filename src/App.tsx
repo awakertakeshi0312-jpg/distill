@@ -8,6 +8,7 @@ import { initialStore, normalizeSyncMetadata, type DistillStore, type Project, t
 import {
   applyEncryptedSyncPacket,
   buildEncryptedSyncPacket,
+  isSyncPacketReplay,
   parseEncryptedSyncPacket,
   registerSyncDevice,
   serializeEncryptedSyncPacket,
@@ -65,6 +66,7 @@ import { Topbar } from './components/Topbar';
 import { VaultGate } from './components/VaultGate';
 import { copy, getInitialLocale, UI_LOCALE_KEY, type Locale } from './i18n';
 import { emitCaptureSaved, emitExportArtifact, emitReviewDecision } from './aiOrg';
+import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
 
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
@@ -103,6 +105,7 @@ function App() {
   const [restoreStatus, setRestoreStatus] = useState('');
   const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
   const [syncStatus, setSyncStatus] = useState('');
+  const [personalKmHandoffStatus, setPersonalKmHandoffStatus] = useState('');
   const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(() => {
     if (typeof window === 'undefined') {
       return null;
@@ -433,6 +436,13 @@ function App() {
       keywords: 'export json backup',
       run: exportJson,
     },
+    {
+      id: 'handoff-personal-km',
+      label: 'Handoff to Personal KM',
+      section: ui.commandSections.export,
+      keywords: 'personal km handoff review queue',
+      run: () => void handoffToPersonalKm(),
+    },
   ];
 
   const filteredCommandItems = commandItems.filter((item) => {
@@ -474,6 +484,32 @@ function App() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     downloadTextFile(`distill-backup-${timestamp}.json`, exportStoreAsJson(store), 'application/json');
     void emitExportArtifact('backup-json', store);
+  }
+
+  async function handoffToPersonalKm() {
+    setPersonalKmHandoffStatus('Sending summary-only handoff to Personal KM...');
+    try {
+      const result = await sendPersonalKmHandoff(store);
+      setPersonalKmHandoffStatus(
+        result.submitted > 0
+          ? `Submitted ${result.submitted} reviewed summaries to Personal KM. Skipped ${result.skipped}.`
+          : 'No processed blocks are ready for Personal KM handoff.',
+      );
+      if (result.submitted > 0) {
+        void emitExportArtifact(
+          'personal-km-handoff',
+          store,
+          'wp_20260506_connect-distill-reviewed-artifacts-to-personal-km',
+          {
+            submitted: result.submitted,
+            skipped: result.skipped,
+            endpoint: result.endpoint,
+          },
+        );
+      }
+    } catch (error) {
+      setPersonalKmHandoffStatus(error instanceof Error ? error.message : 'Personal KM handoff failed.');
+    }
   }
 
   function runtimeVaultLabels() {
@@ -770,6 +806,16 @@ function App() {
 
     try {
       const packet = parseEncryptedSyncPacket(await file.text());
+
+      if (isSyncPacketReplay(store, packet)) {
+        setSyncStatus(
+          locale === 'en'
+            ? `Skipped an older or already imported sync packet from device ${packet.sourceDeviceId}.`
+            : `端末 ${packet.sourceDeviceId} からの古い、または取り込み済みの同期パケットをスキップしました。`,
+        );
+        return;
+      }
+
       const confirmed = window.confirm(labels.importConfirm(packet.records.length, packet.sourceDeviceId));
 
       if (!confirmed) {
@@ -1192,6 +1238,7 @@ function App() {
             restoreStatus={restoreStatus}
             restorePreview={restorePreview}
             syncStatus={syncStatus}
+            personalKmHandoffStatus={personalKmHandoffStatus}
             deviceId={deviceIdentity?.id ?? ''}
             deviceName={deviceIdentity?.name ?? ''}
             syncDevices={syncDevices}
@@ -1223,6 +1270,7 @@ function App() {
             onDeviceNameChange={renameCurrentDevice}
             onExportEncryptedSyncPacket={() => void exportEncryptedSyncPacket()}
             onImportEncryptedSyncPacket={(file) => void importEncryptedSyncPacket(file)}
+            onHandoffToPersonalKm={() => void handoffToPersonalKm()}
             onChangeVaultPassphrase={(currentPassphrase, nextPassphrase, confirmation) =>
               void changeVaultPassphrase(currentPassphrase, nextPassphrase, confirmation)
             }

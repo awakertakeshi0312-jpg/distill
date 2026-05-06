@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.12 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, and deletion tombstones.
+Distill 0.1.12 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, deletion tombstones, and replay/rollback protection.
 
 ## Phase 1: Desktop MVP
 
@@ -63,9 +63,9 @@ Next:
 - Passphrase change flow. Complete.
 - Lock-on-idle and lock-on-hidden. Complete.
 - Restore preview before replacing vault. Complete.
-- Corrupted/tampered vault tests.
+- Corrupted/tampered vault tests. Complete for unsupported envelope and tampered payload coverage.
 - User-selectable vault location.
-- Record-level encrypted records. Complete for manual sync packet export/import with deletion tombstones and device registry; automatic file sync is not enabled yet.
+- Record-level encrypted records. Complete for manual sync packet export/import with deletion tombstones, device registry, and stale packet rejection; automatic file sync is not enabled yet.
 - Optional platform keyring or Tauri Stronghold convenience unlock.
 
 ## Phase 4: Retrieval Upgrade
@@ -98,6 +98,7 @@ Status: Foundation in code.
 - Device identity.
 - Known device registry.
 - Deletion tombstones for permanent block deletion.
+- Replay/rollback guard using known device `lastPacketAt`.
 - Manual encrypted file sync first.
 - Conflict handling.
 - Optional E2EE hosted sync after record format is stable.
@@ -118,4 +119,4 @@ Status: Not started.
 - Passphrase change and restore preview are implemented before 0.2.0.
 - No known data-loss path in normal use.
 - Search, edit, project assignment, archive, restore, import, export, people, graph, vault unlock, and encrypted persistence smoke tests are automated.
-- Sync design has record-level encryption, device registry, deletion tombstones, and deterministic conflict strategy before automatic transport.
+- Sync design has record-level encryption, device registry, deletion tombstones, replay/rollback guard, and deterministic conflict strategy before automatic transport.

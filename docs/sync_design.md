@@ -89,6 +89,7 @@ Implemented:
 - manual encrypted sync packet export/import UI.
 - known device registry persisted in the encrypted vault metadata.
 - deletion tombstones for permanent thought-block deletion.
+- replay/rollback guard that skips packets whose `createdAt` is not newer than the known source device `lastPacketAt`.
 - deterministic merge rule:
   - accept a remote block when the local block is missing.
   - accept a remote block when `remote.updatedAt` is newer.
@@ -102,7 +103,7 @@ Not implemented yet:
 
 - project record sync.
 - automatic device removal.
-- replay/rollback protection beyond last-writer-wins timestamps.
+- replay/rollback protection beyond source-device packet timestamp checkpoints.
 - automatic network or cloud sync.
 
 This keeps the risky part small: the app can prove merge behavior before any private data is sent to a network or cloud provider.
@@ -163,6 +164,7 @@ The current UI supports local manual sync only:
 5. Unlock the other device with the same vault passphrase.
 6. Import the encrypted sync packet.
 7. Distill decrypts records in memory, verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
+8. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
 
 This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
@@ -201,6 +203,7 @@ Later:
 
 - block-level CRDT for simultaneous text editing
 - explicit conflict review screen
+- signed or chained packet checkpoints for stronger rollback detection
 
 ## Device Identity
 
@@ -219,6 +222,7 @@ The current registry is local and manual:
 - imported packets merge `devices` metadata into the encrypted vault.
 - the Inspector shows known devices.
 - there is no device removal or trust revocation flow yet.
+- `lastPacketAt` is used to reject stale imports from known devices.
 
 ## Key Handling
 
@@ -255,7 +259,7 @@ Before enabling automatic sync:
 
 - wrong passphrase test
 - corrupted payload test
-- rollback/replay policy
+- rollback/replay policy. Baseline source-device `lastPacketAt` guard is implemented; stronger chained checkpoint validation remains future work.
 - device removal story
 - backup recovery test
 - local cache clear test

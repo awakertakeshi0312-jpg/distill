@@ -12,7 +12,7 @@ This document is the handoff context for Distill so another person or future age
 - Product type: local-first desktop/PWA thinking app
 - Current version: 0.1.12
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow, device registry, and deletion tombstones
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow, device registry, deletion tombstones, stale-packet rejection, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -65,6 +65,8 @@ Implemented app features:
 - Manual encrypted sync packet export/import using record-level encrypted records
 - Manual sync device registry in the Inspector
 - Permanent archive deletion with sync tombstones
+- Stale sync packet rejection based on known device `lastPacketAt`
+- Personal KM summary-only handoff for processed blocks and AI Org artifacts
 - React render error boundary that shows recovery guidance instead of a blank screen
 
 ## Current Persistence Boundary
@@ -144,9 +146,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after restore preview and blank-screen recovery boundary:
+Latest verification after Personal KM handoff, vault tamper tests, and stale sync packet rejection:
 
-- `npm test`: 30 passed
+- `npm test`: 34 passed
 - `npm run build`: passed
 - `npm run test:rust`: 11 passed
 - `npm run test:e2e`: 10 passed
@@ -171,6 +173,8 @@ E2E coverage includes:
 - encrypted vault persistence after reload with no plaintext in localStorage
 - encrypted sync packet export download
 - permanent archive deletion with confirmation
+- stale sync packet rejection is covered by unit tests
+- encrypted vault tamper/corruption rejection is covered by unit tests
 
 ## Source Map
 
@@ -187,6 +191,7 @@ Key frontend files:
 - `src/graph.ts`: graph modeling and neighbors
 - `src/import.ts`: validated import logic
 - `src/restorePreview.ts`: restore diff calculation before replacing the current store
+- `src/personalKmHandoff.ts`: summary-only Personal KM review handoff builder/sender
 - `src/export.ts`: export/download logic
 - `src/i18n.ts`: English/Japanese copy
 - `src/components/`: UI panels
@@ -208,6 +213,7 @@ Key docs:
 - `docs/sync_design.md`: encryption-first sync direction
 - `docs/security_assessment_2026-05-06.md`: current security posture
 - `docs/auto_update_runbook.md`: signed updater workflow
+- `docs/distill_personal_km_handoff.md`: summary-only handoff contract/generated table
 
 ## Key Design Decisions
 
@@ -241,11 +247,11 @@ Current status: manual encrypted sync packets, device registry, and deletion tom
 
 ### Trust/Security
 
-1. Add corrupted/tampered vault tests.
-2. Add sync replay/rollback policy.
-3. Add automatic encrypted folder sync prototype.
-4. Add device removal and trust revocation.
-5. Add user-selectable vault location.
+1. Add automatic encrypted folder sync prototype.
+2. Add stronger chained sync checkpoint validation.
+3. Add device removal and trust revocation.
+4. Add user-selectable vault location.
+5. Add OS-native idle/sleep integration.
 
 ### Product Quality
 

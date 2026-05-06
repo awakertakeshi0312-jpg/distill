@@ -50,6 +50,8 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added deletion tombstones so stale packets cannot resurrect permanently deleted archived blocks.
 - Added restore preview before JSON or encrypted vault replacement.
 - Added a React render error boundary so UI failures show recovery steps instead of a blank screen.
+- Added unsupported-envelope and tampered-payload encrypted vault tests.
+- Added stale sync packet rejection based on known source-device `lastPacketAt`.
 
 ## Findings
 
@@ -161,8 +163,8 @@ Before distributing a new public build:
 
 ## Next Security Milestones
 
-1. Add corrupted vault tests.
-2. Define replay/rollback protection for sync packets.
-3. Add OS-native idle/sleep integration and optional keyring convenience unlock.
-4. Add automatic encrypted folder sync only after replay/recovery behavior is documented.
-5. Add device removal and trust revocation flow.
+1. Strengthen replay/rollback protection with chained packet checkpoints.
+2. Add OS-native idle/sleep integration and optional keyring convenience unlock.
+3. Add automatic encrypted folder sync only after replay/recovery behavior is documented.
+4. Add device removal and trust revocation flow.
+5. Add user-selectable vault location and backup rotation.

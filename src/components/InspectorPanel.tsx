@@ -18,6 +18,7 @@ type InspectorPanelProps = {
   restoreStatus: string;
   restorePreview: RestorePreview | null;
   syncStatus: string;
+  personalKmHandoffStatus: string;
   deviceId: string;
   deviceName: string;
   syncDevices: SyncDevice[];
@@ -46,6 +47,7 @@ type InspectorPanelProps = {
   onDeviceNameChange: (name: string) => void;
   onExportEncryptedSyncPacket: () => void;
   onImportEncryptedSyncPacket: (file: File) => void;
+  onHandoffToPersonalKm: () => void;
   onChangeVaultPassphrase: (currentPassphrase: string, nextPassphrase: string, confirmation: string) => void;
   onAutoLockMinutesChange: (minutes: number) => void;
   onUpdateInstallerPathChange: (path: string) => void;
@@ -66,6 +68,7 @@ export function InspectorPanel({
   restoreStatus,
   restorePreview,
   syncStatus,
+  personalKmHandoffStatus,
   deviceId,
   deviceName,
   syncDevices,
@@ -94,6 +97,7 @@ export function InspectorPanel({
   onDeviceNameChange,
   onExportEncryptedSyncPacket,
   onImportEncryptedSyncPacket,
+  onHandoffToPersonalKm,
   onChangeVaultPassphrase,
   onAutoLockMinutesChange,
   onUpdateInstallerPathChange,
@@ -603,6 +607,19 @@ export function InspectorPanel({
             />
           </label>
           {syncStatus ? <span className="restoreStatus">{syncStatus}</span> : null}
+        </div>
+
+        <div className="restoreBox">
+          <strong>Personal KM handoff</strong>
+          <span>
+            Send processed Distill blocks to the Personal KM review queue as summary-only records. Note bodies and vault
+            payloads are not sent.
+          </span>
+          <button className="restoreButton" type="button" onClick={onHandoffToPersonalKm}>
+            <Database size={16} />
+            Send reviewed summaries
+          </button>
+          {personalKmHandoffStatus ? <span className="restoreStatus">{personalKmHandoffStatus}</span> : null}
         </div>
 
         <div className="restoreBox">
