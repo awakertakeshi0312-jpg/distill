@@ -6,7 +6,7 @@
 
 ## 現在の状態
 
-- 現在の公開版は `0.1.10`。
+- 現在の公開版は `0.1.11`。
 - Project ID は `distill`、AI Org 上の役割は Thinking Core。
 - Kernel API は `http://localhost:3001/api/org`。
 - React + TypeScript + Vite + Tauri。
