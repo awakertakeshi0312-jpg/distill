@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.15 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews.
+Distill 0.1.16 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, device registry, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews.
 
 ## Phase 1: Desktop MVP
 
@@ -65,7 +65,7 @@ Next:
 - Restore preview before replacing vault. Complete.
 - Corrupted/tampered vault tests. Complete for unsupported envelope and tampered payload coverage.
 - User-selectable vault location.
-- Record-level encrypted records. Complete for manual sync packet export/import with apply preview, deletion tombstones, device registry, stale packet rejection, and chained checkpoint validation; automatic file sync is not enabled yet.
+- Record-level encrypted records. Complete for manual sync packet export/import with apply preview, deletion tombstones, device registry, device trust revocation, stale packet rejection, chained checkpoint validation, and explicit desktop sync-folder packet exchange; automatic background sync is not enabled yet.
 - Optional platform keyring or Tauri Stronghold convenience unlock.
 
 ## Phase 4: Retrieval Upgrade
@@ -101,6 +101,8 @@ Status: Foundation in code.
 - Replay/rollback guard using known device `lastPacketAt`.
 - Chained checkpoint validation using known device `lastPacketHash`.
 - Apply-before-confirm preview for encrypted sync packets.
+- Device trust revocation and revoked-device rejection.
+- Desktop sync-folder packet writing, scanning, and selected-packet preview.
 - Manual encrypted file sync first.
 - Conflict handling.
 - Optional E2EE hosted sync after record format is stable.

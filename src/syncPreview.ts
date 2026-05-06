@@ -11,6 +11,7 @@ export type SyncPreviewDiff = {
   incomingBlocks: number;
   incomingDeletions: number;
   incomingDevices: number;
+  incomingRevokedDevices: number;
   addedBlocks: number;
   updatedBlocks: number;
   skippedBlocks: number;
@@ -80,6 +81,7 @@ export function buildSyncPreview(store: DistillStore, packet: DistillSyncPacket)
     incomingBlocks: packet.records.filter((record) => record.kind === 'thought-block').length,
     incomingDeletions: packet.records.filter((record) => record.kind === 'thought-block-deletion').length,
     incomingDevices: packet.devices?.length ?? 0,
+    incomingRevokedDevices: packet.revokedDevices?.length ?? 0,
     addedBlocks: 0,
     updatedBlocks: 0,
     skippedBlocks: 0,

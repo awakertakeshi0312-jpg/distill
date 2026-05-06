@@ -35,9 +35,17 @@ export type SyncDevice = {
   lastPacketHash?: string;
 };
 
+export type RevokedSyncDevice = {
+  id: string;
+  name: string;
+  revokedAt: string;
+  lastPacketHash?: string;
+};
+
 export type SyncMetadata = {
   tombstones: DeletionTombstone[];
   devices: SyncDevice[];
+  revokedDevices: RevokedSyncDevice[];
 };
 
 export type SearchResult = {
@@ -119,6 +127,7 @@ export const initialStore: DistillStore = {
   sync: {
     tombstones: [],
     devices: [],
+    revokedDevices: [],
   },
 };
 
@@ -126,6 +135,7 @@ export function createEmptySyncMetadata(): SyncMetadata {
   return {
     tombstones: [],
     devices: [],
+    revokedDevices: [],
   };
 }
 
@@ -150,8 +160,18 @@ export function normalizeSyncMetadata(sync?: Partial<SyncMetadata> | null): Sync
           (typeof item.lastPacketHash === 'undefined' || typeof item.lastPacketHash === 'string'),
       )
     : [];
+  const revokedDevices = Array.isArray(sync?.revokedDevices)
+    ? sync.revokedDevices.filter(
+        (item): item is RevokedSyncDevice =>
+          typeof item?.id === 'string' &&
+          typeof item.name === 'string' &&
+          typeof item.revokedAt === 'string' &&
+          (typeof item.lastPacketHash === 'undefined' || typeof item.lastPacketHash === 'string'),
+      )
+    : [];
   const tombstonesById = new Map<string, DeletionTombstone>();
   const devicesById = new Map<string, SyncDevice>();
+  const revokedDevicesById = new Map<string, RevokedSyncDevice>();
 
   for (const tombstone of tombstones) {
     const current = tombstonesById.get(tombstone.id);
@@ -170,12 +190,26 @@ export function normalizeSyncMetadata(sync?: Partial<SyncMetadata> | null): Sync
     }
   }
 
+  for (const device of revokedDevices) {
+    const current = revokedDevicesById.get(device.id);
+    if (!current || device.revokedAt > current.revokedAt) {
+      revokedDevicesById.set(device.id, device);
+    }
+  }
+
+  for (const deviceId of revokedDevicesById.keys()) {
+    devicesById.delete(deviceId);
+  }
+
   return {
     tombstones: Array.from(tombstonesById.values()).sort(
       (a, b) => b.deletedAt.localeCompare(a.deletedAt) || a.id.localeCompare(b.id),
     ),
     devices: Array.from(devicesById.values()).sort(
       (a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+    ),
+    revokedDevices: Array.from(revokedDevicesById.values()).sort(
+      (a, b) => b.revokedAt.localeCompare(a.revokedAt) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
     ),
   };
 }

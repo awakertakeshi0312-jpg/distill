@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-list-encrypted-sync-packet-files"
+description = "Enables the list_encrypted_sync_packet_files command without any pre-configured scope."
+commands.allow = ["list_encrypted_sync_packet_files"]
+
+[[permission]]
+identifier = "deny-list-encrypted-sync-packet-files"
+description = "Denies the list_encrypted_sync_packet_files command without any pre-configured scope."
+commands.deny = ["list_encrypted_sync_packet_files"]

@@ -2,7 +2,7 @@
 
 ## Current Implementation
 
-Distill 0.1.15 uses an encrypted local vault for normal app persistence.
+Distill 0.1.16 uses an encrypted local vault for normal app persistence.
 
 Implemented:
 
@@ -17,7 +17,8 @@ Implemented:
 - Users can change the vault passphrase from the Inspector.
 - Distill can auto-lock after inactivity and locks when the document is hidden.
 - JSON and encrypted vault restore now build a preview before replacing the current store.
-- Manual sync packets use record-level encrypted records, device registry metadata, and deletion tombstones.
+- Manual sync packets use record-level encrypted records, device registry metadata, revoked device metadata, and deletion tombstones.
+- Desktop sync-folder packet exchange can write, scan, and preview encrypted packet files through the same explicit sync preview flow.
 - Tests cover wrong passphrases, unsupported encrypted vault envelopes, and tampered vault payloads.
 
 Vault envelope:
@@ -58,7 +59,7 @@ This is acceptable for the current local MVP, but it is not equivalent to a hard
 - If the user forgets the passphrase, Distill cannot recover the vault.
 - The passphrase is held in the React app session while unlocked so autosave and updates can persist the encrypted vault.
 - Normal vault persistence encrypts the whole store as one envelope, while manual sync packets encrypt individual records.
-- Automatic/background sync is not implemented yet.
+- Automatic/background sync is not implemented yet; desktop sync-folder packet exchange is explicit and user-triggered.
 - Browser/PWA mode still depends on browser localStorage for the encrypted envelope, so browser profile compromise can delete or replace data even though content is encrypted.
 - Old plaintext copies outside known Distill paths, such as OS backups or manually exported JSON, cannot be erased by the app.
 
@@ -125,6 +126,6 @@ Do not ship automatic sync until:
 - wrong passphrase tests pass
 - corrupted payload tests pass
 - record-level merge format is finalized beyond manual packets
-- device identity, registry, and removal flows are designed
+- device identity, registry, and trust revocation flows are designed
 - rollback/replay handling is defined
 - recovery and device-loss scenarios are documented

@@ -1,9 +1,10 @@
-import { Database, Download, FileText, FileUp, Link2, Network, RefreshCw, UserRound } from 'lucide-react';
+import { Database, Download, FileText, FileUp, Link2, Network, RefreshCw, ShieldOff, Trash2, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { UiCopy } from '../i18n';
-import type { Project, SyncDevice, ThoughtBlock } from '../model';
+import type { Project, RevokedSyncDevice, SyncDevice, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
 import type { RestorePreview } from '../restorePreview';
+import type { SyncFolderPacketFile } from '../storage';
 import type { SyncPreview } from '../syncPreview';
 import { HelpNote } from './HelpNote';
 
@@ -20,10 +21,13 @@ type InspectorPanelProps = {
   restorePreview: RestorePreview | null;
   syncStatus: string;
   syncPreview: SyncPreview | null;
+  syncFolderPath: string;
+  syncFolderPackets: SyncFolderPacketFile[];
   personalKmHandoffStatus: string;
   deviceId: string;
   deviceName: string;
   syncDevices: SyncDevice[];
+  revokedSyncDevices: RevokedSyncDevice[];
   vaultSecurityStatus: string;
   autoLockMinutes: number;
   updateInstallerPath: string;
@@ -49,8 +53,14 @@ type InspectorPanelProps = {
   onDeviceNameChange: (name: string) => void;
   onExportEncryptedSyncPacket: () => void;
   onImportEncryptedSyncPacket: (file: File) => void;
+  onSyncFolderPathChange: (path: string) => void;
+  onExportEncryptedSyncPacketToFolder: () => void;
+  onRefreshSyncFolderPackets: () => void;
+  onImportSyncFolderPacket: (packetFile: SyncFolderPacketFile) => void;
   onApplySyncPreview: () => void;
   onCancelSyncPreview: () => void;
+  onRevokeSyncDevice: (deviceId: string) => void;
+  onForgetRevokedSyncDevice: (deviceId: string) => void;
   onHandoffToPersonalKm: () => void;
   onChangeVaultPassphrase: (currentPassphrase: string, nextPassphrase: string, confirmation: string) => void;
   onAutoLockMinutesChange: (minutes: number) => void;
@@ -73,10 +83,13 @@ export function InspectorPanel({
   restorePreview,
   syncStatus,
   syncPreview,
+  syncFolderPath,
+  syncFolderPackets,
   personalKmHandoffStatus,
   deviceId,
   deviceName,
   syncDevices,
+  revokedSyncDevices,
   vaultSecurityStatus,
   autoLockMinutes,
   updateInstallerPath,
@@ -102,8 +115,14 @@ export function InspectorPanel({
   onDeviceNameChange,
   onExportEncryptedSyncPacket,
   onImportEncryptedSyncPacket,
+  onSyncFolderPathChange,
+  onExportEncryptedSyncPacketToFolder,
+  onRefreshSyncFolderPackets,
+  onImportSyncFolderPacket,
   onApplySyncPreview,
   onCancelSyncPreview,
+  onRevokeSyncDevice,
+  onForgetRevokedSyncDevice,
   onHandoffToPersonalKm,
   onChangeVaultPassphrase,
   onAutoLockMinutesChange,
@@ -198,9 +217,21 @@ export function InspectorPanel({
           rename: 'Save device name',
           export: 'Export sync packet',
           import: 'Import sync packet',
+          folderPath: 'Sync folder path',
+          folderPathPlaceholder: 'C:\\Users\\awake\\OneDrive\\Distill Sync',
+          exportToFolder: 'Export to sync folder',
+          scanFolder: 'Scan sync folder',
+          folderPackets: 'Folder packets',
+          noFolderPackets: 'No packet files found yet',
+          importFolderPacket: 'Preview',
           knownDevices: 'Known devices',
           noKnownDevices: 'No synced devices yet',
+          revokedDevices: 'Revoked devices',
+          noRevokedDevices: 'No revoked devices',
           thisDevice: 'This device',
+          revokedAt: 'Revoked',
+          revoke: 'Revoke',
+          forget: 'Forget',
         }
       : {
           title: '暗号化同期パケット',
@@ -210,9 +241,21 @@ export function InspectorPanel({
           rename: '端末名を保存',
           export: '同期パケットを書き出す',
           import: '同期パケットを取り込む',
+          folderPath: '同期フォルダのパス',
+          folderPathPlaceholder: 'C:\\Users\\awake\\OneDrive\\Distill Sync',
+          exportToFolder: '同期フォルダへ書き出す',
+          scanFolder: '同期フォルダを確認',
+          folderPackets: 'フォルダ内パケット',
+          noFolderPackets: '同期パケットはまだ見つかっていません',
+          importFolderPacket: 'プレビュー',
           knownDevices: '同期済み端末',
           noKnownDevices: '同期済み端末はまだありません',
+          revokedDevices: '信頼解除済み端末',
+          noRevokedDevices: '信頼解除済み端末はありません',
           thisDevice: 'この端末',
+          revokedAt: '解除日時',
+          revoke: '信頼解除',
+          forget: '記録削除',
         };
 
   const restorePreviewLabels =
@@ -267,6 +310,7 @@ export function InspectorPanel({
           blocks: 'Blocks',
           deletions: 'Deletions',
           devices: 'Devices',
+          revoked: 'Revoked devices',
           added: 'Added',
           updated: 'Updated',
           skipped: 'Skipped',
@@ -285,6 +329,7 @@ export function InspectorPanel({
           blocks: 'ブロック',
           deletions: '削除履歴',
           devices: '端末',
+          revoked: '信頼解除済み端末',
           added: '追加',
           updated: '更新',
           skipped: 'スキップ',
@@ -623,15 +668,62 @@ export function InspectorPanel({
           <span className="storagePath">{syncLabels.knownDevices}</span>
           {syncDevices.length > 0 ? (
             <div className="deviceList">
-              {syncDevices.map((device) => (
-                <span className="deviceRow" key={device.id}>
-                  <b>{device.name}</b>
-                  <small>{device.id === deviceId ? syncLabels.thisDevice : device.id}</small>
-                </span>
-              ))}
+              {syncDevices.map((device) => {
+                const isCurrentDevice = device.id === deviceId;
+
+                return (
+                  <div className="deviceRow" key={device.id}>
+                    <div className="deviceDetails">
+                      <b>{device.name}</b>
+                      <small>{isCurrentDevice ? syncLabels.thisDevice : device.id}</small>
+                      {device.lastSeenAt ? <small>{device.lastSeenAt}</small> : null}
+                    </div>
+                    {!isCurrentDevice ? (
+                      <div className="deviceActions">
+                        <button
+                          className="restoreButton dangerButton inlineActionButton"
+                          type="button"
+                          onClick={() => onRevokeSyncDevice(device.id)}
+                        >
+                          <ShieldOff size={14} />
+                          {syncLabels.revoke}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <span className="storagePath">{syncLabels.noKnownDevices}</span>
+          )}
+          <span className="storagePath">{syncLabels.revokedDevices}</span>
+          {revokedSyncDevices.length > 0 ? (
+            <div className="deviceList">
+              {revokedSyncDevices.map((device) => (
+                <div className="deviceRow" key={device.id}>
+                  <div className="deviceDetails">
+                    <b>{device.name}</b>
+                    <small>{device.id}</small>
+                    <small>
+                      {syncLabels.revokedAt}: {device.revokedAt}
+                    </small>
+                  </div>
+                  <div className="deviceActions">
+                    <button
+                      className="restoreButton inlineActionButton"
+                      type="button"
+                      onClick={() => onForgetRevokedSyncDevice(device.id)}
+                    >
+                      <Trash2 size={14} />
+                      {syncLabels.forget}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="storagePath">{syncLabels.noRevokedDevices}</span>
           )}
           <button className="restoreButton" type="button" onClick={onExportEncryptedSyncPacket}>
             <Download size={16} />
@@ -652,6 +744,52 @@ export function InspectorPanel({
               }}
             />
           </label>
+          <label>
+            {syncLabels.folderPath}
+            <input
+              value={syncFolderPath}
+              placeholder={syncLabels.folderPathPlaceholder}
+              onChange={(event) => onSyncFolderPathChange(event.target.value)}
+            />
+          </label>
+          <div className="exportActions stackedActions">
+            <button className="restoreButton" type="button" onClick={onExportEncryptedSyncPacketToFolder}>
+              <Download size={16} />
+              {syncLabels.exportToFolder}
+            </button>
+            <button className="restoreButton" type="button" onClick={onRefreshSyncFolderPackets}>
+              <RefreshCw size={16} />
+              {syncLabels.scanFolder}
+            </button>
+          </div>
+          <span className="storagePath">{syncLabels.folderPackets}</span>
+          {syncFolderPackets.length > 0 ? (
+            <div className="deviceList">
+              {syncFolderPackets.map((packetFile) => (
+                <div className="deviceRow" key={packetFile.path}>
+                  <div className="deviceDetails">
+                    <b>{packetFile.fileName}</b>
+                    <small>{packetFile.path}</small>
+                    <small>
+                      {packetFile.bytes} bytes / {packetFile.modifiedAt}
+                    </small>
+                  </div>
+                  <div className="deviceActions">
+                    <button
+                      className="restoreButton inlineActionButton"
+                      type="button"
+                      onClick={() => onImportSyncFolderPacket(packetFile)}
+                    >
+                      <FileUp size={14} />
+                      {syncLabels.importFolderPacket}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="storagePath">{syncLabels.noFolderPackets}</span>
+          )}
           {syncStatus ? <span className="restoreStatus">{syncStatus}</span> : null}
           {syncPreview ? (
             <div className="restorePreviewBox syncPreviewBox">
@@ -669,6 +807,9 @@ export function InspectorPanel({
                 </span>
                 <span>
                   {syncPreviewLabels.devices}: {syncPreview.diff.incomingDevices}
+                </span>
+                <span>
+                  {syncPreviewLabels.revoked}: {syncPreview.diff.incomingRevokedDevices}
                 </span>
                 <span>
                   {syncPreviewLabels.blocks}: {syncPreview.diff.incomingBlocks}

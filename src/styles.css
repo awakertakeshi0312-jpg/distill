@@ -943,10 +943,17 @@ button:disabled {
 .deviceRow {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 10px;
   padding: 7px 8px;
   border: 1px solid var(--line);
   background: rgba(237, 242, 236, 0.68);
+}
+
+.deviceDetails {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .deviceRow b {
@@ -956,6 +963,20 @@ button:disabled {
 .deviceRow small {
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+.deviceActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.inlineActionButton {
+  min-height: 30px;
+  width: auto;
+  padding: 0 8px;
+  font-size: 0.78rem;
 }
 
 .updateDiagnostics {

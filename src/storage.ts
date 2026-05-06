@@ -23,6 +23,13 @@ export type AppUpdateInfo = {
   body?: string;
 };
 
+export type SyncFolderPacketFile = {
+  fileName: string;
+  path: string;
+  bytes: number;
+  modifiedAt: string;
+};
+
 let pendingUpdate: Update | null = null;
 
 function isTauriRuntime() {
@@ -129,6 +136,35 @@ export async function startUpdateInstaller(installerPath: string): Promise<void>
   }
 
   throw new Error('Desktop app is required to launch an installer.');
+}
+
+export async function writeEncryptedSyncPacketFile(
+  folderPath: string,
+  fileName: string,
+  packetJson: string,
+): Promise<string> {
+  if (isTauriRuntime()) {
+    return await invoke<string>('write_encrypted_sync_packet_file', { folderPath, fileName, packetJson });
+  }
+
+  throw new Error('Desktop app is required to use a sync folder.');
+}
+
+export async function listEncryptedSyncPacketFiles(folderPath: string): Promise<SyncFolderPacketFile[]> {
+  if (isTauriRuntime()) {
+    const value = await invoke<string>('list_encrypted_sync_packet_files', { folderPath });
+    return JSON.parse(value) as SyncFolderPacketFile[];
+  }
+
+  throw new Error('Desktop app is required to use a sync folder.');
+}
+
+export async function readEncryptedSyncPacketFile(filePath: string): Promise<string> {
+  if (isTauriRuntime()) {
+    return await invoke<string>('read_encrypted_sync_packet_file', { filePath });
+  }
+
+  throw new Error('Desktop app is required to use a sync folder.');
 }
 
 export async function checkForAppUpdate(): Promise<AppUpdateInfo | null> {

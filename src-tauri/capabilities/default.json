@@ -19,6 +19,9 @@
     "allow-clear-plain-store",
     "allow-load-storage-info-json",
     "allow-start-update-installer",
+    "allow-write-encrypted-sync-packet-file",
+    "allow-list-encrypted-sync-packet-files",
+    "allow-read-encrypted-sync-packet-file",
     "allow-emit-ai-org-event"
   ]
 }

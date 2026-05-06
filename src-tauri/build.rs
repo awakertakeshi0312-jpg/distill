@@ -7,6 +7,10 @@ fn main() {
       "clear_plain_store",
       "load_storage_info_json",
       "start_update_installer",
+      "write_encrypted_sync_packet_file",
+      "list_encrypted_sync_packet_files",
+      "read_encrypted_sync_packet_file",
+      "emit_ai_org_event",
     ])),
   )
   .expect("failed to build tauri app manifest");

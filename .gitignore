@@ -6,6 +6,7 @@ src-tauri/target/
 target/
 release/
 release_archive/
+recovery/
 test-results/
 playwright-report/
 *.log

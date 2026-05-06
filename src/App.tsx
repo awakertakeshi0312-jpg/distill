@@ -9,10 +9,13 @@ import {
   applySyncPacket,
   buildEncryptedSyncPacket,
   decryptEncryptedSyncPacket,
+  forgetRevokedSyncDevice,
   getSyncPacketCheckpointStatus,
+  isSyncDeviceRevoked,
   parseEncryptedSyncPacket,
   registerSyncDevice,
   registerSyncPacketCheckpoint,
+  revokeSyncDevice,
   serializeEncryptedSyncPacket,
 } from './sync';
 import {
@@ -34,13 +37,17 @@ import {
   clearLegacyPlainStore,
   isDesktopRuntime,
   installPendingAppUpdate,
+  listEncryptedSyncPacketFiles,
   loadGraph,
   loadEncryptedVault,
   loadLegacyPlainStore,
   loadStorageInfo,
+  readEncryptedSyncPacketFile,
   saveEncryptedVault,
   searchStore,
   startUpdateInstaller,
+  writeEncryptedSyncPacketFile,
+  type SyncFolderPacketFile,
 } from './storage';
 import { buildKnowledgeGraph, filterKnowledgeGraph, getGraphNeighbors, layoutKnowledgeGraph, type GraphEdgeType, type GraphSnapshot } from './graph';
 import {
@@ -74,6 +81,7 @@ import { buildSyncPreview, type SyncPreview } from './syncPreview';
 
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
 const AUTO_LOCK_MINUTES_KEY = 'distill.autoLockMinutes';
+const SYNC_FOLDER_PATH_KEY = 'distill.syncFolderPath';
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 type VaultStatus = 'checking' | 'locked' | 'setup' | 'unlocked';
 
@@ -109,6 +117,14 @@ function App() {
   const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
   const [syncStatus, setSyncStatus] = useState('');
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
+  const [syncFolderPath, setSyncFolderPath] = useState(() => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+
+    return localStorage.getItem(SYNC_FOLDER_PATH_KEY) ?? '';
+  });
+  const [syncFolderPackets, setSyncFolderPackets] = useState<SyncFolderPacketFile[]>([]);
   const [personalKmHandoffStatus, setPersonalKmHandoffStatus] = useState('');
   const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(() => {
     if (typeof window === 'undefined') {
@@ -211,6 +227,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem(AUTO_LOCK_MINUTES_KEY, String(autoLockMinutes));
   }, [autoLockMinutes]);
+
+  useEffect(() => {
+    localStorage.setItem(SYNC_FOLDER_PATH_KEY, syncFolderPath);
+  }, [syncFolderPath]);
 
   useEffect(() => {
     if (vaultStatus !== 'unlocked' || autoLockMinutes <= 0) {
@@ -329,6 +349,7 @@ function App() {
   const selectedPeople = selectedBlock ? extractPeople(selectedBlock) : [];
   const peopleIndex = useMemo(() => getPeopleIndex(store), [store]);
   const syncDevices = useMemo(() => normalizeSyncMetadata(store.sync).devices, [store.sync]);
+  const revokedSyncDevices = useMemo(() => normalizeSyncMetadata(store.sync).revokedDevices, [store.sync]);
   const projectCounts = useMemo(() => getProjectCounts(store, activeBlocks), [store, activeBlocks]);
   const todayNoteId = useMemo(() => getTodayNoteId(), []);
   const todayBlocks = useMemo(() => getTodayBlocks(activeBlocks, todayNoteId), [activeBlocks, todayNoteId]);
@@ -721,6 +742,26 @@ function App() {
             `Merged ${records} encrypted sync records from device ${deviceId}.`,
           importInvalid: 'Could not import that encrypted sync packet. Check the file and vault passphrase.',
           deviceRenamed: 'Device name updated.',
+          knownDevices: 'Known devices',
+          noKnownDevices: 'No synced devices yet',
+          revokedDevices: 'Revoked devices',
+          noRevokedDevices: 'No revoked devices',
+          thisDevice: 'This device',
+          revoke: 'Revoke',
+          forget: 'Forget',
+          revokeConfirm: (deviceName: string) =>
+            `Revoke ${deviceName} and reject future sync packets from that device?`,
+          forgetConfirm: (deviceName: string) =>
+            `Forget the revoked record for ${deviceName}? Future packets from that device can be imported again.`,
+          deviceRevoked: (deviceName: string) => `Revoked device ${deviceName}.`,
+          revokedForgotten: (deviceName: string) => `Forgot revoked record for ${deviceName}.`,
+          revokedSourceRejected: (deviceId: string) => `Blocked a sync packet from revoked device ${deviceId}.`,
+          syncFolderRequired: 'Enter a desktop sync folder path first.',
+          syncFolderDesktopRequired: 'Desktop app is required to use a sync folder.',
+          syncFolderExportSuccess: (records: number, filePath: string) =>
+            `Wrote ${records} encrypted sync records to ${filePath}.`,
+          syncFolderScanSuccess: (files: number) => `Found ${files} encrypted sync packet files in the folder.`,
+          syncFolderImportReady: (fileName: string) => `Loaded ${fileName}. Review the sync preview before applying.`,
           deleteConfirm: (content: string) =>
             `Permanently delete this archived block and sync the deletion?\n\n${content}`,
         }
@@ -741,6 +782,28 @@ function App() {
             `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しました。`,
           importInvalid: '暗号化同期パケットを取り込めませんでした。ファイルとVaultパスフレーズを確認してください。',
           deviceRenamed: '端末名を更新しました。',
+          knownDevices: '同期済み端末',
+          noKnownDevices: '同期済み端末はまだありません',
+          revokedDevices: '信頼解除済み端末',
+          noRevokedDevices: '信頼解除済み端末はありません',
+          thisDevice: 'この端末',
+          revoke: '信頼解除',
+          forget: '記録削除',
+          revokeConfirm: (deviceName: string) =>
+            `${deviceName} を信頼解除し、この端末からの今後の同期パケットを拒否しますか？`,
+          forgetConfirm: (deviceName: string) =>
+            `${deviceName} の信頼解除記録を削除しますか？今後この端末のパケットを再び取り込めるようになります。`,
+          deviceRevoked: (deviceName: string) => `${deviceName} を信頼解除しました。`,
+          revokedForgotten: (deviceName: string) => `${deviceName} の信頼解除記録を削除しました。`,
+          revokedSourceRejected: (deviceId: string) =>
+            `信頼解除済み端末 ${deviceId} からの同期パケットを拒否しました。`,
+          syncFolderRequired: '同期フォルダのパスを先に入力してください。',
+          syncFolderDesktopRequired: '同期フォルダはデスクトップアプリでのみ使えます。',
+          syncFolderExportSuccess: (records: number, filePath: string) =>
+            `${records}件の暗号化同期レコードを ${filePath} に書き出しました。`,
+          syncFolderScanSuccess: (files: number) => `同期フォルダ内に${files}件の暗号化同期パケットが見つかりました。`,
+          syncFolderImportReady: (fileName: string) =>
+            `${fileName} を読み込みました。同期プレビューを確認してから適用してください。`,
           deleteConfirm: (content: string) =>
             `このアーカイブ済みブロックを完全削除し、削除履歴を同期しますか？\n\n${content}`,
         };
@@ -776,9 +839,30 @@ function App() {
     setSyncStatus(syncLabels().deviceRenamed);
   }
 
+  function createSyncPacketFileName() {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return `distill-sync-${timestamp}.distill-sync.json`;
+  }
+
+  async function createCurrentEncryptedSyncPacket() {
+    const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
+    const registeredStore = registerSyncDevice(store, identity);
+    const packet = await buildEncryptedSyncPacket(registeredStore, {
+      sourceDeviceId: identity.id,
+      sourceDeviceName: identity.name,
+      passphrase: vaultPassphrase,
+    });
+
+    return {
+      identity,
+      registeredStore,
+      packet,
+      serializedPacket: serializeEncryptedSyncPacket(packet),
+    };
+  }
+
   async function exportEncryptedSyncPacket() {
     const labels = syncLabels();
-    const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
     setSyncPreview(null);
 
     if (!vaultPassphrase) {
@@ -787,20 +871,10 @@ function App() {
     }
 
     try {
-      const registeredStore = registerSyncDevice(store, identity);
+      const { identity, packet, registeredStore, serializedPacket } = await createCurrentEncryptedSyncPacket();
 
-      const packet = await buildEncryptedSyncPacket(registeredStore, {
-        sourceDeviceId: identity.id,
-        sourceDeviceName: identity.name,
-        passphrase: vaultPassphrase,
-      });
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-
-      downloadTextFile(
-        `distill-sync-${timestamp}.distill-sync.json`,
-        serializeEncryptedSyncPacket(packet),
-        'application/json',
-      );
+      downloadTextFile(createSyncPacketFileName(), serializedPacket, 'application/json');
+      setDeviceIdentity(identity);
       setStore(registerSyncPacketCheckpoint(registeredStore, packet));
       setSyncStatus(labels.exportSuccess(packet.records.length, identity.name));
     } catch (error) {
@@ -809,14 +883,65 @@ function App() {
     }
   }
 
-  async function importEncryptedSyncPacket(file: File) {
+  async function refreshSyncFolderPackets() {
+    const labels = syncLabels();
+
+    if (!syncFolderPath.trim()) {
+      setSyncStatus(labels.syncFolderRequired);
+      return;
+    }
+
+    if (!isDesktopRuntime()) {
+      setSyncStatus(labels.syncFolderDesktopRequired);
+      return;
+    }
+
+    try {
+      const files = await listEncryptedSyncPacketFiles(syncFolderPath.trim());
+      setSyncFolderPackets(files);
+      setSyncStatus(labels.syncFolderScanSuccess(files.length));
+    } catch (error) {
+      console.warn('Failed to scan Distill sync folder.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
+    }
+  }
+
+  async function exportEncryptedSyncPacketToFolder() {
     const labels = syncLabels();
     setSyncPreview(null);
 
-    if (file.size > MAX_IMPORT_FILE_BYTES) {
-      setSyncStatus(vaultLabels().fileTooLarge);
+    if (!syncFolderPath.trim()) {
+      setSyncStatus(labels.syncFolderRequired);
       return;
     }
+
+    if (!vaultPassphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    if (!isDesktopRuntime()) {
+      setSyncStatus(labels.syncFolderDesktopRequired);
+      return;
+    }
+
+    try {
+      const { identity, packet, registeredStore, serializedPacket } = await createCurrentEncryptedSyncPacket();
+      const filePath = await writeEncryptedSyncPacketFile(syncFolderPath.trim(), createSyncPacketFileName(), serializedPacket);
+
+      setDeviceIdentity(identity);
+      setStore(registerSyncPacketCheckpoint(registeredStore, packet));
+      setSyncStatus(labels.syncFolderExportSuccess(packet.records.length, filePath));
+      setSyncFolderPackets(await listEncryptedSyncPacketFiles(syncFolderPath.trim()));
+    } catch (error) {
+      console.warn('Failed to export encrypted Distill sync packet to folder.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
+    }
+  }
+
+  async function previewEncryptedSyncPacketText(packetText: string, readyMessage?: string) {
+    const labels = syncLabels();
+    setSyncPreview(null);
 
     if (!vaultPassphrase) {
       setSyncStatus(labels.passphraseRequired);
@@ -826,8 +951,15 @@ function App() {
     setSyncStatus('');
 
     try {
-      const encryptedPacket = parseEncryptedSyncPacket(await file.text());
+      const encryptedPacket = parseEncryptedSyncPacket(packetText);
       const packet = await decryptEncryptedSyncPacket(encryptedPacket, vaultPassphrase);
+
+      if (isSyncDeviceRevoked(store, packet.sourceDeviceId)) {
+        setSyncStatus(labels.revokedSourceRejected(packet.sourceDeviceId));
+        setSyncPreview(null);
+        return;
+      }
+
       const preview = buildSyncPreview(store, packet);
       const checkpointStatus = getSyncPacketCheckpointStatus(store, packet);
 
@@ -839,13 +971,48 @@ function App() {
 
       setSyncPreview(preview);
       setSyncStatus(
-        preview.diff.replay
+        readyMessage
+          ? readyMessage
+          : preview.diff.replay
           ? labels.staleSkipped(packet.sourceDeviceId)
           : labels.previewReady(packet.records.length, packet.sourceDeviceId),
       );
     } catch (error) {
       console.warn('Failed to import encrypted Distill sync packet.', error);
       setSyncStatus(labels.importInvalid);
+      setSyncPreview(null);
+    }
+  }
+
+  async function importEncryptedSyncPacket(file: File) {
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setSyncStatus(vaultLabels().fileTooLarge);
+      setSyncPreview(null);
+      return;
+    }
+
+    await previewEncryptedSyncPacketText(await file.text());
+  }
+
+  async function importEncryptedSyncPacketFromFolder(packetFile: SyncFolderPacketFile) {
+    const labels = syncLabels();
+
+    if (!vaultPassphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    if (!isDesktopRuntime()) {
+      setSyncStatus(labels.syncFolderDesktopRequired);
+      return;
+    }
+
+    try {
+      const packetText = await readEncryptedSyncPacketFile(packetFile.path);
+      await previewEncryptedSyncPacketText(packetText, labels.syncFolderImportReady(packetFile.fileName));
+    } catch (error) {
+      console.warn('Failed to import encrypted Distill sync packet from folder.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
       setSyncPreview(null);
     }
   }
@@ -879,6 +1046,41 @@ function App() {
   function cancelSyncPreview() {
     setSyncPreview(null);
     setSyncStatus(syncLabels().previewCanceled);
+  }
+
+  function revokeKnownSyncDevice(deviceId: string) {
+    if (!deviceId || deviceId === deviceIdentity?.id) {
+      return;
+    }
+
+    const labels = syncLabels();
+    const deviceName = syncDevices.find((device) => device.id === deviceId)?.name ?? deviceId;
+    const confirmed = window.confirm(labels.revokeConfirm(deviceName));
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStore((current) => revokeSyncDevice(current, deviceId));
+    setSyncPreview(null);
+    setSyncStatus(labels.deviceRevoked(deviceName));
+  }
+
+  function forgetRevokedDeviceRecord(deviceId: string) {
+    if (!deviceId) {
+      return;
+    }
+
+    const labels = syncLabels();
+    const deviceName = revokedSyncDevices.find((device) => device.id === deviceId)?.name ?? deviceId;
+    const confirmed = window.confirm(labels.forgetConfirm(deviceName));
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStore((current) => forgetRevokedSyncDevice(current, deviceId));
+    setSyncStatus(labels.revokedForgotten(deviceName));
   }
 
   function permanentlyDeleteArchivedBlock(blockId: string) {
@@ -1288,10 +1490,13 @@ function App() {
             restorePreview={restorePreview}
             syncStatus={syncStatus}
             syncPreview={syncPreview}
+            syncFolderPath={syncFolderPath}
+            syncFolderPackets={syncFolderPackets}
             personalKmHandoffStatus={personalKmHandoffStatus}
             deviceId={deviceIdentity?.id ?? ''}
             deviceName={deviceIdentity?.name ?? ''}
             syncDevices={syncDevices}
+            revokedSyncDevices={revokedSyncDevices}
             vaultSecurityStatus={vaultSecurityStatus}
             autoLockMinutes={autoLockMinutes}
             updateInstallerPath={updateInstallerPath}
@@ -1320,8 +1525,14 @@ function App() {
             onDeviceNameChange={renameCurrentDevice}
             onExportEncryptedSyncPacket={() => void exportEncryptedSyncPacket()}
             onImportEncryptedSyncPacket={(file) => void importEncryptedSyncPacket(file)}
+            onSyncFolderPathChange={setSyncFolderPath}
+            onExportEncryptedSyncPacketToFolder={() => void exportEncryptedSyncPacketToFolder()}
+            onRefreshSyncFolderPackets={() => void refreshSyncFolderPackets()}
+            onImportSyncFolderPacket={(packetFile) => void importEncryptedSyncPacketFromFolder(packetFile)}
             onApplySyncPreview={applySyncPreview}
             onCancelSyncPreview={cancelSyncPreview}
+            onRevokeSyncDevice={revokeKnownSyncDevice}
+            onForgetRevokedSyncDevice={forgetRevokedDeviceRecord}
             onHandoffToPersonalKm={() => void handoffToPersonalKm()}
             onChangeVaultPassphrase={(currentPassphrase, nextPassphrase, confirmation) =>
               void changeVaultPassphrase(currentPassphrase, nextPassphrase, confirmation)

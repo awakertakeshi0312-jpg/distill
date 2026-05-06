@@ -1,4 +1,11 @@
-import { normalizeSyncMetadata, type DeletionTombstone, type DistillStore, type SyncDevice, type ThoughtBlock } from './model';
+import {
+  normalizeSyncMetadata,
+  type DeletionTombstone,
+  type DistillStore,
+  type RevokedSyncDevice,
+  type SyncDevice,
+  type ThoughtBlock,
+} from './model';
 import {
   decryptDistillSyncRecord,
   encryptDistillSyncRecord,
@@ -37,6 +44,7 @@ export type DistillSyncPacket = {
   previousPacketHash?: string;
   packetHash?: string;
   devices?: SyncDevice[];
+  revokedDevices?: RevokedSyncDevice[];
   records: SyncRecord[];
 };
 
@@ -135,6 +143,12 @@ function cloneDevice(device: SyncDevice): SyncDevice {
   };
 }
 
+function cloneRevokedDevice(device: RevokedSyncDevice): RevokedSyncDevice {
+  return {
+    ...device,
+  };
+}
+
 function createBlockRecord(block: ThoughtBlock): ThoughtBlockSyncRecord {
   const value = cloneBlock(block);
 
@@ -228,6 +242,22 @@ export function mergeSyncDevices(...deviceGroups: SyncDevice[][]): SyncDevice[] 
   );
 }
 
+export function mergeRevokedSyncDevices(...deviceGroups: RevokedSyncDevice[][]): RevokedSyncDevice[] {
+  const devicesById = new Map<string, RevokedSyncDevice>();
+
+  for (const device of deviceGroups.flat()) {
+    const current = devicesById.get(device.id);
+
+    if (!current || device.revokedAt > current.revokedAt) {
+      devicesById.set(device.id, cloneRevokedDevice(device));
+    }
+  }
+
+  return Array.from(devicesById.values()).sort(
+    (a, b) => b.revokedAt.localeCompare(a.revokedAt) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+  );
+}
+
 export function registerSyncDevice(
   store: DistillStore,
   device: Pick<SyncDevice, 'id' | 'name'>,
@@ -249,6 +279,51 @@ export function registerSyncDevice(
       devices: mergeSyncDevices(sync.devices, [registered]),
     },
   };
+}
+
+export function revokeSyncDevice(store: DistillStore, deviceId: string, revokedAt = new Date().toISOString()): DistillStore {
+  const sync = normalizeSyncMetadata(store.sync);
+  const device =
+    sync.devices.find((item) => item.id === deviceId) ??
+    sync.revokedDevices.find((item) => item.id === deviceId) ?? {
+      id: deviceId,
+      name: deviceId,
+      revokedAt,
+    };
+
+  return {
+    ...store,
+    sync: normalizeSyncMetadata({
+      tombstones: sync.tombstones,
+      devices: sync.devices.filter((item) => item.id !== deviceId),
+      revokedDevices: mergeRevokedSyncDevices(sync.revokedDevices, [
+        {
+          id: deviceId,
+          name: device.name,
+          revokedAt,
+          lastPacketHash: 'lastPacketHash' in device ? device.lastPacketHash : undefined,
+        },
+      ]),
+    }),
+  };
+}
+
+export function forgetRevokedSyncDevice(store: DistillStore, deviceId: string): DistillStore {
+  const sync = normalizeSyncMetadata(store.sync);
+
+  return {
+    ...store,
+    sync: normalizeSyncMetadata({
+      tombstones: sync.tombstones,
+      devices: sync.devices,
+      revokedDevices: sync.revokedDevices.filter((item) => item.id !== deviceId),
+    }),
+  };
+}
+
+export function isSyncDeviceRevoked(store: DistillStore, deviceId: string) {
+  const sync = normalizeSyncMetadata(store.sync);
+  return sync.revokedDevices.some((device) => device.id === deviceId);
 }
 
 export function registerSyncPacketCheckpoint(
@@ -277,6 +352,7 @@ export function buildSyncPacket(store: DistillStore, options: BuildSyncPacketOpt
     ...sync.tombstones.filter((tombstone) => !since || tombstone.deletedAt > since).map(createDeletionRecord),
   ].sort(compareRecordOrder);
   const devices = sourceDevice ? mergeSyncDevices(sync.devices, [sourceDevice]) : sync.devices.map(cloneDevice);
+  const revokedDevices = sync.revokedDevices.map(cloneRevokedDevice);
 
   return withSyncPacketHash({
     type: 'distill.sync.packet',
@@ -287,6 +363,7 @@ export function buildSyncPacket(store: DistillStore, options: BuildSyncPacketOpt
     since,
     previousPacketHash: knownSourceDevice?.lastPacketHash,
     devices,
+    revokedDevices,
     records,
   });
 }
@@ -304,6 +381,21 @@ function isSyncDevice(value: unknown): value is SyncDevice {
     typeof device.firstSeenAt === 'string' &&
     typeof device.lastSeenAt === 'string' &&
     (typeof device.lastPacketAt === 'undefined' || typeof device.lastPacketAt === 'string') &&
+    (typeof device.lastPacketHash === 'undefined' || typeof device.lastPacketHash === 'string')
+  );
+}
+
+function isRevokedSyncDevice(value: unknown): value is RevokedSyncDevice {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const device = value as RevokedSyncDevice;
+
+  return (
+    typeof device.id === 'string' &&
+    typeof device.name === 'string' &&
+    typeof device.revokedAt === 'string' &&
     (typeof device.lastPacketHash === 'undefined' || typeof device.lastPacketHash === 'string')
   );
 }
@@ -390,6 +482,8 @@ export function parseSyncPacket(json: string): DistillSyncPacket {
     (typeof parsed.previousPacketHash !== 'undefined' && typeof parsed.previousPacketHash !== 'string') ||
     (typeof parsed.packetHash !== 'undefined' && typeof parsed.packetHash !== 'string') ||
     (typeof parsed.devices !== 'undefined' && (!Array.isArray(parsed.devices) || !parsed.devices.every(isSyncDevice))) ||
+    (typeof parsed.revokedDevices !== 'undefined' &&
+      (!Array.isArray(parsed.revokedDevices) || !parsed.revokedDevices.every(isRevokedSyncDevice))) ||
     !Array.isArray(parsed.records) ||
     !parsed.records.every(isSyncRecord)
   ) {
@@ -430,6 +524,8 @@ export function parseEncryptedSyncPacket(json: string): DistillEncryptedSyncPack
     (typeof parsed.previousPacketHash !== 'undefined' && typeof parsed.previousPacketHash !== 'string') ||
     (typeof parsed.packetHash !== 'undefined' && typeof parsed.packetHash !== 'string') ||
     (typeof parsed.devices !== 'undefined' && (!Array.isArray(parsed.devices) || !parsed.devices.every(isSyncDevice))) ||
+    (typeof parsed.revokedDevices !== 'undefined' &&
+      (!Array.isArray(parsed.revokedDevices) || !parsed.revokedDevices.every(isRevokedSyncDevice))) ||
     !Array.isArray(parsed.records) ||
     !parsed.records.every(isEncryptedSyncRecord)
   ) {
@@ -484,6 +580,7 @@ export async function buildEncryptedSyncPacket(
     previousPacketHash: plainPacket.previousPacketHash,
     packetHash: plainPacket.packetHash,
     devices: plainPacket.devices?.map(cloneDevice),
+    revokedDevices: plainPacket.revokedDevices?.map(cloneRevokedDevice),
     records,
   };
 }
@@ -510,6 +607,7 @@ export async function decryptEncryptedSyncPacket(
     previousPacketHash: packet.previousPacketHash,
     packetHash: packet.packetHash,
     devices: packet.devices?.map(cloneDevice),
+    revokedDevices: packet.revokedDevices?.map(cloneRevokedDevice),
     records: records.sort(compareRecordOrder),
   };
 
@@ -612,6 +710,10 @@ export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket):
   const blocksById = new Map(store.blocks.map((block) => [block.id, cloneBlock(block)]));
   const sync = normalizeSyncMetadata(store.sync);
 
+  if (isSyncDeviceRevoked(store, packet.sourceDeviceId)) {
+    throw new Error('Sync packet came from a locally revoked device.');
+  }
+
   if (isSyncPacketReplay(store, packet)) {
     return {
       ...store,
@@ -622,7 +724,11 @@ export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket):
   assertSyncPacketCheckpoint(store, packet);
 
   const tombstonesById = new Map(sync.tombstones.map((tombstone) => [tombstone.id, cloneTombstone(tombstone)]));
-  const devices = mergeSyncDevices(sync.devices, packet.devices ?? [], [packetSourceDevice(packet)]);
+  const revokedDevices = mergeRevokedSyncDevices(sync.revokedDevices, packet.revokedDevices ?? []);
+  const revokedDeviceIds = new Set(revokedDevices.map((device) => device.id));
+  const devices = mergeSyncDevices(sync.devices, packet.devices ?? [], [packetSourceDevice(packet)]).filter(
+    (device) => !revokedDeviceIds.has(device.id),
+  );
 
   for (const record of packet.records) {
     if (record.kind === 'thought-block-deletion') {
@@ -659,6 +765,7 @@ export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket):
     sync: normalizeSyncMetadata({
       tombstones: Array.from(tombstonesById.values()),
       devices,
+      revokedDevices,
     }),
   };
 }

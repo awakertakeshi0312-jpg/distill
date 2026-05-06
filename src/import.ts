@@ -118,6 +118,7 @@ export function createMarkdownImport(markdown: string): DistillStore {
     sync: {
       tombstones: [],
       devices: [],
+      revokedDevices: [],
     },
   };
 }

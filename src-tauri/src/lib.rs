@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager};
 
 const STORE_KEY: &str = "distill.store.v1";
 const VAULT_KEY: &str = "distill.vault.v1";
+const MAX_SYNC_PACKET_BYTES: u64 = 5 * 1024 * 1024;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,6 +83,15 @@ struct StorageInfo {
   mode: String,
   path: String,
   backup_path: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SyncPacketFileInfo {
+  file_name: String,
+  path: String,
+  bytes: u64,
+  modified_at: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -310,6 +320,94 @@ fn is_distill_setup_file_name(file_name: &str) -> bool {
   let parts = version.split('.').collect::<Vec<_>>();
 
   parts.len() == 3 && parts.iter().all(|part| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit()))
+}
+
+fn is_distill_sync_packet_file_name(file_name: &str) -> bool {
+  file_name.starts_with("distill-sync-")
+    && file_name.ends_with(".distill-sync.json")
+    && file_name.chars().all(|character| {
+      character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+    })
+}
+
+fn validate_sync_packet_file_name(file_name: &str) -> Result<(), String> {
+  if file_name.is_empty() || Path::new(file_name).components().count() != 1 {
+    return Err("Sync packet file name must not include directories.".to_string());
+  }
+
+  if !is_distill_sync_packet_file_name(file_name) {
+    return Err("Sync packet file name must match distill-sync-*.distill-sync.json.".to_string());
+  }
+
+  Ok(())
+}
+
+fn validate_encrypted_sync_packet_json(value: &str) -> Result<(), String> {
+  if value.len() as u64 > MAX_SYNC_PACKET_BYTES {
+    return Err("Sync packet is too large.".to_string());
+  }
+
+  let parsed = serde_json::from_str::<serde_json::Value>(value).map_err(|error| error.to_string())?;
+
+  if parsed.get("type").and_then(|field| field.as_str()) != Some("distill.encrypted-sync.packet") {
+    return Err("Value is not a Distill encrypted sync packet.".to_string());
+  }
+
+  if parsed.get("schemaVersion").and_then(|field| field.as_i64()) != Some(1) {
+    return Err("Unsupported Distill encrypted sync packet schema.".to_string());
+  }
+
+  Ok(())
+}
+
+fn ensure_sync_folder(path: &Path) -> Result<PathBuf, String> {
+  std::fs::create_dir_all(path).map_err(|error| error.to_string())?;
+  let canonical = path.canonicalize().map_err(|error| error.to_string())?;
+
+  if !canonical.is_dir() {
+    return Err("Sync folder path must point to a directory.".to_string());
+  }
+
+  Ok(canonical)
+}
+
+fn sync_packet_modified_at(metadata: &std::fs::Metadata) -> String {
+  metadata
+    .modified()
+    .ok()
+    .and_then(|timestamp| timestamp.duration_since(UNIX_EPOCH).ok())
+    .map(|duration| duration.as_secs().to_string())
+    .unwrap_or_else(|| "0".to_string())
+}
+
+fn list_sync_packet_files(folder_path: &Path) -> Result<Vec<SyncPacketFileInfo>, String> {
+  let folder = ensure_sync_folder(folder_path)?;
+  let mut files = Vec::new();
+
+  for entry in std::fs::read_dir(folder).map_err(|error| error.to_string())? {
+    let entry = entry.map_err(|error| error.to_string())?;
+    let metadata = entry.metadata().map_err(|error| error.to_string())?;
+
+    if !metadata.is_file() || metadata.len() > MAX_SYNC_PACKET_BYTES {
+      continue;
+    }
+
+    let file_name = entry.file_name().to_string_lossy().to_string();
+
+    if !is_distill_sync_packet_file_name(&file_name) {
+      continue;
+    }
+
+    files.push(SyncPacketFileInfo {
+      file_name,
+      path: entry.path().display().to_string(),
+      bytes: metadata.len(),
+      modified_at: sync_packet_modified_at(&metadata),
+    });
+  }
+
+  files.sort_by(|a, b| b.modified_at.cmp(&a.modified_at).then_with(|| a.file_name.cmp(&b.file_name)));
+  Ok(files)
 }
 
 fn normalized_store_exists(connection: &Connection) -> Result<bool, String> {
@@ -1143,6 +1241,47 @@ fn start_update_installer(app: AppHandle, installer_path: String) -> Result<(), 
 }
 
 #[tauri::command]
+fn write_encrypted_sync_packet_file(folder_path: String, file_name: String, packet_json: String) -> Result<String, String> {
+  validate_sync_packet_file_name(&file_name)?;
+  validate_encrypted_sync_packet_json(&packet_json)?;
+
+  let folder = ensure_sync_folder(Path::new(&folder_path))?;
+  let packet_path = folder.join(file_name);
+  std::fs::write(&packet_path, packet_json).map_err(|error| error.to_string())?;
+
+  Ok(packet_path.display().to_string())
+}
+
+#[tauri::command]
+fn list_encrypted_sync_packet_files(folder_path: String) -> Result<String, String> {
+  serde_json::to_string(&list_sync_packet_files(Path::new(&folder_path))?).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn read_encrypted_sync_packet_file(file_path: String) -> Result<String, String> {
+  let canonical = Path::new(&file_path).canonicalize().map_err(|error| error.to_string())?;
+  let metadata = canonical.metadata().map_err(|error| error.to_string())?;
+
+  if !metadata.is_file() {
+    return Err("Sync packet path must point to a file.".to_string());
+  }
+
+  if metadata.len() > MAX_SYNC_PACKET_BYTES {
+    return Err("Sync packet is too large.".to_string());
+  }
+
+  let file_name = canonical
+    .file_name()
+    .and_then(|value| value.to_str())
+    .ok_or_else(|| "Sync packet path must point to a file.".to_string())?;
+  validate_sync_packet_file_name(file_name)?;
+
+  let packet_json = std::fs::read_to_string(canonical).map_err(|error| error.to_string())?;
+  validate_encrypted_sync_packet_json(&packet_json)?;
+  Ok(packet_json)
+}
+
+#[tauri::command]
 fn emit_ai_org_event(app: AppHandle, event: AiOrgEventInput) -> Result<(), String> {
   if !is_allowed_ai_org_event_type(&event.event_type) {
     return Err("Unsupported AI Org event type.".to_string());
@@ -1447,6 +1586,51 @@ mod tests {
   }
 
   #[test]
+  fn validates_sync_packet_file_name_shape() {
+    assert!(is_distill_sync_packet_file_name("distill-sync-2026-05-06T10-00.distill-sync.json"));
+    assert!(!is_distill_sync_packet_file_name("distill-sync-2026-05-06.json"));
+    assert!(!is_distill_sync_packet_file_name("../distill-sync-escape.distill-sync.json"));
+    assert!(validate_sync_packet_file_name("distill-sync-device_1.distill-sync.json").is_ok());
+    assert!(validate_sync_packet_file_name("nested/distill-sync-device.distill-sync.json").is_err());
+  }
+
+  #[test]
+  fn validates_encrypted_sync_packet_json_shape() {
+    let packet = json!({
+      "type": "distill.encrypted-sync.packet",
+      "schemaVersion": 1,
+      "sourceDeviceId": "device-a",
+      "createdAt": "2026-05-06T10:00:00.000Z",
+      "records": []
+    })
+    .to_string();
+
+    assert!(validate_encrypted_sync_packet_json(&packet).is_ok());
+    assert!(validate_encrypted_sync_packet_json("{\"type\":\"other\"}").is_err());
+  }
+
+  #[test]
+  fn lists_only_distill_sync_packet_files() {
+    let folder = std::env::temp_dir().join(format!(
+      "distill-sync-test-{}",
+      SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos()
+    ));
+    std::fs::create_dir_all(&folder).expect("create temp sync folder");
+    std::fs::write(folder.join("distill-sync-a.distill-sync.json"), "{}").expect("write sync packet");
+    std::fs::write(folder.join("notes.txt"), "ignore").expect("write ignored file");
+
+    let files = list_sync_packet_files(&folder).expect("list sync packets");
+
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].file_name, "distill-sync-a.distill-sync.json");
+
+    std::fs::remove_dir_all(folder).expect("remove temp sync folder");
+  }
+
+  #[test]
   fn validates_summary_only_ai_org_payloads() {
     assert!(is_allowed_ai_org_event_type("memory.save_requested"));
     assert!(is_allowed_ai_org_event_type("decision.created"));
@@ -1496,6 +1680,9 @@ pub fn run() {
       clear_plain_store,
       load_storage_info_json,
       start_update_installer,
+      write_encrypted_sync_packet_file,
+      list_encrypted_sync_packet_files,
+      read_encrypted_sync_packet_file,
       emit_ai_org_event
     ])
     .run(tauri::generate_context!())

@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.15
+- Current version: 0.1.16
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, device registry, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, desktop sync-folder packet exchange prototype, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -63,8 +63,10 @@ Implemented app features:
 - Manual update launcher fallback for newer Distill setup packages
 - Stable local device identity for sync packet source tracking
 - Manual encrypted sync packet export/import using record-level encrypted records
+- Desktop sync-folder path for writing, scanning, and previewing encrypted sync packet files
 - Sync packet apply preview with add/update/skip/delete counts before merging
 - Manual sync device registry in the Inspector
+- Sync device trust revocation and revoked-device packet rejection
 - Permanent archive deletion with sync tombstones
 - Stale sync packet rejection based on known device `lastPacketAt`
 - Chained sync checkpoint validation based on known device `lastPacketHash`
@@ -92,7 +94,7 @@ Known remaining security limits:
 - passphrase remains in app memory while unlocked
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - restore preview exists, but restore still replaces the full local store after user approval
-- no automatic/background sync yet
+- no automatic/background sync yet; current sync-folder flow is explicit user-triggered packet exchange
 - browser preview still depends on localStorage for the encrypted envelope
 
 ## Technical Stack
@@ -148,11 +150,11 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after chained sync checkpoint validation:
+Latest verification after sync-folder packet exchange prototype:
 
-- `npm test`: 39 passed
+- `npm test`: 42 passed
 - `npm run build`: passed
-- `npm run test:rust`: 11 passed
+- `npm run test:rust`: 14 passed
 - `npm run test:e2e`: 10 passed
 - `npm run check:all`: passed
 - `npm run security:audit`: 0 vulnerabilities
@@ -188,7 +190,7 @@ Key frontend files:
 - `src/sync.ts`: sync packet build/parse/merge, tombstones, device registry, and record-level encrypted sync packets
 - `src/syncPreview.ts`: sync packet diff calculation before applying encrypted sync imports
 - `src/device.ts`: stable local device identity
-- `src/storage.ts`: encrypted vault and legacy migration adapter
+- `src/storage.ts`: encrypted vault, legacy migration, updater, and desktop sync-folder adapter
 - `src/model.ts`: core types, extraction, local search
 - `src/repository.ts`: immutable mutations
 - `src/graph.ts`: graph modeling and neighbors
@@ -209,6 +211,7 @@ Key desktop files:
 Key docs:
 
 - `README.md`: quick project overview
+- `docs/distill_system_design.md`: latest Japanese system design for product, architecture, trust layer, sync, mobile, and roadmap
 - `docs/design_blueprint.md`: product and technical design
 - `docs/project_context.md`: current context and handoff
 - `docs/roadmap.md`: phase plan

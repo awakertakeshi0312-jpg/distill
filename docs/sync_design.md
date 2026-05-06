@@ -87,8 +87,10 @@ Implemented:
 - metadata tamper detection between encrypted wrappers and decrypted records.
 - stable per-device identity stored locally as `distill.device.v1`.
 - manual encrypted sync packet export/import UI.
+- desktop sync-folder path for writing encrypted packet files, scanning packet candidates, and loading a selected packet into the existing preview flow.
 - import preview before applying encrypted sync packets, with add/update/skip/delete counts.
 - known device registry persisted in the encrypted vault metadata.
+- revoked device registry and rejection of future packets from locally revoked devices.
 - deletion tombstones for permanent thought-block deletion.
 - replay/rollback guard that skips packets whose `createdAt` is not newer than the known source device `lastPacketAt`.
 - chained packet checkpoints using `previousPacketHash`, `packetHash`, and per-device `lastPacketHash`.
@@ -100,13 +102,13 @@ Implemented:
   - apply incoming tombstones when they are newer than local block state.
   - use hash order only when timestamps are equal.
 - parser validation for unsupported sync packet files.
+- Tauri command validation for sync packet file names, packet schema, size limit, and top-level folder scanning.
 
 Not implemented yet:
 
 - project record sync.
-- automatic device removal.
-- signed packet checkpoints or trust revocation beyond local hash-chain validation.
-- automatic network or cloud sync.
+- signed device keys beyond local hash-chain validation.
+- automatic background network or cloud sync.
 
 This keeps the risky part small: the app can prove merge behavior before any private data is sent to a network or cloud provider.
 
@@ -121,6 +123,14 @@ This keeps the risky part small: the app can prove merge behavior before any pri
   "createdAt": "2026-05-06T00:00:00.000Z",
   "previousPacketHash": "fnv1a32:previous",
   "packetHash": "fnv1a32:current",
+  "revokedDevices": [
+    {
+      "id": "device-old-phone",
+      "name": "Old phone",
+      "revokedAt": "2026-05-06T01:00:00.000Z",
+      "lastPacketHash": "fnv1a32:last-known"
+    }
+  ],
   "devices": [
     {
       "id": "device-windows",
@@ -175,6 +185,8 @@ The current UI supports local manual sync only:
 9. If the user applies the preview, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
 10. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
 11. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
+12. Distill rejects packets from devices the user has revoked.
+13. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, and load a selected packet into the same preview/apply flow.
 
 This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 

@@ -35,7 +35,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Sync packet imports show an apply preview before changing the vault.
 - Known sync devices now keep `lastPacketHash`, and newer packets must continue the known checkpoint chain.
 
-### Changes Applied Through 0.1.15
+### Changes Applied Through 0.1.16
 
 - Added startup vault gate for create/unlock.
 - Added normal encrypted local persistence under `distill.vault.v1`.
@@ -56,6 +56,8 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added stale sync packet rejection based on known source-device `lastPacketAt`.
 - Added encrypted sync packet apply preview with add/update/skip/delete counts before merging.
 - Added chained sync checkpoint validation using packet hashes.
+- Added sync device trust revocation and revoked-device packet rejection.
+- Added explicit desktop sync-folder packet exchange with Tauri-side file name, schema, and size validation.
 
 ## Findings
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-read-encrypted-sync-packet-file"
+description = "Enables the read_encrypted_sync_packet_file command without any pre-configured scope."
+commands.allow = ["read_encrypted_sync_packet_file"]
+
+[[permission]]
+identifier = "deny-read-encrypted-sync-packet-file"
+description = "Denies the read_encrypted_sync_packet_file command without any pre-configured scope."
+commands.deny = ["read_encrypted_sync_packet_file"]

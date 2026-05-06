@@ -35,12 +35,14 @@ import {
   buildSyncPacket,
   computeSyncPacketHash,
   decryptEncryptedSyncPacket,
+  forgetRevokedSyncDevice,
   getSyncPacketCheckpointStatus,
   isSyncPacketReplay,
   parseEncryptedSyncPacket,
   parseSyncPacket,
   registerSyncDevice,
   registerSyncPacketCheckpoint,
+  revokeSyncDevice,
   serializeEncryptedSyncPacket,
   serializeSyncPacket,
 } from '../sync';
@@ -334,6 +336,7 @@ describe('portable imports', () => {
       sync: {
         tombstones: [{ kind: 'thought-block', id: 'deleted', deletedAt: now }],
         devices: [{ id: 'phone', name: 'Phone', firstSeenAt: now, lastSeenAt: now }],
+        revokedDevices: [],
       },
     };
 
@@ -461,6 +464,7 @@ describe('sync packets', () => {
             },
           ],
           devices: [],
+          revokedDevices: [],
         },
       },
       { id: 'windows-dev', name: 'Windows desk' },
@@ -483,6 +487,40 @@ describe('sync packets', () => {
       name: 'Windows desk',
       lastPacketAt: '2026-05-06T06:00:00.000Z',
     });
+  });
+
+  it('exports revoked devices with sync packets', () => {
+    const syncStore = revokeSyncDevice(
+      registerSyncDevice(
+        {
+          projects: [],
+          blocks: [],
+          sync: {
+            tombstones: [],
+            devices: [],
+            revokedDevices: [],
+          },
+        },
+        { id: 'phone-dev', name: 'Phone' },
+        '2026-05-06T05:00:00.000Z',
+      ),
+      'phone-dev',
+      '2026-05-06T06:00:00.000Z',
+    );
+
+    const packet = buildSyncPacket(syncStore, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      now: '2026-05-06T07:00:00.000Z',
+    });
+
+    expect(packet.revokedDevices).toEqual([
+      {
+        id: 'phone-dev',
+        name: 'Phone',
+        revokedAt: '2026-05-06T06:00:00.000Z',
+      },
+    ]);
   });
 
   it('applies newer incoming blocks while keeping newer local edits', () => {
@@ -537,6 +575,43 @@ describe('sync packets', () => {
     expect(merged.blocks.find((item) => item.id === 'remote-only')?.content).toBe('Remote only text');
   });
 
+  it('applies incoming revoked devices and removes them from the active device registry', () => {
+    const localStore: DistillStore = {
+      projects: [],
+      blocks: [],
+      sync: {
+        tombstones: [],
+        devices: [{ id: 'phone-dev', name: 'Phone', firstSeenAt: now, lastSeenAt: now }],
+        revokedDevices: [],
+      },
+    };
+    const remoteStore: DistillStore = {
+      projects: [],
+      blocks: [],
+      sync: {
+        tombstones: [],
+        devices: [{ id: 'tablet-dev', name: 'Tablet', firstSeenAt: now, lastSeenAt: now }],
+        revokedDevices: [{ id: 'phone-dev', name: 'Phone', revokedAt: '2026-05-06T11:00:00.000Z' }],
+      },
+    };
+
+    const packet = buildSyncPacket(remoteStore, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      now: '2026-05-06T12:00:00.000Z',
+    });
+    const merged = applySyncPacket(localStore, packet);
+
+    expect(merged.sync?.devices.map((device) => device.id).sort()).toEqual(['tablet-dev', 'windows-dev']);
+    expect(merged.sync?.revokedDevices).toEqual([
+      {
+        id: 'phone-dev',
+        name: 'Phone',
+        revokedAt: '2026-05-06T11:00:00.000Z',
+      },
+    ]);
+  });
+
   it('applies tombstones and prevents stale block resurrection', () => {
     const tombstoneStore: DistillStore = {
       projects: [],
@@ -551,6 +626,7 @@ describe('sync packets', () => {
           },
         ],
         devices: [],
+        revokedDevices: [],
       },
     };
     const staleStore: DistillStore = {
@@ -578,6 +654,33 @@ describe('sync packets', () => {
 
     expect(applySyncPacket(tombstoneStore, stalePacket).blocks).toEqual([]);
     expect(applySyncPacket(staleStore, tombstonePacket).blocks).toEqual([]);
+  });
+
+  it('blocks packets from locally revoked devices until the revocation record is forgotten', () => {
+    const firstPacket = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [block({ id: 'phone-note', content: 'Initial phone note' })],
+      },
+      { sourceDeviceId: 'phone-dev', sourceDeviceName: 'Phone', now: '2026-05-06T06:00:00.000Z' },
+    );
+    const imported = applySyncPacket({ projects: [], blocks: [] }, firstPacket);
+    const revoked = revokeSyncDevice(imported, 'phone-dev', '2026-05-06T07:00:00.000Z');
+    const nextPacket = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [block({ id: 'phone-note-2', content: 'Blocked phone note', updatedAt: '2026-05-06T07:30:00.000Z' })],
+      },
+      { sourceDeviceId: 'phone-dev', sourceDeviceName: 'Phone', now: '2026-05-06T08:00:00.000Z' },
+    );
+
+    expect(() => applySyncPacket(revoked, nextPacket)).toThrow(/revoked device/);
+
+    const forgotten = forgetRevokedSyncDevice(revoked, 'phone-dev');
+    const afterForget = applySyncPacket(forgotten, nextPacket);
+
+    expect(afterForget.blocks.find((item) => item.id === 'phone-note-2')?.content).toBe('Blocked phone note');
+    expect(afterForget.sync?.revokedDevices).toEqual([]);
   });
 
   it('previews sync packet additions, updates, skips, and deletions before applying', () => {
@@ -636,6 +739,7 @@ describe('sync packets', () => {
           },
         ],
         devices: [],
+        revokedDevices: [],
       },
     };
     const packet = buildSyncPacket(remoteStore, {
@@ -649,6 +753,7 @@ describe('sync packets', () => {
       incomingBlocks: 3,
       incomingDeletions: 1,
       incomingDevices: 1,
+      incomingRevokedDevices: 0,
       addedBlocks: 1,
       updatedBlocks: 1,
       skippedBlocks: 1,
@@ -829,6 +934,7 @@ describe('sync packets', () => {
     expect(preview.diff).toMatchObject({
       incomingBlocks: 1,
       incomingDeletions: 0,
+      incomingRevokedDevices: 0,
       addedBlocks: 0,
       updatedBlocks: 0,
       skippedBlocks: 1,
