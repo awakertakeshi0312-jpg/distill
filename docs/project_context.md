@@ -12,7 +12,7 @@ This document is the handoff context for Distill so another person or future age
 - Product type: local-first desktop/PWA thinking app
 - Current version: 0.1.13
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow, device registry, deletion tombstones, stale-packet rejection, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, device registry, deletion tombstones, stale-packet rejection, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -63,6 +63,7 @@ Implemented app features:
 - Manual update launcher fallback for newer Distill setup packages
 - Stable local device identity for sync packet source tracking
 - Manual encrypted sync packet export/import using record-level encrypted records
+- Sync packet apply preview with add/update/skip/delete counts before merging
 - Manual sync device registry in the Inspector
 - Permanent archive deletion with sync tombstones
 - Stale sync packet rejection based on known device `lastPacketAt`
@@ -146,9 +147,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after Personal KM handoff, vault tamper tests, and stale sync packet rejection:
+Latest verification after encrypted sync packet apply preview:
 
-- `npm test`: 34 passed
+- `npm test`: 36 passed
 - `npm run build`: passed
 - `npm run test:rust`: 11 passed
 - `npm run test:e2e`: 10 passed
@@ -173,7 +174,7 @@ E2E coverage includes:
 - encrypted vault persistence after reload with no plaintext in localStorage
 - encrypted sync packet export download
 - permanent archive deletion with confirmation
-- stale sync packet rejection is covered by unit tests
+- sync packet apply preview and stale packet rejection are covered by unit tests
 - encrypted vault tamper/corruption rejection is covered by unit tests
 
 ## Source Map
@@ -184,6 +185,7 @@ Key frontend files:
 - `src/components/VaultGate.tsx`: vault setup/unlock UI
 - `src/vaultCrypto.ts`: PBKDF2/AES-GCM vault encryption
 - `src/sync.ts`: sync packet build/parse/merge, tombstones, device registry, and record-level encrypted sync packets
+- `src/syncPreview.ts`: sync packet diff calculation before applying encrypted sync imports
 - `src/device.ts`: stable local device identity
 - `src/storage.ts`: encrypted vault and legacy migration adapter
 - `src/model.ts`: core types, extraction, local search
@@ -241,14 +243,14 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
-Current status: manual encrypted sync packets, device registry, and deletion tombstones exist. Automatic cloud/background sync is still blocked until replay policy, recovery behavior, and mobile storage are specified.
+Current status: manual encrypted sync packets, apply preview, device registry, and deletion tombstones exist. Automatic cloud/background sync is still blocked until stronger replay policy, recovery behavior, and mobile storage are specified.
 
 ## Recommended Next Steps
 
 ### Trust/Security
 
-1. Add automatic encrypted folder sync prototype.
-2. Add stronger chained sync checkpoint validation.
+1. Add stronger chained sync checkpoint validation.
+2. Add automatic encrypted folder sync prototype.
 3. Add device removal and trust revocation.
 4. Add user-selectable vault location.
 5. Add OS-native idle/sleep integration.
@@ -258,7 +260,7 @@ Current status: manual encrypted sync packets, device registry, and deletion tom
 1. Improve real Japanese copy quality.
 2. Add daily/weekly review flows.
 3. Add related-note recommendations.
-4. Add richer conflict summary beyond full-store restore preview.
+4. Add richer conflict summary beyond full-store restore preview. Sync packet previews are implemented.
 5. Add user-selectable vault location.
 
 ### Distribution
@@ -270,4 +272,4 @@ Current status: manual encrypted sync packets, device registry, and deletion tom
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, device registry, and deletion tombstones. The next major architecture decision is automatic sync transport and replay/recovery behavior, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, apply previews, device registry, and deletion tombstones. The next major architecture decision is automatic sync transport and replay/recovery behavior, not more plaintext SQLite indexing.

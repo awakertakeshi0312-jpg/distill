@@ -27,6 +27,7 @@ import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
 import { buildRestorePreview } from '../restorePreview';
+import { buildSyncPreview } from '../syncPreview';
 import {
   applyEncryptedSyncPacket,
   applySyncPacket,
@@ -576,6 +577,88 @@ describe('sync packets', () => {
     expect(applySyncPacket(staleStore, tombstonePacket).blocks).toEqual([]);
   });
 
+  it('previews sync packet additions, updates, skips, and deletions before applying', () => {
+    const localStore: DistillStore = {
+      projects: [],
+      blocks: [
+        block({
+          id: 'shared',
+          content: 'Local stale text',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T02:00:00.000Z',
+        }),
+        block({
+          id: 'local-newer',
+          content: 'Local newer text',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T05:00:00.000Z',
+        }),
+        block({
+          id: 'delete-me',
+          content: 'Local block deleted by remote tombstone',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T02:00:00.000Z',
+        }),
+      ],
+    };
+    const remoteStore: DistillStore = {
+      projects: [],
+      blocks: [
+        block({
+          id: 'shared',
+          content: 'Remote newer text',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T03:00:00.000Z',
+        }),
+        block({
+          id: 'local-newer',
+          content: 'Remote stale text',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T04:00:00.000Z',
+        }),
+        block({
+          id: 'remote-only',
+          content: 'Remote only text',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T03:30:00.000Z',
+        }),
+      ],
+      sync: {
+        tombstones: [
+          {
+            kind: 'thought-block',
+            id: 'delete-me',
+            deletedAt: '2026-05-06T04:30:00.000Z',
+            deletedByDeviceId: 'mobile-dev',
+          },
+        ],
+        devices: [],
+      },
+    };
+    const packet = buildSyncPacket(remoteStore, {
+      sourceDeviceId: 'mobile-dev',
+      sourceDeviceName: 'Phone',
+      now: '2026-05-06T06:00:00.000Z',
+    });
+    const preview = buildSyncPreview(localStore, packet);
+
+    expect(preview.diff).toMatchObject({
+      incomingBlocks: 3,
+      incomingDeletions: 1,
+      incomingDevices: 1,
+      addedBlocks: 1,
+      updatedBlocks: 1,
+      skippedBlocks: 1,
+      deletedBlocks: 1,
+      skippedDeletions: 0,
+      replay: false,
+    });
+
+    const merged = applySyncPacket(localStore, packet);
+    expect(merged.blocks.map((item) => item.id).sort()).toEqual(['local-newer', 'remote-only', 'shared']);
+    expect(merged.blocks.find((item) => item.id === 'shared')?.content).toBe('Remote newer text');
+  });
+
   it('ignores replayed or rollback packets from a known device', () => {
     const newerPacket = buildSyncPacket(
       {
@@ -615,6 +698,36 @@ describe('sync packets', () => {
     expect(afterRollback.sync?.devices.find((device) => device.id === 'mobile-dev')?.lastPacketAt).toBe(
       '2026-05-06T06:00:00.000Z',
     );
+  });
+
+  it('previews replayed sync packets as skipped with no vault changes', () => {
+    const packet = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [
+          block({
+            id: 'remote-latest',
+            content: 'Latest remote block',
+            capturedAt: '2026-05-06T04:00:00.000Z',
+            updatedAt: '2026-05-06T05:00:00.000Z',
+          }),
+        ],
+      },
+      { sourceDeviceId: 'mobile-dev', sourceDeviceName: 'Phone', now: '2026-05-06T06:00:00.000Z' },
+    );
+    const afterImport = applySyncPacket({ projects: [], blocks: [] }, packet);
+    const preview = buildSyncPreview(afterImport, packet);
+
+    expect(preview.diff).toMatchObject({
+      incomingBlocks: 1,
+      incomingDeletions: 0,
+      addedBlocks: 0,
+      updatedBlocks: 0,
+      skippedBlocks: 1,
+      deletedBlocks: 0,
+      skippedDeletions: 0,
+      replay: true,
+    });
   });
 
   it('parses serialized sync packets and rejects unsupported files', () => {

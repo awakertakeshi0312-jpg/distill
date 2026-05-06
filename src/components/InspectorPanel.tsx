@@ -4,6 +4,7 @@ import type { UiCopy } from '../i18n';
 import type { Project, SyncDevice, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
 import type { RestorePreview } from '../restorePreview';
+import type { SyncPreview } from '../syncPreview';
 import { HelpNote } from './HelpNote';
 
 type InspectorPanelProps = {
@@ -18,6 +19,7 @@ type InspectorPanelProps = {
   restoreStatus: string;
   restorePreview: RestorePreview | null;
   syncStatus: string;
+  syncPreview: SyncPreview | null;
   personalKmHandoffStatus: string;
   deviceId: string;
   deviceName: string;
@@ -47,6 +49,8 @@ type InspectorPanelProps = {
   onDeviceNameChange: (name: string) => void;
   onExportEncryptedSyncPacket: () => void;
   onImportEncryptedSyncPacket: (file: File) => void;
+  onApplySyncPreview: () => void;
+  onCancelSyncPreview: () => void;
   onHandoffToPersonalKm: () => void;
   onChangeVaultPassphrase: (currentPassphrase: string, nextPassphrase: string, confirmation: string) => void;
   onAutoLockMinutesChange: (minutes: number) => void;
@@ -68,6 +72,7 @@ export function InspectorPanel({
   restoreStatus,
   restorePreview,
   syncStatus,
+  syncPreview,
   personalKmHandoffStatus,
   deviceId,
   deviceName,
@@ -97,6 +102,8 @@ export function InspectorPanel({
   onDeviceNameChange,
   onExportEncryptedSyncPacket,
   onImportEncryptedSyncPacket,
+  onApplySyncPreview,
+  onCancelSyncPreview,
   onHandoffToPersonalKm,
   onChangeVaultPassphrase,
   onAutoLockMinutesChange,
@@ -246,6 +253,45 @@ export function InspectorPanel({
           devices: '端末',
           warning: '適用すると現在のローカルストアを置き換えます。',
           apply: '復元を適用',
+          cancel: 'キャンセル',
+        };
+
+  const syncPreviewLabels =
+    ui.navInbox === 'Inbox'
+      ? {
+          title: 'Sync preview',
+          source: 'Source device',
+          created: 'Created',
+          incoming: 'Incoming',
+          records: 'Records',
+          blocks: 'Blocks',
+          deletions: 'Deletions',
+          devices: 'Devices',
+          added: 'Added',
+          updated: 'Updated',
+          skipped: 'Skipped',
+          deleted: 'Deleted locally',
+          warning: 'This packet is stale or already imported. Applying will not change the vault.',
+          apply: 'Apply sync',
+          dismiss: 'Dismiss packet',
+          cancel: 'Cancel',
+        }
+      : {
+          title: '同期プレビュー',
+          source: '送信元端末',
+          created: '作成日時',
+          incoming: '取り込み内容',
+          records: 'レコード',
+          blocks: 'ブロック',
+          deletions: '削除履歴',
+          devices: '端末',
+          added: '追加',
+          updated: '更新',
+          skipped: 'スキップ',
+          deleted: 'ローカル削除',
+          warning: 'このパケットは古い、または取り込み済みです。適用してもVaultは変更されません。',
+          apply: '同期を適用',
+          dismiss: 'パケットを閉じる',
           cancel: 'キャンセル',
         };
 
@@ -607,6 +653,62 @@ export function InspectorPanel({
             />
           </label>
           {syncStatus ? <span className="restoreStatus">{syncStatus}</span> : null}
+          {syncPreview ? (
+            <div className="restorePreviewBox syncPreviewBox">
+              <strong>{syncPreviewLabels.title}</strong>
+              <span>
+                {syncPreviewLabels.source}: {syncPreview.packet.sourceDeviceName || syncPreview.packet.sourceDeviceId}
+              </span>
+              <span>
+                {syncPreviewLabels.created}: {syncPreview.packet.createdAt}
+              </span>
+              <div className="restorePreviewGrid" aria-label={syncPreviewLabels.incoming}>
+                <b>{syncPreviewLabels.incoming}</b>
+                <span>
+                  {syncPreviewLabels.records}: {syncPreview.packet.records.length}
+                </span>
+                <span>
+                  {syncPreviewLabels.devices}: {syncPreview.diff.incomingDevices}
+                </span>
+                <span>
+                  {syncPreviewLabels.blocks}: {syncPreview.diff.incomingBlocks}
+                </span>
+                <span>
+                  {syncPreviewLabels.deletions}: {syncPreview.diff.incomingDeletions}
+                </span>
+              </div>
+              <div className="restorePreviewGrid" aria-label={syncPreviewLabels.blocks}>
+                <b>{syncPreviewLabels.blocks}</b>
+                <span>
+                  {syncPreviewLabels.added}: {syncPreview.diff.addedBlocks}
+                </span>
+                <span>
+                  {syncPreviewLabels.updated}: {syncPreview.diff.updatedBlocks}
+                </span>
+                <span>
+                  {syncPreviewLabels.skipped}: {syncPreview.diff.skippedBlocks}
+                </span>
+              </div>
+              <div className="restorePreviewGrid" aria-label={syncPreviewLabels.deletions}>
+                <b>{syncPreviewLabels.deletions}</b>
+                <span>
+                  {syncPreviewLabels.deleted}: {syncPreview.diff.deletedBlocks}
+                </span>
+                <span>
+                  {syncPreviewLabels.skipped}: {syncPreview.diff.skippedDeletions}
+                </span>
+              </div>
+              {syncPreview.diff.replay ? <span className="restoreWarning">{syncPreviewLabels.warning}</span> : null}
+              <div className="restorePreviewActions">
+                <button className="restoreButton dangerButton" type="button" onClick={onApplySyncPreview}>
+                  {syncPreview.diff.replay ? syncPreviewLabels.dismiss : syncPreviewLabels.apply}
+                </button>
+                <button className="restoreButton" type="button" onClick={onCancelSyncPreview}>
+                  {syncPreviewLabels.cancel}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="restoreBox">

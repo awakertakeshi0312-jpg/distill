@@ -11,7 +11,7 @@ This assessment covers the current local-first Distill MVP:
 - browser/PWA preview
 - signed Windows updater
 - GitHub Releases updater feed
-- manual encrypted sync packet export/import
+- manual encrypted sync packet export/import with apply preview
 
 It does not certify the app for regulated data, medical data, legal privilege, or enterprise compliance.
 
@@ -32,6 +32,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Export/import and sync packet exchange are explicit and user-triggered.
 - Tauri updater is registered only for desktop builds.
 - Manual sync packets use record-level encrypted records and deletion tombstones.
+- Sync packet imports show an apply preview before changing the vault.
 
 ### Changes Applied Through 0.1.13
 
@@ -52,6 +53,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added a React render error boundary so UI failures show recovery steps instead of a blank screen.
 - Added unsupported-envelope and tampered-payload encrypted vault tests.
 - Added stale sync packet rejection based on known source-device `lastPacketAt`.
+- Added encrypted sync packet apply preview with add/update/skip/delete counts before merging.
 
 ## Findings
 
@@ -99,7 +101,7 @@ Recommended remediation:
 
 ### P2: Import limits are basic
 
-JSON, Markdown, and encrypted vault imports have a 5 MB file cap and schema validation. JSON and encrypted vault restore now show a preview before replacement, but there is still no full resource exhaustion policy.
+JSON, Markdown, encrypted vault, and sync packet imports have a 5 MB file cap and schema validation. JSON/encrypted vault restore and encrypted sync packet import now show a preview before changing local data, but there is still no full resource exhaustion policy.
 
 Recommended remediation:
 

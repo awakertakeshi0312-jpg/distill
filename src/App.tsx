@@ -6,9 +6,9 @@ import { getOrCreateDeviceIdentity, renameDeviceIdentity, type DeviceIdentity } 
 import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
 import { initialStore, normalizeSyncMetadata, type DistillStore, type Project, type SearchResult } from './model';
 import {
-  applyEncryptedSyncPacket,
+  applySyncPacket,
   buildEncryptedSyncPacket,
-  isSyncPacketReplay,
+  decryptEncryptedSyncPacket,
   parseEncryptedSyncPacket,
   registerSyncDevice,
   serializeEncryptedSyncPacket,
@@ -68,6 +68,7 @@ import { copy, getInitialLocale, UI_LOCALE_KEY, type Locale } from './i18n';
 import { emitCaptureSaved, emitExportArtifact, emitReviewDecision } from './aiOrg';
 import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
+import { buildSyncPreview, type SyncPreview } from './syncPreview';
 
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
 const AUTO_LOCK_MINUTES_KEY = 'distill.autoLockMinutes';
@@ -105,6 +106,7 @@ function App() {
   const [restoreStatus, setRestoreStatus] = useState('');
   const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
   const [syncStatus, setSyncStatus] = useState('');
+  const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
   const [personalKmHandoffStatus, setPersonalKmHandoffStatus] = useState('');
   const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(() => {
     if (typeof window === 'undefined') {
@@ -671,6 +673,7 @@ function App() {
       setVaultNotice(notice);
       setRestoreStatus('');
       setRestorePreview(null);
+      setSyncPreview(null);
       setVaultSecurityStatus('');
     }
   }
@@ -705,6 +708,11 @@ function App() {
             `Encrypted sync packet exported from ${deviceName} with ${records} records.`,
           importConfirm: (records: number, deviceId: string) =>
             `Merge ${records} encrypted sync records from device ${deviceId}? Newer records replace older local records.`,
+          previewReady: (records: number, deviceId: string) =>
+            `Sync preview ready for ${records} encrypted records from device ${deviceId}. Review the diff before applying.`,
+          previewCanceled: 'Sync preview canceled. Current vault was not changed.',
+          staleSkipped: (deviceId: string) =>
+            `Skipped an older or already imported sync packet from device ${deviceId}.`,
           importSuccess: (records: number, deviceId: string) =>
             `Merged ${records} encrypted sync records from device ${deviceId}.`,
           importInvalid: 'Could not import that encrypted sync packet. Check the file and vault passphrase.',
@@ -718,6 +726,11 @@ function App() {
             `${deviceName} から ${records} 件の暗号化同期パケットを出力しました。`,
           importConfirm: (records: number, deviceId: string) =>
             `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しますか？新しいレコードが古いローカルレコードを置き換えます。`,
+          previewReady: (records: number, deviceId: string) =>
+            `端末 ${deviceId} からの暗号化同期レコード ${records} 件のプレビューを作成しました。差分を確認してから適用してください。`,
+          previewCanceled: '同期プレビューをキャンセルしました。現在のVaultは変更されていません。',
+          staleSkipped: (deviceId: string) =>
+            `端末 ${deviceId} からの古い、または取り込み済みの同期パケットをスキップしました。`,
           importSuccess: (records: number, deviceId: string) =>
             `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しました。`,
           importInvalid: '暗号化同期パケットを取り込めませんでした。ファイルとVaultパスフレーズを確認してください。',
@@ -760,6 +773,7 @@ function App() {
   async function exportEncryptedSyncPacket() {
     const labels = syncLabels();
     const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
+    setSyncPreview(null);
 
     if (!vaultPassphrase) {
       setSyncStatus(labels.passphraseRequired);
@@ -791,6 +805,7 @@ function App() {
 
   async function importEncryptedSyncPacket(file: File) {
     const labels = syncLabels();
+    setSyncPreview(null);
 
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       setSyncStatus(vaultLabels().fileTooLarge);
@@ -805,31 +820,46 @@ function App() {
     setSyncStatus('');
 
     try {
-      const packet = parseEncryptedSyncPacket(await file.text());
+      const encryptedPacket = parseEncryptedSyncPacket(await file.text());
+      const packet = await decryptEncryptedSyncPacket(encryptedPacket, vaultPassphrase);
+      const preview = buildSyncPreview(store, packet);
 
-      if (isSyncPacketReplay(store, packet)) {
-        setSyncStatus(
-          locale === 'en'
-            ? `Skipped an older or already imported sync packet from device ${packet.sourceDeviceId}.`
-            : `端末 ${packet.sourceDeviceId} からの古い、または取り込み済みの同期パケットをスキップしました。`,
-        );
-        return;
-      }
-
-      const confirmed = window.confirm(labels.importConfirm(packet.records.length, packet.sourceDeviceId));
-
-      if (!confirmed) {
-        return;
-      }
-
-      const mergedStore = await applyEncryptedSyncPacket(store, packet, vaultPassphrase);
-      setStore(mergedStore);
-      setSelectedBlockId(mergedStore.blocks[0]?.id);
-      setSyncStatus(labels.importSuccess(packet.records.length, packet.sourceDeviceId));
+      setSyncPreview(preview);
+      setSyncStatus(
+        preview.diff.replay
+          ? labels.staleSkipped(packet.sourceDeviceId)
+          : labels.previewReady(packet.records.length, packet.sourceDeviceId),
+      );
     } catch (error) {
       console.warn('Failed to import encrypted Distill sync packet.', error);
       setSyncStatus(labels.importInvalid);
+      setSyncPreview(null);
     }
+  }
+
+  function applySyncPreview() {
+    if (!syncPreview) {
+      return;
+    }
+
+    const labels = syncLabels();
+
+    if (syncPreview.diff.replay) {
+      setSyncStatus(labels.staleSkipped(syncPreview.packet.sourceDeviceId));
+      setSyncPreview(null);
+      return;
+    }
+
+    const mergedStore = applySyncPacket(store, syncPreview.packet);
+    setStore(mergedStore);
+    setSelectedBlockId(mergedStore.blocks[0]?.id);
+    setSyncStatus(labels.importSuccess(syncPreview.packet.records.length, syncPreview.packet.sourceDeviceId));
+    setSyncPreview(null);
+  }
+
+  function cancelSyncPreview() {
+    setSyncPreview(null);
+    setSyncStatus(syncLabels().previewCanceled);
   }
 
   function permanentlyDeleteArchivedBlock(blockId: string) {
@@ -1238,6 +1268,7 @@ function App() {
             restoreStatus={restoreStatus}
             restorePreview={restorePreview}
             syncStatus={syncStatus}
+            syncPreview={syncPreview}
             personalKmHandoffStatus={personalKmHandoffStatus}
             deviceId={deviceIdentity?.id ?? ''}
             deviceName={deviceIdentity?.name ?? ''}
@@ -1270,6 +1301,8 @@ function App() {
             onDeviceNameChange={renameCurrentDevice}
             onExportEncryptedSyncPacket={() => void exportEncryptedSyncPacket()}
             onImportEncryptedSyncPacket={(file) => void importEncryptedSyncPacket(file)}
+            onApplySyncPreview={applySyncPreview}
+            onCancelSyncPreview={cancelSyncPreview}
             onHandoffToPersonalKm={() => void handoffToPersonalKm()}
             onChangeVaultPassphrase={(currentPassphrase, nextPassphrase, confirmation) =>
               void changeVaultPassphrase(currentPassphrase, nextPassphrase, confirmation)

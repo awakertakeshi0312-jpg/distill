@@ -87,6 +87,7 @@ Implemented:
 - metadata tamper detection between encrypted wrappers and decrypted records.
 - stable per-device identity stored locally as `distill.device.v1`.
 - manual encrypted sync packet export/import UI.
+- import preview before applying encrypted sync packets, with add/update/skip/delete counts.
 - known device registry persisted in the encrypted vault metadata.
 - deletion tombstones for permanent thought-block deletion.
 - replay/rollback guard that skips packets whose `createdAt` is not newer than the known source device `lastPacketAt`.
@@ -163,8 +164,10 @@ The current UI supports local manual sync only:
 4. Move the `.distill-sync.json` file to another device manually.
 5. Unlock the other device with the same vault passphrase.
 6. Import the encrypted sync packet.
-7. Distill decrypts records in memory, verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
-8. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
+7. Distill decrypts records in memory and shows a sync preview before changing the vault.
+8. The preview summarizes incoming records, devices, block additions, block updates, skipped blocks, and block deletions.
+9. If the user applies the preview, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
+10. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
 
 This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
@@ -250,7 +253,7 @@ Encrypted file sync MVP:
 1. Export encrypted `.distill-vault.json`.
 2. Import encrypted `.distill-vault.json` on another device.
 3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
-4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import merges block records, tombstones, and device metadata.
+4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges block records, tombstones, and device metadata.
 5. Automate file read/write through a user-selected folder later.
 
 ## Security Gate

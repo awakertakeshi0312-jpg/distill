@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.13 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, deletion tombstones, and replay/rollback protection.
+Distill 0.1.13 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, deletion tombstones, replay/rollback protection, and apply-before-confirm sync previews.
 
 ## Phase 1: Desktop MVP
 
@@ -41,7 +41,7 @@ Completed:
 
 Remaining polish:
 
-- Conflict summary beyond full-store restore replacement.
+- Conflict summary beyond full-store restore replacement. Sync packet previews are complete; richer full-vault conflict review remains.
 - Empty-state and error-state polish.
 - Better Japanese product copy.
 
@@ -65,7 +65,7 @@ Next:
 - Restore preview before replacing vault. Complete.
 - Corrupted/tampered vault tests. Complete for unsupported envelope and tampered payload coverage.
 - User-selectable vault location.
-- Record-level encrypted records. Complete for manual sync packet export/import with deletion tombstones, device registry, and stale packet rejection; automatic file sync is not enabled yet.
+- Record-level encrypted records. Complete for manual sync packet export/import with apply preview, deletion tombstones, device registry, and stale packet rejection; automatic file sync is not enabled yet.
 - Optional platform keyring or Tauri Stronghold convenience unlock.
 
 ## Phase 4: Retrieval Upgrade
@@ -99,6 +99,7 @@ Status: Foundation in code.
 - Known device registry.
 - Deletion tombstones for permanent block deletion.
 - Replay/rollback guard using known device `lastPacketAt`.
+- Apply-before-confirm preview for encrypted sync packets.
 - Manual encrypted file sync first.
 - Conflict handling.
 - Optional E2EE hosted sync after record format is stable.
