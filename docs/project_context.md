@@ -1,4 +1,4 @@
-﻿# Distill Project Context
+# Distill Project Context
 
 ## Purpose
 
@@ -10,7 +10,7 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.11
+- Current version: 0.1.12
 - Desktop target: Windows x64
 - Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow, device registry, and deletion tombstones
 

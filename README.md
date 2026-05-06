@@ -1,4 +1,4 @@
-﻿# Distill
+# Distill
 
 Distill is a local-first personal thinking environment for capturing fragments, reconnecting them by meaning and context, and maturing them into durable knowledge.
 
@@ -139,19 +139,19 @@ src-tauri/target/release/app.exe
 Current Windows installer output:
 
 ```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.11_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Distill_0.1.12_x64-setup.exe
 ```
 
 Installer SHA256:
 
 ```text
-2CC192717F0A718F8036420B2FEA08159491F1D31CAAAC4765E71E98459794E5
+33DDF3C510FCABE82EB38794E383161DC58F974EF6695CED1054A4104BF25B48
 ```
 
 Signed auto-update flow:
 
 1. Build a signed release with `npm run release:windows`.
-2. Upload `release/Distill_0.1.11_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
+2. Upload `release/Distill_0.1.12_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
 3. Open the installed Distill desktop app.
 4. Click `Check for updates` in the Inspector update section.
 5. Click `Install update` when a newer signed version is available.

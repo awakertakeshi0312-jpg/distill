@@ -1,4 +1,4 @@
-﻿# Distill Security Assessment - 2026-05-06
+# Distill Security Assessment - 2026-05-06
 
 ## Scope
 
@@ -33,7 +33,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Tauri updater is registered only for desktop builds.
 - Manual sync packets use record-level encrypted records and deletion tombstones.
 
-### Changes Applied Through 0.1.11
+### Changes Applied Through 0.1.12
 
 - Added startup vault gate for create/unlock.
 - Added normal encrypted local persistence under `distill.vault.v1`.
