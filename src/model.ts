@@ -1,4 +1,4 @@
-export type BlockState = 'open' | 'linked' | 'processed';
+export type BlockState = 'open' | 'linked' | 'processed' | 'archived';
 
 export type ThoughtBlock = {
   id: string;
@@ -23,6 +23,8 @@ export type SearchResult = {
   block: ThoughtBlock;
   score: number;
   reason: string;
+  matchedFields: string[];
+  matchedTerms: string[];
 };
 
 export type DistillStore = {
@@ -94,10 +96,16 @@ export const initialStore: DistillStore = {
   projects: projectsSeed,
 };
 
+export function extractBlockSignals(content: string) {
+  return {
+    tags: Array.from(content.matchAll(/#([\p{L}\p{N}_-]+)/gu)).map((match) => match[1]),
+    links: Array.from(content.matchAll(/\[\[([^\]]+)\]\]/g)).map((match) => match[1]),
+  };
+}
+
 export function createBlock(content: string): ThoughtBlock {
   const timestamp = new Date().toISOString();
-  const tags = Array.from(content.matchAll(/#([a-zA-Z0-9-]+)/g)).map((match) => match[1]);
-  const links = Array.from(content.matchAll(/\[\[([^\]]+)\]\]/g)).map((match) => match[1]);
+  const { tags, links } = extractBlockSignals(content);
 
   return {
     id: crypto.randomUUID(),
@@ -111,40 +119,99 @@ export function createBlock(content: string): ThoughtBlock {
   };
 }
 
-export function formatBlockMeta(block: ThoughtBlock, projects: Project[]) {
+export function formatBlockMeta(block: ThoughtBlock, projects: Project[], locale: 'en' | 'ja' = 'en') {
   const project = projects.find((item) => item.id === block.projectId);
-  const date = new Intl.DateTimeFormat('en', {
+  const date = new Intl.DateTimeFormat(locale === 'ja' ? 'ja-JP' : 'en', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(block.capturedAt));
 
-  return [date, project?.name ?? 'Inbox'].join(' - ');
+  return [date, project?.name ?? (locale === 'ja' ? 'インボックス' : 'Inbox')].join(' - ');
+}
+
+export function normalizeSearchTerms(query: string) {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .map((term) => term.replace(/[^\p{L}\p{N}_-]/gu, '').trim())
+    .filter(Boolean);
+}
+
+const semanticAliases: Record<string, string[]> = {
+  remember: ['resurfaced', 'recall', 'revisit', 'memory'],
+  remembering: ['resurfaced', 'recall', 'revisit', 'memory'],
+  trust: ['explain', 'reason', 'evidence', 'confidence'],
+  reliable: ['trust', 'evidence', 'confidence'],
+  context: ['daily', 'note', 'project', 'meeting'],
+  ownership: ['local', 'export', 'portable', 'backup'],
+  backup: ['export', 'restore', 'portable', 'json'],
+  meaning: ['semantic', 'retrieval', 'context'],
+  semantic: ['meaning', 'retrieval', 'context'],
+  retrieval: ['search', 'semantic', 'resurfaced'],
+  思い出す: ['検索', '意味', '再発見'],
+  信頼: ['説明', '理由', '根拠'],
+  文脈: ['日次', 'ノート', 'プロジェクト'],
+};
+
+function expandSearchTerms(terms: string[]) {
+  return Array.from(new Set(terms.flatMap((term) => [term, ...(semanticAliases[term] ?? [])])));
+}
+
+function semanticProfile(block: ThoughtBlock) {
+  return normalizeSearchTerms([block.content, ...block.tags, ...block.links].join(' '));
+}
+
+export function analyzeSearchMatch(block: ThoughtBlock, terms: string[]) {
+  const content = block.content.toLowerCase();
+  const tags = block.tags.map((tag) => tag.toLowerCase());
+  const links = block.links.map((link) => link.toLowerCase());
+
+  const matchedFields = [
+    terms.some((term) => content.includes(term)) ? 'content' : null,
+    terms.some((term) => tags.some((tag) => tag.includes(term))) ? 'tags' : null,
+    terms.some((term) => links.some((link) => link.includes(term))) ? 'links' : null,
+  ].filter((field): field is string => field !== null);
+
+  const matchedTerms = terms.filter(
+    (term) =>
+      content.includes(term) ||
+      tags.some((tag) => tag.includes(term)) ||
+      links.some((link) => link.includes(term)),
+  );
+
+  return {
+    matchedFields,
+    matchedTerms: Array.from(new Set(matchedTerms)),
+  };
 }
 
 export function searchBlocks(blocks: ThoughtBlock[], query: string): SearchResult[] {
-  const terms = query
-    .toLowerCase()
-    .split(/\s+/)
-    .map((term) => term.trim())
-    .filter(Boolean);
+  const terms = normalizeSearchTerms(query);
 
   if (terms.length === 0) {
     return blocks.slice(0, 5).map((block) => ({
       block,
       score: 1,
       reason: 'Recent capture',
+      matchedFields: [],
+      matchedTerms: [],
     }));
   }
 
+  const expandedTerms = expandSearchTerms(terms);
+
   return blocks
     .map((block) => {
-      const haystack = [block.content, ...block.tags, ...block.links].join(' ').toLowerCase();
-      const exactHits = terms.filter((term) => haystack.includes(term)).length;
-      const tagHits = terms.filter((term) => block.tags.some((tag) => tag.includes(term))).length;
-      const linkHits = terms.filter((term) => block.links.some((link) => link.toLowerCase().includes(term))).length;
-      const score = exactHits * 3 + tagHits * 2 + linkHits * 2;
+      const { matchedFields, matchedTerms } = analyzeSearchMatch(block, terms);
+      const exactHits = matchedFields.includes('content') ? matchedTerms.length : 0;
+      const tagHits = matchedFields.includes('tags') ? matchedTerms.length : 0;
+      const linkHits = matchedFields.includes('links') ? matchedTerms.length : 0;
+      const profile = semanticProfile(block);
+      const semanticTerms = expandedTerms.filter((term) => profile.some((profileTerm) => profileTerm.includes(term)));
+      const semanticHits = semanticTerms.filter((term) => !matchedTerms.includes(term));
+      const score = exactHits * 3 + tagHits * 2 + linkHits * 2 + semanticHits.length;
 
       if (score === 0) {
         return null;
@@ -154,13 +221,19 @@ export function searchBlocks(blocks: ThoughtBlock[], query: string): SearchResul
         exactHits > 0 ? 'Text match' : null,
         tagHits > 0 ? 'Tag match' : null,
         linkHits > 0 ? 'Linked context' : null,
+        semanticHits.length > 0 ? 'Semantic overlap' : null,
       ]
         .filter(Boolean)
         .join(' - ');
 
-      return { block, score, reason };
+      return {
+        block,
+        score,
+        reason,
+        matchedFields: semanticHits.length > 0 ? Array.from(new Set([...matchedFields, 'semantic'])) : matchedFields,
+        matchedTerms: Array.from(new Set([...matchedTerms, ...semanticTerms])),
+      };
     })
     .filter((result): result is SearchResult => result !== null)
     .sort((a, b) => b.score - a.score);
 }
-

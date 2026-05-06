@@ -51,6 +51,32 @@ CREATE TABLE tags (
   created_at TEXT NOT NULL
 );
 
+-- Transitional graph tables currently implemented by the Tauri SQLite adapter.
+-- These can later be folded into entities + links when the data model is promoted.
+CREATE TABLE people (
+  name TEXT PRIMARY KEY,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE block_people (
+  block_id TEXT NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
+  person TEXT NOT NULL REFERENCES people(name) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  PRIMARY KEY (block_id, person)
+);
+
+CREATE TABLE concepts (
+  name TEXT PRIMARY KEY,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE graph_edges (
+  source_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  edge_type TEXT NOT NULL,
+  PRIMARY KEY (source_id, target_id, edge_type)
+);
+
 CREATE TABLE block_tags (
   block_id TEXT NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
   tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
