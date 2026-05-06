@@ -8,6 +8,14 @@ import type { SyncFolderPacketFile } from '../storage';
 import type { SyncPreview } from '../syncPreview';
 import { HelpNote } from './HelpNote';
 
+function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
+  return Boolean(
+    preview &&
+      !preview.diff.replay &&
+      (preview.diff.destructiveChanges > 0 || preview.diff.timestampTies > 0),
+  );
+}
+
 type InspectorPanelProps = {
   ui: UiCopy;
   projects: Project[];
@@ -21,6 +29,7 @@ type InspectorPanelProps = {
   restorePreview: RestorePreview | null;
   syncStatus: string;
   syncPreview: SyncPreview | null;
+  syncRiskAccepted: boolean;
   syncFolderPath: string;
   syncFolderPackets: SyncFolderPacketFile[];
   personalKmHandoffStatus: string;
@@ -57,8 +66,10 @@ type InspectorPanelProps = {
   onExportEncryptedSyncPacketToFolder: () => void;
   onRefreshSyncFolderPackets: () => void;
   onImportSyncFolderPacket: (packetFile: SyncFolderPacketFile) => void;
+  onQuarantineSyncFolderPacket: (packetFile: SyncFolderPacketFile) => void;
   onApplySyncPreview: () => void;
   onCancelSyncPreview: () => void;
+  onSyncRiskAcceptedChange: (accepted: boolean) => void;
   onRevokeSyncDevice: (deviceId: string) => void;
   onForgetRevokedSyncDevice: (deviceId: string) => void;
   onHandoffToPersonalKm: () => void;
@@ -83,6 +94,7 @@ export function InspectorPanel({
   restorePreview,
   syncStatus,
   syncPreview,
+  syncRiskAccepted,
   syncFolderPath,
   syncFolderPackets,
   personalKmHandoffStatus,
@@ -119,8 +131,10 @@ export function InspectorPanel({
   onExportEncryptedSyncPacketToFolder,
   onRefreshSyncFolderPackets,
   onImportSyncFolderPacket,
+  onQuarantineSyncFolderPacket,
   onApplySyncPreview,
   onCancelSyncPreview,
+  onSyncRiskAcceptedChange,
   onRevokeSyncDevice,
   onForgetRevokedSyncDevice,
   onHandoffToPersonalKm,
@@ -224,6 +238,7 @@ export function InspectorPanel({
           folderPackets: 'Folder packets',
           noFolderPackets: 'No packet files found yet',
           importFolderPacket: 'Preview',
+          quarantineFolderPacket: 'Quarantine',
           knownDevices: 'Known devices',
           noKnownDevices: 'No synced devices yet',
           revokedDevices: 'Revoked devices',
@@ -248,6 +263,7 @@ export function InspectorPanel({
           folderPackets: 'フォルダ内パケット',
           noFolderPackets: '同期パケットはまだ見つかっていません',
           importFolderPacket: 'プレビュー',
+          quarantineFolderPacket: '隔離',
           knownDevices: '同期済み端末',
           noKnownDevices: '同期済み端末はまだありません',
           revokedDevices: '信頼解除済み端末',
@@ -320,6 +336,9 @@ export function InspectorPanel({
           localWins: 'Local wins',
           timestampTies: 'Same-time tie-breaks',
           destructiveChanges: 'Local changes/deletes',
+          riskTitle: 'Risk confirmation required',
+          riskCopy: 'This packet will update or delete local data. Confirm after reviewing the decision counts.',
+          riskAccepted: 'I reviewed the sync decision risk',
           warning: 'This packet is stale or already imported. Applying will not change the vault.',
           apply: 'Apply sync',
           dismiss: 'Dismiss packet',
@@ -344,6 +363,9 @@ export function InspectorPanel({
           localWins: 'ローカルを維持',
           timestampTies: '同時刻の決着',
           destructiveChanges: '更新・削除されるローカル',
+          riskTitle: 'リスク確認が必要',
+          riskCopy: 'このパケットはローカルデータを更新または削除します。判定数を確認してからチェックしてください。',
+          riskAccepted: '同期判定のリスクを確認しました',
           warning: 'このパケットは古い、または取り込み済みです。適用してもVaultは変更されません。',
           apply: '同期を適用',
           dismiss: 'パケットを閉じる',
@@ -793,6 +815,14 @@ export function InspectorPanel({
                       <FileUp size={14} />
                       {syncLabels.importFolderPacket}
                     </button>
+                    <button
+                      className="restoreButton dangerButton inlineActionButton"
+                      type="button"
+                      onClick={() => onQuarantineSyncFolderPacket(packetFile)}
+                    >
+                      <ShieldOff size={14} />
+                      {syncLabels.quarantineFolderPacket}
+                    </button>
                   </div>
                 </div>
               ))}
@@ -865,6 +895,20 @@ export function InspectorPanel({
                 </span>
               </div>
               {syncPreview.diff.replay ? <span className="restoreWarning">{syncPreviewLabels.warning}</span> : null}
+              {syncPreviewRequiresRiskAcknowledgement(syncPreview) ? (
+                <label className="riskGate">
+                  <span>
+                    <strong>{syncPreviewLabels.riskTitle}</strong>
+                    {syncPreviewLabels.riskCopy}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={syncRiskAccepted}
+                    onChange={(event) => onSyncRiskAcceptedChange(event.target.checked)}
+                  />
+                  <b>{syncPreviewLabels.riskAccepted}</b>
+                </label>
+              ) : null}
               <div className="restorePreviewActions">
                 <button className="restoreButton dangerButton" type="button" onClick={onApplySyncPreview}>
                   {syncPreview.diff.replay ? syncPreviewLabels.dismiss : syncPreviewLabels.apply}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-quarantine-encrypted-sync-packet-file"
+description = "Enables the quarantine_encrypted_sync_packet_file command without any pre-configured scope."
+commands.allow = ["quarantine_encrypted_sync_packet_file"]
+
+[[permission]]
+identifier = "deny-quarantine-encrypted-sync-packet-file"
+description = "Denies the quarantine_encrypted_sync_packet_file command without any pre-configured scope."
+commands.deny = ["quarantine_encrypted_sync_packet_file"]

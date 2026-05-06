@@ -380,6 +380,46 @@ fn sync_packet_modified_at(metadata: &std::fs::Metadata) -> String {
     .unwrap_or_else(|| "0".to_string())
 }
 
+fn quarantine_sync_packet_file(file_path: &Path) -> Result<PathBuf, String> {
+  let canonical = file_path.canonicalize().map_err(|error| error.to_string())?;
+  let metadata = canonical.metadata().map_err(|error| error.to_string())?;
+
+  if !metadata.is_file() {
+    return Err("Sync packet path must point to a file.".to_string());
+  }
+
+  if metadata.len() > MAX_SYNC_PACKET_BYTES {
+    return Err("Sync packet is too large.".to_string());
+  }
+
+  let file_name = canonical
+    .file_name()
+    .and_then(|value| value.to_str())
+    .ok_or_else(|| "Sync packet path must point to a file.".to_string())?;
+  validate_sync_packet_file_name(file_name)?;
+
+  let parent = canonical
+    .parent()
+    .ok_or_else(|| "Sync packet path must have a parent folder.".to_string())?;
+  let quarantine_folder = parent.join(".distill-quarantine");
+  std::fs::create_dir_all(&quarantine_folder).map_err(|error| error.to_string())?;
+
+  let timestamp = SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .map_err(|error| error.to_string())?
+    .as_secs();
+  let mut candidate = quarantine_folder.join(format!("quarantined-{timestamp}-{file_name}"));
+  let mut counter = 1;
+
+  while candidate.exists() {
+    candidate = quarantine_folder.join(format!("quarantined-{timestamp}-{counter}-{file_name}"));
+    counter += 1;
+  }
+
+  std::fs::rename(&canonical, &candidate).map_err(|error| error.to_string())?;
+  Ok(candidate)
+}
+
 fn list_sync_packet_files(folder_path: &Path) -> Result<Vec<SyncPacketFileInfo>, String> {
   let folder = ensure_sync_folder(folder_path)?;
   let mut files = Vec::new();
@@ -1282,6 +1322,11 @@ fn read_encrypted_sync_packet_file(file_path: String) -> Result<String, String> 
 }
 
 #[tauri::command]
+fn quarantine_encrypted_sync_packet_file(file_path: String) -> Result<String, String> {
+  Ok(quarantine_sync_packet_file(Path::new(&file_path))?.display().to_string())
+}
+
+#[tauri::command]
 fn emit_ai_org_event(app: AppHandle, event: AiOrgEventInput) -> Result<(), String> {
   if !is_allowed_ai_org_event_type(&event.event_type) {
     return Err("Unsupported AI Org event type.".to_string());
@@ -1631,6 +1676,32 @@ mod tests {
   }
 
   #[test]
+  fn quarantines_sync_packet_files_out_of_scan_results() {
+    let folder = std::env::temp_dir().join(format!(
+      "distill-sync-quarantine-test-{}",
+      SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos()
+    ));
+    std::fs::create_dir_all(&folder).expect("create temp sync folder");
+    let packet_path = folder.join("distill-sync-danger.distill-sync.json");
+    std::fs::write(&packet_path, "{\"type\":\"other\"}").expect("write sync packet");
+
+    let quarantined_path = quarantine_sync_packet_file(&packet_path).expect("quarantine sync packet");
+
+    assert!(!packet_path.exists());
+    assert!(quarantined_path.exists());
+    assert_eq!(
+      quarantined_path.parent().and_then(|path| path.file_name()).and_then(|value| value.to_str()),
+      Some(".distill-quarantine")
+    );
+    assert!(list_sync_packet_files(&folder).expect("list sync packets").is_empty());
+
+    std::fs::remove_dir_all(folder).expect("remove temp sync folder");
+  }
+
+  #[test]
   fn validates_summary_only_ai_org_payloads() {
     assert!(is_allowed_ai_org_event_type("memory.save_requested"));
     assert!(is_allowed_ai_org_event_type("decision.created"));
@@ -1680,11 +1751,12 @@ pub fn run() {
       clear_plain_store,
       load_storage_info_json,
       start_update_installer,
-      write_encrypted_sync_packet_file,
-      list_encrypted_sync_packet_files,
-      read_encrypted_sync_packet_file,
-      emit_ai_org_event
-    ])
+        write_encrypted_sync_packet_file,
+        list_encrypted_sync_packet_files,
+        read_encrypted_sync_packet_file,
+        quarantine_encrypted_sync_packet_file,
+        emit_ai_org_event
+      ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

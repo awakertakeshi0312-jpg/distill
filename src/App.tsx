@@ -42,6 +42,7 @@ import {
   loadEncryptedVault,
   loadLegacyPlainStore,
   loadStorageInfo,
+  quarantineEncryptedSyncPacketFile,
   readEncryptedSyncPacketFile,
   saveEncryptedVault,
   searchStore,
@@ -85,6 +86,14 @@ const SYNC_FOLDER_PATH_KEY = 'distill.syncFolderPath';
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 type VaultStatus = 'checking' | 'locked' | 'setup' | 'unlocked';
 
+function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
+  return Boolean(
+    preview &&
+      !preview.diff.replay &&
+      (preview.diff.destructiveChanges > 0 || preview.diff.timestampTies > 0),
+  );
+}
+
 function App() {
   const [locale, setLocale] = useState<Locale>(getInitialLocale);
   const [store, setStore] = useState(initialStore);
@@ -117,6 +126,7 @@ function App() {
   const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
   const [syncStatus, setSyncStatus] = useState('');
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
+  const [syncRiskAccepted, setSyncRiskAccepted] = useState(false);
   const [syncFolderPath, setSyncFolderPath] = useState(() => {
     if (typeof window === 'undefined') {
       return '';
@@ -697,6 +707,7 @@ function App() {
       setRestoreStatus('');
       setRestorePreview(null);
       setSyncPreview(null);
+      setSyncRiskAccepted(false);
       setVaultSecurityStatus('');
     }
   }
@@ -762,6 +773,12 @@ function App() {
             `Wrote ${records} encrypted sync records to ${filePath}.`,
           syncFolderScanSuccess: (files: number) => `Found ${files} encrypted sync packet files in the folder.`,
           syncFolderImportReady: (fileName: string) => `Loaded ${fileName}. Review the sync preview before applying.`,
+          syncFolderQuarantineConfirm: (fileName: string) =>
+            `Move ${fileName} into the sync folder quarantine? It will no longer appear in normal sync scans.`,
+          syncFolderQuarantineSuccess: (fileName: string, quarantinePath: string) =>
+            `Moved ${fileName} to quarantine: ${quarantinePath}`,
+          syncRiskAcknowledgementRequired:
+            'This sync packet updates or deletes local data. Review the decision counts and confirm the risk before applying.',
           deleteConfirm: (content: string) =>
             `Permanently delete this archived block and sync the deletion?\n\n${content}`,
         }
@@ -804,6 +821,12 @@ function App() {
           syncFolderScanSuccess: (files: number) => `同期フォルダ内に${files}件の暗号化同期パケットが見つかりました。`,
           syncFolderImportReady: (fileName: string) =>
             `${fileName} を読み込みました。同期プレビューを確認してから適用してください。`,
+          syncFolderQuarantineConfirm: (fileName: string) =>
+            `${fileName} を同期フォルダの隔離場所へ移動しますか？通常の同期スキャンには表示されなくなります。`,
+          syncFolderQuarantineSuccess: (fileName: string, quarantinePath: string) =>
+            `${fileName} を隔離しました: ${quarantinePath}`,
+          syncRiskAcknowledgementRequired:
+            'この同期パケットはローカルデータを更新または削除します。判定レビューを確認し、リスク確認にチェックしてから適用してください。',
           deleteConfirm: (content: string) =>
             `このアーカイブ済みブロックを完全削除し、削除履歴を同期しますか？\n\n${content}`,
         };
@@ -864,6 +887,7 @@ function App() {
   async function exportEncryptedSyncPacket() {
     const labels = syncLabels();
     setSyncPreview(null);
+    setSyncRiskAccepted(false);
 
     if (!vaultPassphrase) {
       setSyncStatus(labels.passphraseRequired);
@@ -909,6 +933,7 @@ function App() {
   async function exportEncryptedSyncPacketToFolder() {
     const labels = syncLabels();
     setSyncPreview(null);
+    setSyncRiskAccepted(false);
 
     if (!syncFolderPath.trim()) {
       setSyncStatus(labels.syncFolderRequired);
@@ -942,6 +967,7 @@ function App() {
   async function previewEncryptedSyncPacketText(packetText: string, readyMessage?: string) {
     const labels = syncLabels();
     setSyncPreview(null);
+    setSyncRiskAccepted(false);
 
     if (!vaultPassphrase) {
       setSyncStatus(labels.passphraseRequired);
@@ -957,6 +983,7 @@ function App() {
       if (isSyncDeviceRevoked(store, packet.sourceDeviceId)) {
         setSyncStatus(labels.revokedSourceRejected(packet.sourceDeviceId));
         setSyncPreview(null);
+        setSyncRiskAccepted(false);
         return;
       }
 
@@ -966,9 +993,11 @@ function App() {
       if (!preview.diff.replay && checkpointStatus === 'previous-packet-hash-mismatch') {
         setSyncStatus(labels.checkpointRejected);
         setSyncPreview(null);
+        setSyncRiskAccepted(false);
         return;
       }
 
+      setSyncRiskAccepted(false);
       setSyncPreview(preview);
       setSyncStatus(
         readyMessage
@@ -981,6 +1010,7 @@ function App() {
       console.warn('Failed to import encrypted Distill sync packet.', error);
       setSyncStatus(labels.importInvalid);
       setSyncPreview(null);
+      setSyncRiskAccepted(false);
     }
   }
 
@@ -988,6 +1018,7 @@ function App() {
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       setSyncStatus(vaultLabels().fileTooLarge);
       setSyncPreview(null);
+      setSyncRiskAccepted(false);
       return;
     }
 
@@ -1014,6 +1045,36 @@ function App() {
       console.warn('Failed to import encrypted Distill sync packet from folder.', error);
       setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
       setSyncPreview(null);
+      setSyncRiskAccepted(false);
+    }
+  }
+
+  async function quarantineSyncFolderPacket(packetFile: SyncFolderPacketFile) {
+    const labels = syncLabels();
+
+    if (!isDesktopRuntime()) {
+      setSyncStatus(labels.syncFolderDesktopRequired);
+      return;
+    }
+
+    const confirmed = window.confirm(labels.syncFolderQuarantineConfirm(packetFile.fileName));
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const quarantinePath = await quarantineEncryptedSyncPacketFile(packetFile.path);
+      setSyncPreview(null);
+      setSyncRiskAccepted(false);
+      setSyncStatus(labels.syncFolderQuarantineSuccess(packetFile.fileName, quarantinePath));
+
+      if (syncFolderPath.trim()) {
+        setSyncFolderPackets(await listEncryptedSyncPacketFiles(syncFolderPath.trim()));
+      }
+    } catch (error) {
+      console.warn('Failed to quarantine Distill sync packet.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
     }
   }
 
@@ -1027,6 +1088,12 @@ function App() {
     if (syncPreview.diff.replay) {
       setSyncStatus(labels.staleSkipped(syncPreview.packet.sourceDeviceId));
       setSyncPreview(null);
+      setSyncRiskAccepted(false);
+      return;
+    }
+
+    if (syncPreviewRequiresRiskAcknowledgement(syncPreview) && !syncRiskAccepted) {
+      setSyncStatus(labels.syncRiskAcknowledgementRequired);
       return;
     }
 
@@ -1036,15 +1103,18 @@ function App() {
       setSelectedBlockId(mergedStore.blocks[0]?.id);
       setSyncStatus(labels.importSuccess(syncPreview.packet.records.length, syncPreview.packet.sourceDeviceId));
       setSyncPreview(null);
+      setSyncRiskAccepted(false);
     } catch (error) {
       console.warn('Failed to apply encrypted Distill sync preview.', error);
       setSyncStatus(labels.checkpointRejected);
       setSyncPreview(null);
+      setSyncRiskAccepted(false);
     }
   }
 
   function cancelSyncPreview() {
     setSyncPreview(null);
+    setSyncRiskAccepted(false);
     setSyncStatus(syncLabels().previewCanceled);
   }
 
@@ -1490,6 +1560,7 @@ function App() {
             restorePreview={restorePreview}
             syncStatus={syncStatus}
             syncPreview={syncPreview}
+            syncRiskAccepted={syncRiskAccepted}
             syncFolderPath={syncFolderPath}
             syncFolderPackets={syncFolderPackets}
             personalKmHandoffStatus={personalKmHandoffStatus}
@@ -1529,8 +1600,10 @@ function App() {
             onExportEncryptedSyncPacketToFolder={() => void exportEncryptedSyncPacketToFolder()}
             onRefreshSyncFolderPackets={() => void refreshSyncFolderPackets()}
             onImportSyncFolderPacket={(packetFile) => void importEncryptedSyncPacketFromFolder(packetFile)}
+            onQuarantineSyncFolderPacket={(packetFile) => void quarantineSyncFolderPacket(packetFile)}
             onApplySyncPreview={applySyncPreview}
             onCancelSyncPreview={cancelSyncPreview}
+            onSyncRiskAcceptedChange={setSyncRiskAccepted}
             onRevokeSyncDevice={revokeKnownSyncDevice}
             onForgetRevokedSyncDevice={forgetRevokedDeviceRecord}
             onHandoffToPersonalKm={() => void handoffToPersonalKm()}

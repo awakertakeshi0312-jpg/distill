@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.17
+- Current version: 0.1.18
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview and decision-review counts, desktop sync-folder packet exchange prototype, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, desktop sync-folder packet exchange prototype, sync packet quarantine, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -66,6 +66,8 @@ Implemented app features:
 - Desktop sync-folder path for writing, scanning, and previewing encrypted sync packet files
 - Sync packet apply preview with add/update/skip/delete counts before merging
 - Sync packet decision review with remote wins, local wins, same-time tie-breaks, and local changes/deletes
+- Sync risk acknowledgement gate before applying packets that update/delete local data or rely on same-time tie-breaks
+- Sync-folder packet quarantine into `.distill-quarantine`
 - Manual sync device registry in the Inspector
 - Sync device trust revocation and revoked-device packet rejection
 - Permanent archive deletion with sync tombstones
@@ -151,11 +153,11 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after sync decision-review update:
+Latest verification after sync quarantine and risk-gate update:
 
 - `npm test`: 42 passed
 - `npm run build`: passed
-- `npm run test:rust`: 14 passed
+- `npm run test:rust`: 15 passed
 - `npm run test:e2e`: 10 passed
 - `npm run check:all`: passed
 - `npm run security:audit`: 0 vulnerabilities

@@ -924,6 +924,32 @@ button:disabled {
   color: #8a4b0f !important;
 }
 
+.riskGate {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid rgba(132, 54, 37, 0.28);
+  background: #fff7e8;
+}
+
+.riskGate span {
+  display: grid;
+  gap: 3px;
+}
+
+.riskGate input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.riskGate b {
+  grid-column: 1 / -1;
+  color: #843625;
+  font-size: 0.82rem;
+}
+
 .restorePreviewActions {
   display: grid;
   grid-template-columns: 1fr 1fr;

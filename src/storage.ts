@@ -167,6 +167,14 @@ export async function readEncryptedSyncPacketFile(filePath: string): Promise<str
   throw new Error('Desktop app is required to use a sync folder.');
 }
 
+export async function quarantineEncryptedSyncPacketFile(filePath: string): Promise<string> {
+  if (isTauriRuntime()) {
+    return await invoke<string>('quarantine_encrypted_sync_packet_file', { filePath });
+  }
+
+  throw new Error('Desktop app is required to use a sync folder.');
+}
+
 export async function checkForAppUpdate(): Promise<AppUpdateInfo | null> {
   if (!isTauriRuntime()) {
     throw new Error('Desktop app is required to check for updates.');

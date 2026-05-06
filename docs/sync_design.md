@@ -88,8 +88,10 @@ Implemented:
 - stable per-device identity stored locally as `distill.device.v1`.
 - manual encrypted sync packet export/import UI.
 - desktop sync-folder path for writing encrypted packet files, scanning packet candidates, and loading a selected packet into the existing preview flow.
+- desktop sync-folder quarantine for suspicious or unwanted packet files.
 - import preview before applying encrypted sync packets, with add/update/skip/delete counts.
 - decision-review counts in sync previews for remote wins, local wins, same-time tie-breaks, and local changes/deletes.
+- risk acknowledgement before applying packets that update/delete local data or rely on same-time tie-breaks.
 - known device registry persisted in the encrypted vault metadata.
 - revoked device registry and rejection of future packets from locally revoked devices.
 - deletion tombstones for permanent thought-block deletion.
@@ -188,6 +190,8 @@ The current UI supports local manual sync only:
 11. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
 12. Distill rejects packets from devices the user has revoked.
 13. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, and load a selected packet into the same preview/apply flow.
+14. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
+15. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
 
 This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
