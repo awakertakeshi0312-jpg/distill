@@ -343,6 +343,11 @@ export function isSyncDeviceRevoked(store: DistillStore, deviceId: string) {
   return sync.revokedDevices.some((device) => device.id === deviceId);
 }
 
+export function isKnownSyncDevice(store: DistillStore, deviceId: string) {
+  const sync = normalizeSyncMetadata(store.sync);
+  return sync.devices.some((device) => device.id === deviceId);
+}
+
 export function registerSyncPacketCheckpoint(
   store: DistillStore,
   packet: Pick<DistillSyncPacket, 'sourceDeviceId' | 'sourceDeviceName' | 'createdAt' | 'packetHash'>,

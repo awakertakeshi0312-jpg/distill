@@ -950,6 +950,15 @@ button:disabled {
   font-size: 0.82rem;
 }
 
+.trustGate {
+  border-color: rgba(47, 102, 78, 0.32);
+  background: #f5fbf4;
+}
+
+.trustGate b {
+  color: #2f664e;
+}
+
 .syncMonitorGate {
   border-color: rgba(47, 102, 78, 0.26);
   background: #f5fbf4;

@@ -18,6 +18,7 @@ export type SyncFolderPacketReview = SyncFolderPacketFile & {
   records?: number;
   destructiveChanges?: number;
   timestampTies?: number;
+  trustRequired?: boolean;
   checkpointStatus?: SyncPacketCheckpointStatus;
 };
 

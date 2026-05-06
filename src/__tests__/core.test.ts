@@ -43,6 +43,7 @@ import {
   decryptEncryptedSyncPacket,
   forgetRevokedSyncDevice,
   getSyncPacketCheckpointStatus,
+  isKnownSyncDevice,
   isSyncPacketReplay,
   parseEncryptedSyncPacket,
   parseSyncPacket,
@@ -782,6 +783,28 @@ describe('sync packets', () => {
     const merged = applySyncPacket(localStore, packet);
     expect(merged.blocks.map((item) => item.id).sort()).toEqual(['local-newer', 'remote-only', 'shared']);
     expect(merged.blocks.find((item) => item.id === 'shared')?.content).toBe('Remote newer text');
+  });
+
+  it('marks source devices unknown until the local vault trusts them', () => {
+    const localStore: DistillStore = {
+      projects: [],
+      blocks: [],
+    };
+    const packet = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [block({ id: 'phone-note', content: 'Phone note from a new device' })],
+      },
+      { sourceDeviceId: 'phone-dev', sourceDeviceName: 'Phone', now: '2026-05-06T06:00:00.000Z' },
+    );
+
+    expect(isKnownSyncDevice(localStore, 'phone-dev')).toBe(false);
+    expect(buildSyncPreview(localStore, packet).diff.sourceDeviceKnown).toBe(false);
+
+    const trustedStore = registerSyncDevice(localStore, { id: 'phone-dev', name: 'Phone' });
+
+    expect(isKnownSyncDevice(trustedStore, 'phone-dev')).toBe(true);
+    expect(buildSyncPreview(trustedStore, packet).diff.sourceDeviceKnown).toBe(true);
   });
 
   it('ignores replayed or rollback packets from a known device', () => {

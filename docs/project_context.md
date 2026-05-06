@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.24
+- Current version: 0.1.25
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -73,6 +73,7 @@ Implemented app features:
 - In-app listing and restore preview for encrypted pre-sync recovery snapshots
 - Sync-folder packet quarantine into `.distill-quarantine`
 - Manual sync device registry in the Inspector
+- Unknown-device trust confirmation before sync apply
 - Sync device trust revocation and revoked-device packet rejection
 - Permanent archive deletion with sync tombstones
 - Stale sync packet rejection based on known device `lastPacketAt`
@@ -101,7 +102,7 @@ Known remaining security limits:
 - passphrase remains in app memory while unlocked
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - restore preview exists, but restore still replaces the full local store after user approval
-- no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, recovery snapshot gating before apply, and manual recovery preview after apply
+- no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, unknown-device trust confirmation, recovery snapshot gating before apply, and manual recovery preview after apply
 - browser preview still depends on localStorage for the encrypted envelope
 
 ## Technical Stack
@@ -157,9 +158,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after outbound sync-folder auto-export update:
+Latest verification after unknown-device sync trust gate update:
 
-- `npm test`: 46 passed
+- `npm test`: 47 passed
 - `npm run build`: passed
 - `npm run test:rust`: 18 passed
 - `npm run test:e2e`: 10 passed
@@ -255,7 +256,7 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
-Current status: manual encrypted sync packets, apply preview, sync-folder safety scan, monitor-only review queue, outbound auto-export, recommended preview, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation exist. Automatic inbound apply and cloud/background sync are still blocked until background transport, mobile storage, and stronger signed-device assurance are specified.
+Current status: manual encrypted sync packets, apply preview, sync-folder safety scan, monitor-only review queue, outbound auto-export, recommended preview, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation exist. Automatic inbound apply and cloud/background sync are still blocked until background transport, mobile storage, and stronger signed-device assurance are specified.
 
 ## Recommended Next Steps
 
@@ -284,4 +285,4 @@ Current status: manual encrypted sync packets, apply preview, sync-folder safety
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, sync-folder safety scans, monitor-only review queues, outbound auto-export, recommended previews, apply previews, encrypted pre-sync recovery snapshots with restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation. The next major architecture decision is automatic sync transport and signed-device assurance, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, sync-folder safety scans, monitor-only review queues, outbound auto-export, recommended previews, unknown-device trust confirmation, apply previews, encrypted pre-sync recovery snapshots with restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation. The next major architecture decision is automatic sync transport and signed-device assurance, not more plaintext SQLite indexing.

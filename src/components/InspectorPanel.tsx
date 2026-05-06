@@ -30,6 +30,10 @@ function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
   );
 }
 
+function syncPreviewRequiresDeviceTrust(preview: SyncPreview | null) {
+  return Boolean(preview && !preview.diff.replay && !preview.diff.sourceDeviceKnown);
+}
+
 type InspectorPanelProps = {
   ui: UiCopy;
   projects: Project[];
@@ -45,6 +49,7 @@ type InspectorPanelProps = {
   syncStatus: string;
   syncPreview: SyncPreview | null;
   syncRiskAccepted: boolean;
+  syncDeviceTrustAccepted: boolean;
   syncFolderPath: string;
   syncFolderMonitorEnabled: boolean;
   syncFolderLastCheckedAt: string;
@@ -97,6 +102,7 @@ type InspectorPanelProps = {
   onApplySyncPreview: () => void;
   onCancelSyncPreview: () => void;
   onSyncRiskAcceptedChange: (accepted: boolean) => void;
+  onSyncDeviceTrustAcceptedChange: (accepted: boolean) => void;
   onRevokeSyncDevice: (deviceId: string) => void;
   onForgetRevokedSyncDevice: (deviceId: string) => void;
   onHandoffToPersonalKm: () => void;
@@ -123,6 +129,7 @@ export function InspectorPanel({
   syncStatus,
   syncPreview,
   syncRiskAccepted,
+  syncDeviceTrustAccepted,
   syncFolderPath,
   syncFolderMonitorEnabled,
   syncFolderLastCheckedAt,
@@ -175,6 +182,7 @@ export function InspectorPanel({
   onApplySyncPreview,
   onCancelSyncPreview,
   onSyncRiskAcceptedChange,
+  onSyncDeviceTrustAcceptedChange,
   onRevokeSyncDevice,
   onForgetRevokedSyncDevice,
   onHandoffToPersonalKm,
@@ -422,6 +430,9 @@ export function InspectorPanel({
       ? {
           title: 'Sync preview',
           source: 'Source device',
+          sourceTrust: 'Source trust',
+          sourceKnown: 'Known device',
+          sourceUnknown: 'Unknown device',
           created: 'Created',
           incoming: 'Incoming',
           records: 'Records',
@@ -441,6 +452,10 @@ export function InspectorPanel({
           riskTitle: 'Risk confirmation required',
           riskCopy: 'This packet will update or delete local data. Confirm after reviewing the decision counts.',
           riskAccepted: 'I reviewed the sync decision risk',
+          trustTitle: 'Device trust confirmation required',
+          trustCopy:
+            'This is the first packet from this device in this vault. Confirm only if you intentionally set up this device.',
+          trustAccepted: 'I trust this source device',
           warning: 'This packet is stale or already imported. Applying will not change the vault.',
           apply: 'Apply sync',
           dismiss: 'Dismiss packet',
@@ -449,6 +464,9 @@ export function InspectorPanel({
       : {
           title: '同期プレビュー',
           source: '送信元端末',
+          sourceTrust: '送信元の信頼',
+          sourceKnown: '既知の端末',
+          sourceUnknown: '未知の端末',
           created: '作成日時',
           incoming: '取り込み内容',
           records: 'レコード',
@@ -468,6 +486,10 @@ export function InspectorPanel({
           riskTitle: 'リスク確認が必要',
           riskCopy: 'このパケットはローカルデータを更新または削除します。判定数を確認してからチェックしてください。',
           riskAccepted: '同期判定のリスクを確認しました',
+          trustTitle: '端末信頼の確認が必要',
+          trustCopy:
+            'このVaultでは初めて見る端末からのパケットです。自分で設定した端末だと確認できる場合だけチェックしてください。',
+          trustAccepted: 'この送信元端末を信頼します',
           warning: 'このパケットは古い、または取り込み済みです。適用してもVaultは変更されません。',
           apply: '同期を適用',
           dismiss: 'パケットを閉じる',
@@ -1047,6 +1069,10 @@ export function InspectorPanel({
                 {syncPreviewLabels.source}: {syncPreview.packet.sourceDeviceName || syncPreview.packet.sourceDeviceId}
               </span>
               <span>
+                {syncPreviewLabels.sourceTrust}:{' '}
+                {syncPreview.diff.sourceDeviceKnown ? syncPreviewLabels.sourceKnown : syncPreviewLabels.sourceUnknown}
+              </span>
+              <span>
                 {syncPreviewLabels.created}: {syncPreview.packet.createdAt}
               </span>
               <div className="restorePreviewGrid" aria-label={syncPreviewLabels.incoming}>
@@ -1104,6 +1130,20 @@ export function InspectorPanel({
                 </span>
               </div>
               {syncPreview.diff.replay ? <span className="restoreWarning">{syncPreviewLabels.warning}</span> : null}
+              {syncPreviewRequiresDeviceTrust(syncPreview) ? (
+                <label className="riskGate trustGate">
+                  <span>
+                    <strong>{syncPreviewLabels.trustTitle}</strong>
+                    {syncPreviewLabels.trustCopy}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={syncDeviceTrustAccepted}
+                    onChange={(event) => onSyncDeviceTrustAcceptedChange(event.target.checked)}
+                  />
+                  <b>{syncPreviewLabels.trustAccepted}</b>
+                </label>
+              ) : null}
               {syncPreviewRequiresRiskAcknowledgement(syncPreview) ? (
                 <label className="riskGate">
                   <span>

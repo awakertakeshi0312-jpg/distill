@@ -1,5 +1,6 @@
 import { normalizeSyncMetadata, type DeletionTombstone, type DistillStore } from './model';
 import {
+  isKnownSyncDevice,
   isSyncPacketReplay,
   stableHash,
   type DistillSyncPacket,
@@ -21,6 +22,7 @@ export type SyncPreviewDiff = {
   localWins: number;
   timestampTies: number;
   destructiveChanges: number;
+  sourceDeviceKnown: boolean;
   replay: boolean;
 };
 
@@ -95,6 +97,7 @@ export function buildSyncPreview(store: DistillStore, packet: DistillSyncPacket)
     localWins: 0,
     timestampTies: 0,
     destructiveChanges: 0,
+    sourceDeviceKnown: isKnownSyncDevice(store, packet.sourceDeviceId),
     replay,
   };
 

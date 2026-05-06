@@ -109,6 +109,10 @@ function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
   );
 }
 
+function syncPreviewRequiresDeviceTrust(preview: SyncPreview | null) {
+  return Boolean(preview && !preview.diff.replay && !preview.diff.sourceDeviceKnown);
+}
+
 function App() {
   const [locale, setLocale] = useState<Locale>(getInitialLocale);
   const [store, setStore] = useState(initialStore);
@@ -143,6 +147,7 @@ function App() {
   const [syncStatus, setSyncStatus] = useState('');
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
   const [syncRiskAccepted, setSyncRiskAccepted] = useState(false);
+  const [syncDeviceTrustAccepted, setSyncDeviceTrustAccepted] = useState(false);
   const [syncFolderPath, setSyncFolderPath] = useState(() => {
     if (typeof window === 'undefined') {
       return '';
@@ -818,6 +823,7 @@ function App() {
       setSyncRecoveryVaults([]);
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      setSyncDeviceTrustAccepted(false);
       setSyncFolderMonitorEnabled(false);
       setSyncFolderLastCheckedAt('');
       setSyncFolderAutoExportEnabled(false);
@@ -895,6 +901,8 @@ function App() {
           deviceRevoked: (deviceName: string) => `Revoked device ${deviceName}.`,
           revokedForgotten: (deviceName: string) => `Forgot revoked record for ${deviceName}.`,
           revokedSourceRejected: (deviceId: string) => `Blocked a sync packet from revoked device ${deviceId}.`,
+          syncDeviceTrustRequired: (deviceName: string) =>
+            `This sync packet is from an untrusted device (${deviceName}). Confirm device trust before applying.`,
           syncFolderRequired: 'Enter a desktop sync folder path first.',
           syncFolderDesktopRequired: 'Desktop app is required to use a sync folder.',
           syncFolderExportSuccess: (records: number, filePath: string) =>
@@ -915,6 +923,8 @@ function App() {
             'Ready: ' + records + ' records from ' + deviceId + '. Preview before applying.',
           syncFolderReviewRisky: (destructiveChanges: number, timestampTies: number) =>
             `Risk review required: ${destructiveChanges} local updates/deletes and ${timestampTies} same-time ties.`,
+          syncFolderReviewUnknownDevice: (deviceName: string) =>
+            `Risk review required: unknown source device ${deviceName}. Preview it and confirm trust before applying.`,
           syncFolderReviewStale: 'Stale or already imported. Applying will not change the vault.',
           syncFolderReviewBlocked: (deviceId: string) => `Blocked: source device ${deviceId} is revoked.`,
           syncFolderReviewCheckpointRisk: (status: string) => `Blocked: checkpoint status is ${status}.`,
@@ -971,6 +981,8 @@ function App() {
           revokedForgotten: (deviceName: string) => `${deviceName} の信頼解除記録を削除しました。`,
           revokedSourceRejected: (deviceId: string) =>
             `信頼解除済み端末 ${deviceId} からの同期パケットを拒否しました。`,
+          syncDeviceTrustRequired: (deviceName: string) =>
+            `この同期パケットは未信頼の端末（${deviceName}）から届いています。適用前に端末を信頼する確認をしてください。`,
           syncFolderRequired: '同期フォルダのパスを先に入力してください。',
           syncFolderDesktopRequired: '同期フォルダはデスクトップアプリでのみ使えます。',
           syncFolderExportSuccess: (records: number, filePath: string) =>
@@ -992,6 +1004,8 @@ function App() {
             `安全候補: ${deviceId} からの ${records} 件です。適用前にプレビューしてください。`,
           syncFolderReviewRisky: (destructiveChanges: number, timestampTies: number) =>
             `リスク確認が必要: ローカル更新・削除${destructiveChanges}件、同時刻の決着${timestampTies}件です。`,
+          syncFolderReviewUnknownDevice: (deviceName: string) =>
+            `リスク確認が必要: 未知の送信元端末 ${deviceName} からのパケットです。プレビュー後、端末信頼を確認してから適用してください。`,
           syncFolderReviewStale: '古い、または取り込み済みです。適用してもVaultは変更されません。',
           syncFolderReviewBlocked: (deviceId: string) => `ブロック: 信頼解除済み端末 ${deviceId} からのパケットです。`,
           syncFolderReviewCheckpointRisk: (status: string) => `ブロック: チェックポイント状態が ${status} です。`,
@@ -1085,6 +1099,7 @@ function App() {
     const labels = syncLabels();
     setSyncPreview(null);
     setSyncRiskAccepted(false);
+    setSyncDeviceTrustAccepted(false);
 
     if (!vaultPassphrase) {
       setSyncStatus(labels.passphraseRequired);
@@ -1157,6 +1172,7 @@ function App() {
       const decisionReview = {
         destructiveChanges: preview.diff.destructiveChanges,
         timestampTies: preview.diff.timestampTies,
+        trustRequired: !preview.diff.sourceDeviceKnown,
         checkpointStatus,
       };
 
@@ -1175,6 +1191,15 @@ function App() {
           ...decisionReview,
           status: 'checkpoint-risk',
           reason: labels.syncFolderReviewCheckpointRisk(checkpointStatus),
+        };
+      }
+
+      if (!preview.diff.sourceDeviceKnown) {
+        return {
+          ...baseReview,
+          ...decisionReview,
+          status: 'risk',
+          reason: labels.syncFolderReviewUnknownDevice(sourceDevice),
         };
       }
 
@@ -1403,6 +1428,7 @@ function App() {
     const labels = syncLabels();
     setSyncPreview(null);
     setSyncRiskAccepted(false);
+    setSyncDeviceTrustAccepted(false);
 
     if (!syncFolderPath.trim()) {
       setSyncStatus(labels.syncFolderRequired);
@@ -1435,6 +1461,7 @@ function App() {
     const labels = syncLabels();
     setSyncPreview(null);
     setSyncRiskAccepted(false);
+    setSyncDeviceTrustAccepted(false);
 
     if (!vaultPassphrase) {
       setSyncStatus(labels.passphraseRequired);
@@ -1451,6 +1478,7 @@ function App() {
         setSyncStatus(labels.revokedSourceRejected(packet.sourceDeviceId));
         setSyncPreview(null);
         setSyncRiskAccepted(false);
+        setSyncDeviceTrustAccepted(false);
         return;
       }
 
@@ -1461,10 +1489,12 @@ function App() {
         setSyncStatus(labels.checkpointRejected);
         setSyncPreview(null);
         setSyncRiskAccepted(false);
+        setSyncDeviceTrustAccepted(false);
         return;
       }
 
       setSyncRiskAccepted(false);
+      setSyncDeviceTrustAccepted(false);
       setSyncPreview(preview);
       setSyncStatus(
         readyMessage
@@ -1478,6 +1508,7 @@ function App() {
       setSyncStatus(labels.importInvalid);
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      setSyncDeviceTrustAccepted(false);
     }
   }
 
@@ -1486,6 +1517,7 @@ function App() {
       setSyncStatus(vaultLabels().fileTooLarge);
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      setSyncDeviceTrustAccepted(false);
       return;
     }
 
@@ -1513,6 +1545,7 @@ function App() {
       setSyncStatus(error instanceof Error ? error.message : labels.importInvalid);
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      setSyncDeviceTrustAccepted(false);
     }
   }
 
@@ -1534,6 +1567,7 @@ function App() {
       const quarantinePath = await quarantineEncryptedSyncPacketFile(packetFile.path);
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      setSyncDeviceTrustAccepted(false);
       setSyncFolderPacketReviews((current) => current.filter((review) => review.path !== packetFile.path));
       setSyncStatus(labels.syncFolderQuarantineSuccess(packetFile.fileName, quarantinePath));
 
@@ -1562,6 +1596,14 @@ function App() {
       setSyncStatus(labels.staleSkipped(syncPreview.packet.sourceDeviceId));
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      setSyncDeviceTrustAccepted(false);
+      return;
+    }
+
+    if (syncPreviewRequiresDeviceTrust(syncPreview) && !syncDeviceTrustAccepted) {
+      setSyncStatus(
+        labels.syncDeviceTrustRequired(syncPreview.packet.sourceDeviceName || syncPreview.packet.sourceDeviceId),
+      );
       return;
     }
 
@@ -1593,18 +1635,21 @@ function App() {
       );
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      setSyncDeviceTrustAccepted(false);
       void refreshSyncRecoveryVaultSnapshots(true);
     } catch (error) {
       console.warn('Failed to apply encrypted Distill sync preview.', error);
       setSyncStatus(labels.checkpointRejected);
       setSyncPreview(null);
       setSyncRiskAccepted(false);
+      setSyncDeviceTrustAccepted(false);
     }
   }
 
   function cancelSyncPreview() {
     setSyncPreview(null);
     setSyncRiskAccepted(false);
+    setSyncDeviceTrustAccepted(false);
     setSyncStatus(syncLabels().previewCanceled);
   }
 
@@ -2104,6 +2149,7 @@ function App() {
             syncStatus={syncStatus}
             syncPreview={syncPreview}
             syncRiskAccepted={syncRiskAccepted}
+            syncDeviceTrustAccepted={syncDeviceTrustAccepted}
             syncFolderPath={syncFolderPath}
             syncFolderMonitorEnabled={syncFolderMonitorEnabled}
             syncFolderLastCheckedAt={syncFolderLastCheckedAt}
@@ -2162,6 +2208,7 @@ function App() {
             onApplySyncPreview={() => void applySyncPreview()}
             onCancelSyncPreview={cancelSyncPreview}
             onSyncRiskAcceptedChange={setSyncRiskAccepted}
+            onSyncDeviceTrustAcceptedChange={setSyncDeviceTrustAccepted}
             onRevokeSyncDevice={revokeKnownSyncDevice}
             onForgetRevokedSyncDevice={forgetRevokedDeviceRecord}
             onHandoffToPersonalKm={() => void handoffToPersonalKm()}

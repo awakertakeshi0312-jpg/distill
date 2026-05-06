@@ -23,7 +23,7 @@ Implemented:
 - Markdown import for bullet-based notes.
 - Manual JSON backup and encrypted vault backup.
 - Manual encrypted sync packet export/import.
-- Desktop sync-folder packet exchange with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, quarantine, risk acknowledgement before applying destructive packets, encrypted pre-sync recovery snapshots, and in-app recovery snapshot preview.
+- Desktop sync-folder packet exchange with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, quarantine, unknown-device trust confirmation, risk acknowledgement before applying destructive packets, encrypted pre-sync recovery snapshots, and in-app recovery snapshot preview.
 - Stable local device identity for sync packet source tracking.
 - Sync deletion tombstones so old packets cannot resurrect permanently deleted archived blocks.
 - Known device registry shown in the sync panel.
@@ -92,7 +92,7 @@ npm run check:all
 
 Current passing suite:
 
-- Frontend/domain tests: 46 passed.
+- Frontend/domain tests: 47 passed.
 - Rust/SQLite tests: 18 passed.
 - Browser E2E smoke tests: 10 passed.
 - Production frontend build: passing.
@@ -140,19 +140,19 @@ src-tauri/target/release/app.exe
 Current Windows installer output:
 
 ```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.24_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Distill_0.1.25_x64-setup.exe
 ```
 
 Installer SHA256:
 
 ```text
-FCC682FF453E0463B7E87DAF137F18D841ADADA1DA124FDEF1DEB20FF638FB71
+4F540EC55812C17E81CAAC42BB61826B3D4B89ED2BA696091281FAE86698657B
 ```
 
 Signed auto-update flow:
 
 1. Build a signed release with `npm run release:windows`.
-2. Upload `release/Distill_0.1.24_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
+2. Upload `release/Distill_0.1.25_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
 3. Open the installed Distill desktop app.
 4. Click `Check for updates` in the Inspector update section.
 5. Click `Install update` when a newer signed version is available.
