@@ -9,8 +9,10 @@ import {
   applySyncPacket,
   buildEncryptedSyncPacket,
   decryptEncryptedSyncPacket,
+  getSyncPacketCheckpointStatus,
   parseEncryptedSyncPacket,
   registerSyncDevice,
+  registerSyncPacketCheckpoint,
   serializeEncryptedSyncPacket,
 } from './sync';
 import {
@@ -713,6 +715,8 @@ function App() {
           previewCanceled: 'Sync preview canceled. Current vault was not changed.',
           staleSkipped: (deviceId: string) =>
             `Skipped an older or already imported sync packet from device ${deviceId}.`,
+          checkpointRejected:
+            'Sync packet was not imported because it does not continue the known device checkpoint chain.',
           importSuccess: (records: number, deviceId: string) =>
             `Merged ${records} encrypted sync records from device ${deviceId}.`,
           importInvalid: 'Could not import that encrypted sync packet. Check the file and vault passphrase.',
@@ -731,6 +735,8 @@ function App() {
           previewCanceled: '同期プレビューをキャンセルしました。現在のVaultは変更されていません。',
           staleSkipped: (deviceId: string) =>
             `端末 ${deviceId} からの古い、または取り込み済みの同期パケットをスキップしました。`,
+          checkpointRejected:
+            '既知端末の同期チェックポイントにつながらないため、この同期パケットは取り込みませんでした。',
           importSuccess: (records: number, deviceId: string) =>
             `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しました。`,
           importInvalid: '暗号化同期パケットを取り込めませんでした。ファイルとVaultパスフレーズを確認してください。',
@@ -782,7 +788,6 @@ function App() {
 
     try {
       const registeredStore = registerSyncDevice(store, identity);
-      setStore(registeredStore);
 
       const packet = await buildEncryptedSyncPacket(registeredStore, {
         sourceDeviceId: identity.id,
@@ -796,6 +801,7 @@ function App() {
         serializeEncryptedSyncPacket(packet),
         'application/json',
       );
+      setStore(registerSyncPacketCheckpoint(registeredStore, packet));
       setSyncStatus(labels.exportSuccess(packet.records.length, identity.name));
     } catch (error) {
       console.warn('Failed to export encrypted Distill sync packet.', error);
@@ -823,6 +829,13 @@ function App() {
       const encryptedPacket = parseEncryptedSyncPacket(await file.text());
       const packet = await decryptEncryptedSyncPacket(encryptedPacket, vaultPassphrase);
       const preview = buildSyncPreview(store, packet);
+      const checkpointStatus = getSyncPacketCheckpointStatus(store, packet);
+
+      if (!preview.diff.replay && checkpointStatus === 'previous-packet-hash-mismatch') {
+        setSyncStatus(labels.checkpointRejected);
+        setSyncPreview(null);
+        return;
+      }
 
       setSyncPreview(preview);
       setSyncStatus(
@@ -850,11 +863,17 @@ function App() {
       return;
     }
 
-    const mergedStore = applySyncPacket(store, syncPreview.packet);
-    setStore(mergedStore);
-    setSelectedBlockId(mergedStore.blocks[0]?.id);
-    setSyncStatus(labels.importSuccess(syncPreview.packet.records.length, syncPreview.packet.sourceDeviceId));
-    setSyncPreview(null);
+    try {
+      const mergedStore = applySyncPacket(store, syncPreview.packet);
+      setStore(mergedStore);
+      setSelectedBlockId(mergedStore.blocks[0]?.id);
+      setSyncStatus(labels.importSuccess(syncPreview.packet.records.length, syncPreview.packet.sourceDeviceId));
+      setSyncPreview(null);
+    } catch (error) {
+      console.warn('Failed to apply encrypted Distill sync preview.', error);
+      setSyncStatus(labels.checkpointRejected);
+      setSyncPreview(null);
+    }
   }
 
   function cancelSyncPreview() {

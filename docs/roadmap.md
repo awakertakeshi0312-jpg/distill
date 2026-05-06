@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.14 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, deletion tombstones, replay/rollback protection, and apply-before-confirm sync previews.
+Distill 0.1.14 is past the local MVP gate. The main current phase is Trust Layer hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, device registry, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews.
 
 ## Phase 1: Desktop MVP
 
@@ -65,7 +65,7 @@ Next:
 - Restore preview before replacing vault. Complete.
 - Corrupted/tampered vault tests. Complete for unsupported envelope and tampered payload coverage.
 - User-selectable vault location.
-- Record-level encrypted records. Complete for manual sync packet export/import with apply preview, deletion tombstones, device registry, and stale packet rejection; automatic file sync is not enabled yet.
+- Record-level encrypted records. Complete for manual sync packet export/import with apply preview, deletion tombstones, device registry, stale packet rejection, and chained checkpoint validation; automatic file sync is not enabled yet.
 - Optional platform keyring or Tauri Stronghold convenience unlock.
 
 ## Phase 4: Retrieval Upgrade
@@ -99,6 +99,7 @@ Status: Foundation in code.
 - Known device registry.
 - Deletion tombstones for permanent block deletion.
 - Replay/rollback guard using known device `lastPacketAt`.
+- Chained checkpoint validation using known device `lastPacketHash`.
 - Apply-before-confirm preview for encrypted sync packets.
 - Manual encrypted file sync first.
 - Conflict handling.
@@ -120,4 +121,4 @@ Status: Not started.
 - Passphrase change and restore preview are implemented before 0.2.0.
 - No known data-loss path in normal use.
 - Search, edit, project assignment, archive, restore, import, export, people, graph, vault unlock, and encrypted persistence smoke tests are automated.
-- Sync design has record-level encryption, device registry, deletion tombstones, replay/rollback guard, and deterministic conflict strategy before automatic transport.
+- Sync design has record-level encryption, device registry, deletion tombstones, replay/rollback guard, chained checkpoint validation, and deterministic conflict strategy before automatic transport.

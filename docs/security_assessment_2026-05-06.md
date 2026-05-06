@@ -33,6 +33,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Tauri updater is registered only for desktop builds.
 - Manual sync packets use record-level encrypted records and deletion tombstones.
 - Sync packet imports show an apply preview before changing the vault.
+- Known sync devices now keep `lastPacketHash`, and newer packets must continue the known checkpoint chain.
 
 ### Changes Applied Through 0.1.14
 
@@ -54,6 +55,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added unsupported-envelope and tampered-payload encrypted vault tests.
 - Added stale sync packet rejection based on known source-device `lastPacketAt`.
 - Added encrypted sync packet apply preview with add/update/skip/delete counts before merging.
+- Added chained sync checkpoint validation using packet hashes.
 
 ## Findings
 
@@ -166,8 +168,8 @@ Before distributing a new public build:
 
 ## Next Security Milestones
 
-1. Strengthen replay/rollback protection with chained packet checkpoints.
+1. Add device removal and trust revocation flow.
 2. Add OS-native idle/sleep integration and optional keyring convenience unlock.
-3. Add automatic encrypted folder sync only after replay/recovery behavior is documented.
-4. Add device removal and trust revocation flow.
+3. Add automatic encrypted folder sync only after recovery behavior is documented.
+4. Add signed checkpoint or trusted-device verification for higher assurance sync.
 5. Add user-selectable vault location and backup rotation.

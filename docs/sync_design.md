@@ -91,6 +91,7 @@ Implemented:
 - known device registry persisted in the encrypted vault metadata.
 - deletion tombstones for permanent thought-block deletion.
 - replay/rollback guard that skips packets whose `createdAt` is not newer than the known source device `lastPacketAt`.
+- chained packet checkpoints using `previousPacketHash`, `packetHash`, and per-device `lastPacketHash`.
 - deterministic merge rule:
   - accept a remote block when the local block is missing.
   - accept a remote block when `remote.updatedAt` is newer.
@@ -104,7 +105,7 @@ Not implemented yet:
 
 - project record sync.
 - automatic device removal.
-- replay/rollback protection beyond source-device packet timestamp checkpoints.
+- signed packet checkpoints or trust revocation beyond local hash-chain validation.
 - automatic network or cloud sync.
 
 This keeps the risky part small: the app can prove merge behavior before any private data is sent to a network or cloud provider.
@@ -118,13 +119,16 @@ This keeps the risky part small: the app can prove merge behavior before any pri
   "sourceDeviceId": "device-windows",
   "sourceDeviceName": "Windows desk",
   "createdAt": "2026-05-06T00:00:00.000Z",
+  "previousPacketHash": "fnv1a32:previous",
+  "packetHash": "fnv1a32:current",
   "devices": [
     {
       "id": "device-windows",
       "name": "Windows desk",
       "firstSeenAt": "2026-05-06T00:00:00.000Z",
       "lastSeenAt": "2026-05-06T00:00:00.000Z",
-      "lastPacketAt": "2026-05-06T00:00:00.000Z"
+      "lastPacketAt": "2026-05-06T00:00:00.000Z",
+      "lastPacketHash": "fnv1a32:previous"
     }
   ],
   "records": [
@@ -152,7 +156,9 @@ This keeps the risky part small: the app can prove merge behavior before any pri
 }
 ```
 
-The outer wrapper contains only the fields required for sync routing, ordering, and deterministic tie-breaking. The decrypted record contains either the full `ThoughtBlock` payload or a deletion tombstone. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging.
+The outer wrapper contains only the fields required for sync routing, ordering, deterministic tie-breaking, and checkpoint validation. The decrypted record contains either the full `ThoughtBlock` payload or a deletion tombstone. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging.
+
+`packetHash` is computed from the plain sync packet with `packetHash` omitted. `previousPacketHash` must match the known source device `lastPacketHash` when Distill already knows that device. This gives manual sync a local hash-chain guard before automatic folder or hosted sync exists.
 
 ## Manual Sync Workflow
 
@@ -168,6 +174,7 @@ The current UI supports local manual sync only:
 8. The preview summarizes incoming records, devices, block additions, block updates, skipped blocks, and block deletions.
 9. If the user applies the preview, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
 10. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
+11. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
 
 This is intentionally not automatic yet. It gives us a safe test path for sync correctness before adding cloud folders, background jobs, or mobile sync.
 
@@ -206,7 +213,7 @@ Later:
 
 - block-level CRDT for simultaneous text editing
 - explicit conflict review screen
-- signed or chained packet checkpoints for stronger rollback detection
+- signed packet checkpoints and device trust revocation
 
 ## Device Identity
 
@@ -226,6 +233,7 @@ The current registry is local and manual:
 - the Inspector shows known devices.
 - there is no device removal or trust revocation flow yet.
 - `lastPacketAt` is used to reject stale imports from known devices.
+- `lastPacketHash` is used to reject disconnected newer packets from known devices.
 
 ## Key Handling
 
@@ -253,7 +261,7 @@ Encrypted file sync MVP:
 1. Export encrypted `.distill-vault.json`.
 2. Import encrypted `.distill-vault.json` on another device.
 3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
-4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges block records, tombstones, and device metadata.
+4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges block records, tombstones, device metadata, and checkpoint state.
 5. Automate file read/write through a user-selected folder later.
 
 ## Security Gate
@@ -262,7 +270,7 @@ Before enabling automatic sync:
 
 - wrong passphrase test
 - corrupted payload test
-- rollback/replay policy. Baseline source-device `lastPacketAt` guard is implemented; stronger chained checkpoint validation remains future work.
+- rollback/replay policy. Source-device `lastPacketAt` guard and local chained checkpoint validation are implemented; signed checkpoints and device revocation remain future work.
 - device removal story
 - backup recovery test
 - local cache clear test

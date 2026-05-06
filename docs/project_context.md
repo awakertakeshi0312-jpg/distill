@@ -12,7 +12,7 @@ This document is the handoff context for Distill so another person or future age
 - Product type: local-first desktop/PWA thinking app
 - Current version: 0.1.14
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, device registry, deletion tombstones, stale-packet rejection, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, device registry, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -67,6 +67,7 @@ Implemented app features:
 - Manual sync device registry in the Inspector
 - Permanent archive deletion with sync tombstones
 - Stale sync packet rejection based on known device `lastPacketAt`
+- Chained sync checkpoint validation based on known device `lastPacketHash`
 - Personal KM summary-only handoff for processed blocks and AI Org artifacts
 - React render error boundary that shows recovery guidance instead of a blank screen
 
@@ -147,9 +148,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after encrypted sync packet apply preview:
+Latest verification after chained sync checkpoint validation:
 
-- `npm test`: 36 passed
+- `npm test`: 39 passed
 - `npm run build`: passed
 - `npm run test:rust`: 11 passed
 - `npm run test:e2e`: 10 passed
@@ -174,7 +175,7 @@ E2E coverage includes:
 - encrypted vault persistence after reload with no plaintext in localStorage
 - encrypted sync packet export download
 - permanent archive deletion with confirmation
-- sync packet apply preview and stale packet rejection are covered by unit tests
+- sync packet apply preview, stale packet rejection, and checkpoint chain rejection are covered by unit tests
 - encrypted vault tamper/corruption rejection is covered by unit tests
 
 ## Source Map
@@ -243,15 +244,15 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
-Current status: manual encrypted sync packets, apply preview, device registry, and deletion tombstones exist. Automatic cloud/background sync is still blocked until stronger replay policy, recovery behavior, and mobile storage are specified.
+Current status: manual encrypted sync packets, apply preview, device registry, deletion tombstones, and chained checkpoint validation exist. Automatic cloud/background sync is still blocked until recovery behavior, device trust revocation, and mobile storage are specified.
 
 ## Recommended Next Steps
 
 ### Trust/Security
 
-1. Add stronger chained sync checkpoint validation.
+1. Add device removal and trust revocation.
 2. Add automatic encrypted folder sync prototype.
-3. Add device removal and trust revocation.
+3. Add signed checkpoint or trusted-device verification.
 4. Add user-selectable vault location.
 5. Add OS-native idle/sleep integration.
 
@@ -272,4 +273,4 @@ Current status: manual encrypted sync packets, apply preview, device registry, a
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, apply previews, device registry, and deletion tombstones. The next major architecture decision is automatic sync transport and replay/recovery behavior, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, apply previews, device registry, deletion tombstones, and chained checkpoint validation. The next major architecture decision is automatic sync transport and recovery behavior, not more plaintext SQLite indexing.

@@ -32,6 +32,7 @@ export type SyncDevice = {
   firstSeenAt: string;
   lastSeenAt: string;
   lastPacketAt?: string;
+  lastPacketHash?: string;
 };
 
 export type SyncMetadata = {
@@ -145,7 +146,8 @@ export function normalizeSyncMetadata(sync?: Partial<SyncMetadata> | null): Sync
           typeof item.name === 'string' &&
           typeof item.firstSeenAt === 'string' &&
           typeof item.lastSeenAt === 'string' &&
-          (typeof item.lastPacketAt === 'undefined' || typeof item.lastPacketAt === 'string'),
+          (typeof item.lastPacketAt === 'undefined' || typeof item.lastPacketAt === 'string') &&
+          (typeof item.lastPacketHash === 'undefined' || typeof item.lastPacketHash === 'string'),
       )
     : [];
   const tombstonesById = new Map<string, DeletionTombstone>();

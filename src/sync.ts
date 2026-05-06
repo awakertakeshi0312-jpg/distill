@@ -34,6 +34,8 @@ export type DistillSyncPacket = {
   sourceDeviceName?: string;
   createdAt: string;
   since?: string;
+  previousPacketHash?: string;
+  packetHash?: string;
   devices?: SyncDevice[];
   records: SyncRecord[];
 };
@@ -93,6 +95,24 @@ export function stableHash(value: unknown) {
   }
 
   return `fnv1a32:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+export type SyncPacketCheckpointStatus =
+  | 'valid'
+  | 'missing-packet-hash'
+  | 'packet-hash-mismatch'
+  | 'previous-packet-hash-mismatch';
+
+export function computeSyncPacketHash(packet: Omit<DistillSyncPacket, 'packetHash'> | DistillSyncPacket) {
+  const { packetHash: _packetHash, ...hashInput } = packet as DistillSyncPacket;
+  return stableHash(hashInput);
+}
+
+function withSyncPacketHash(packet: Omit<DistillSyncPacket, 'packetHash'>): DistillSyncPacket {
+  return {
+    ...packet,
+    packetHash: computeSyncPacketHash(packet),
+  };
 }
 
 function cloneBlock(block: ThoughtBlock): ThoughtBlock {
@@ -163,13 +183,16 @@ function createSourceDevice(options: BuildSyncPacketOptions, timestamp: string):
   };
 }
 
-function packetSourceDevice(packet: Pick<DistillSyncPacket, 'sourceDeviceId' | 'sourceDeviceName' | 'createdAt'>) {
+function packetSourceDevice(
+  packet: Pick<DistillSyncPacket, 'sourceDeviceId' | 'sourceDeviceName' | 'createdAt' | 'packetHash'>,
+) {
   return {
     id: packet.sourceDeviceId,
     name: packet.sourceDeviceName?.trim() || packet.sourceDeviceId,
     firstSeenAt: packet.createdAt,
     lastSeenAt: packet.createdAt,
     lastPacketAt: packet.createdAt,
+    lastPacketHash: packet.packetHash,
   } satisfies SyncDevice;
 }
 
@@ -193,6 +216,10 @@ export function mergeSyncDevices(...deviceGroups: SyncDevice[][]): SyncDevice[] 
         !current.lastPacketAt || (device.lastPacketAt && device.lastPacketAt > current.lastPacketAt)
           ? device.lastPacketAt
           : current.lastPacketAt,
+      lastPacketHash:
+        !current.lastPacketAt || (device.lastPacketAt && device.lastPacketAt >= current.lastPacketAt)
+          ? device.lastPacketHash ?? current.lastPacketHash
+          : current.lastPacketHash,
     });
   }
 
@@ -224,10 +251,26 @@ export function registerSyncDevice(
   };
 }
 
+export function registerSyncPacketCheckpoint(
+  store: DistillStore,
+  packet: Pick<DistillSyncPacket, 'sourceDeviceId' | 'sourceDeviceName' | 'createdAt' | 'packetHash'>,
+): DistillStore {
+  const sync = normalizeSyncMetadata(store.sync);
+
+  return {
+    ...store,
+    sync: {
+      ...sync,
+      devices: mergeSyncDevices(sync.devices, [packetSourceDevice(packet)]),
+    },
+  };
+}
+
 export function buildSyncPacket(store: DistillStore, options: BuildSyncPacketOptions): DistillSyncPacket {
   const since = options.since;
   const createdAt = options.now ?? new Date().toISOString();
   const sync = normalizeSyncMetadata(store.sync);
+  const knownSourceDevice = sync.devices.find((device) => device.id === options.sourceDeviceId);
   const sourceDevice = createSourceDevice(options, createdAt);
   const records = [
     ...store.blocks.filter((block) => !since || block.updatedAt > since).map(createBlockRecord),
@@ -235,16 +278,17 @@ export function buildSyncPacket(store: DistillStore, options: BuildSyncPacketOpt
   ].sort(compareRecordOrder);
   const devices = sourceDevice ? mergeSyncDevices(sync.devices, [sourceDevice]) : sync.devices.map(cloneDevice);
 
-  return {
+  return withSyncPacketHash({
     type: 'distill.sync.packet',
     schemaVersion: SYNC_PACKET_SCHEMA_VERSION,
     sourceDeviceId: options.sourceDeviceId,
     sourceDeviceName: options.sourceDeviceName,
     createdAt,
     since,
+    previousPacketHash: knownSourceDevice?.lastPacketHash,
     devices,
     records,
-  };
+  });
 }
 
 function isSyncDevice(value: unknown): value is SyncDevice {
@@ -259,7 +303,8 @@ function isSyncDevice(value: unknown): value is SyncDevice {
     typeof device.name === 'string' &&
     typeof device.firstSeenAt === 'string' &&
     typeof device.lastSeenAt === 'string' &&
-    (typeof device.lastPacketAt === 'undefined' || typeof device.lastPacketAt === 'string')
+    (typeof device.lastPacketAt === 'undefined' || typeof device.lastPacketAt === 'string') &&
+    (typeof device.lastPacketHash === 'undefined' || typeof device.lastPacketHash === 'string')
   );
 }
 
@@ -342,6 +387,8 @@ export function parseSyncPacket(json: string): DistillSyncPacket {
     typeof parsed.sourceDeviceId !== 'string' ||
     typeof parsed.createdAt !== 'string' ||
     (typeof parsed.sourceDeviceName !== 'undefined' && typeof parsed.sourceDeviceName !== 'string') ||
+    (typeof parsed.previousPacketHash !== 'undefined' && typeof parsed.previousPacketHash !== 'string') ||
+    (typeof parsed.packetHash !== 'undefined' && typeof parsed.packetHash !== 'string') ||
     (typeof parsed.devices !== 'undefined' && (!Array.isArray(parsed.devices) || !parsed.devices.every(isSyncDevice))) ||
     !Array.isArray(parsed.records) ||
     !parsed.records.every(isSyncRecord)
@@ -380,6 +427,8 @@ export function parseEncryptedSyncPacket(json: string): DistillEncryptedSyncPack
     typeof parsed.sourceDeviceId !== 'string' ||
     typeof parsed.createdAt !== 'string' ||
     (typeof parsed.sourceDeviceName !== 'undefined' && typeof parsed.sourceDeviceName !== 'string') ||
+    (typeof parsed.previousPacketHash !== 'undefined' && typeof parsed.previousPacketHash !== 'string') ||
+    (typeof parsed.packetHash !== 'undefined' && typeof parsed.packetHash !== 'string') ||
     (typeof parsed.devices !== 'undefined' && (!Array.isArray(parsed.devices) || !parsed.devices.every(isSyncDevice))) ||
     !Array.isArray(parsed.records) ||
     !parsed.records.every(isEncryptedSyncRecord)
@@ -432,6 +481,8 @@ export async function buildEncryptedSyncPacket(
     sourceDeviceName: plainPacket.sourceDeviceName,
     createdAt: plainPacket.createdAt,
     since: plainPacket.since,
+    previousPacketHash: plainPacket.previousPacketHash,
+    packetHash: plainPacket.packetHash,
     devices: plainPacket.devices?.map(cloneDevice),
     records,
   };
@@ -449,16 +500,24 @@ export async function decryptEncryptedSyncPacket(
     }),
   );
 
-  return {
+  const plainPacket: DistillSyncPacket = {
     type: 'distill.sync.packet',
     schemaVersion: packet.schemaVersion,
     sourceDeviceId: packet.sourceDeviceId,
     sourceDeviceName: packet.sourceDeviceName,
     createdAt: packet.createdAt,
     since: packet.since,
+    previousPacketHash: packet.previousPacketHash,
+    packetHash: packet.packetHash,
     devices: packet.devices?.map(cloneDevice),
     records: records.sort(compareRecordOrder),
   };
+
+  if (plainPacket.packetHash && plainPacket.packetHash !== computeSyncPacketHash(plainPacket)) {
+    throw new Error('Encrypted sync packet checkpoint hash does not match its decrypted payload.');
+  }
+
+  return plainPacket;
 }
 
 function shouldAcceptIncomingBlock(localBlock: ThoughtBlock | undefined, incoming: ThoughtBlockSyncRecord) {
@@ -515,6 +574,40 @@ export function isSyncPacketReplay(store: DistillStore, packet: Pick<DistillSync
   return Boolean(knownDevice?.lastPacketAt && packet.createdAt <= knownDevice.lastPacketAt);
 }
 
+export function getSyncPacketCheckpointStatus(
+  store: DistillStore,
+  packet: DistillSyncPacket,
+): SyncPacketCheckpointStatus {
+  const sync = normalizeSyncMetadata(store.sync);
+  const knownDevice = sync.devices.find((device) => device.id === packet.sourceDeviceId);
+
+  if (!packet.packetHash) {
+    return knownDevice?.lastPacketHash ? 'previous-packet-hash-mismatch' : 'missing-packet-hash';
+  }
+
+  if (packet.packetHash !== computeSyncPacketHash(packet)) {
+    return 'packet-hash-mismatch';
+  }
+
+  if (knownDevice?.lastPacketHash && packet.previousPacketHash !== knownDevice.lastPacketHash) {
+    return 'previous-packet-hash-mismatch';
+  }
+
+  return 'valid';
+}
+
+export function assertSyncPacketCheckpoint(store: DistillStore, packet: DistillSyncPacket) {
+  const status = getSyncPacketCheckpointStatus(store, packet);
+
+  if (status === 'packet-hash-mismatch') {
+    throw new Error('Sync packet checkpoint hash does not match its payload.');
+  }
+
+  if (status === 'previous-packet-hash-mismatch') {
+    throw new Error('Sync packet does not continue the known source-device checkpoint chain.');
+  }
+}
+
 export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket): DistillStore {
   const blocksById = new Map(store.blocks.map((block) => [block.id, cloneBlock(block)]));
   const sync = normalizeSyncMetadata(store.sync);
@@ -525,6 +618,8 @@ export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket):
       sync,
     };
   }
+
+  assertSyncPacketCheckpoint(store, packet);
 
   const tombstonesById = new Map(sync.tombstones.map((tombstone) => [tombstone.id, cloneTombstone(tombstone)]));
   const devices = mergeSyncDevices(sync.devices, packet.devices ?? [], [packetSourceDevice(packet)]);

@@ -33,11 +33,14 @@ import {
   applySyncPacket,
   buildEncryptedSyncPacket,
   buildSyncPacket,
+  computeSyncPacketHash,
   decryptEncryptedSyncPacket,
+  getSyncPacketCheckpointStatus,
   isSyncPacketReplay,
   parseEncryptedSyncPacket,
   parseSyncPacket,
   registerSyncDevice,
+  registerSyncPacketCheckpoint,
   serializeEncryptedSyncPacket,
   serializeSyncPacket,
 } from '../sync';
@@ -698,6 +701,111 @@ describe('sync packets', () => {
     expect(afterRollback.sync?.devices.find((device) => device.id === 'mobile-dev')?.lastPacketAt).toBe(
       '2026-05-06T06:00:00.000Z',
     );
+  });
+
+  it('chains sync packets with source-device checkpoint hashes', () => {
+    const firstPacket = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [
+          block({
+            id: 'remote-first',
+            content: 'First chained packet',
+            capturedAt: '2026-05-06T03:00:00.000Z',
+            updatedAt: '2026-05-06T04:00:00.000Z',
+          }),
+        ],
+      },
+      { sourceDeviceId: 'mobile-dev', sourceDeviceName: 'Phone', now: '2026-05-06T06:00:00.000Z' },
+    );
+    const afterFirst = applySyncPacket({ projects: [], blocks: [] }, firstPacket);
+    const firstDevice = afterFirst.sync?.devices.find((device) => device.id === 'mobile-dev');
+
+    expect(firstPacket.packetHash).toBe(computeSyncPacketHash(firstPacket));
+    expect(firstDevice?.lastPacketHash).toBe(firstPacket.packetHash);
+
+    const secondPacket = buildSyncPacket(
+      afterFirst,
+      { sourceDeviceId: 'mobile-dev', sourceDeviceName: 'Phone', now: '2026-05-06T07:00:00.000Z' },
+    );
+
+    expect(secondPacket.previousPacketHash).toBe(firstPacket.packetHash);
+    expect(getSyncPacketCheckpointStatus(afterFirst, secondPacket)).toBe('valid');
+  });
+
+  it('records exported packet checkpoints for the source device', () => {
+    const packet = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [
+          block({
+            id: 'source-export',
+            content: 'Exported local packet',
+            capturedAt: '2026-05-06T03:00:00.000Z',
+            updatedAt: '2026-05-06T04:00:00.000Z',
+          }),
+        ],
+      },
+      { sourceDeviceId: 'windows-dev', sourceDeviceName: 'Windows desk', now: '2026-05-06T06:00:00.000Z' },
+    );
+    const checkpointed = registerSyncPacketCheckpoint({ projects: [], blocks: [] }, packet);
+    const nextPacket = buildSyncPacket(checkpointed, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      now: '2026-05-06T07:00:00.000Z',
+    });
+
+    expect(checkpointed.sync?.devices.find((device) => device.id === 'windows-dev')?.lastPacketHash).toBe(
+      packet.packetHash,
+    );
+    expect(nextPacket.previousPacketHash).toBe(packet.packetHash);
+  });
+
+  it('rejects newer packets that do not continue the known checkpoint chain', () => {
+    const firstPacket = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [
+          block({
+            id: 'remote-first',
+            content: 'First chained packet',
+            capturedAt: '2026-05-06T03:00:00.000Z',
+            updatedAt: '2026-05-06T04:00:00.000Z',
+          }),
+        ],
+      },
+      { sourceDeviceId: 'mobile-dev', sourceDeviceName: 'Phone', now: '2026-05-06T06:00:00.000Z' },
+    );
+    const afterFirst = applySyncPacket({ projects: [], blocks: [] }, firstPacket);
+    const disconnectedPacket = {
+      ...buildSyncPacket(
+        {
+          projects: [],
+          blocks: [
+            block({
+              id: 'remote-second',
+              content: 'Disconnected newer packet',
+              capturedAt: '2026-05-06T04:00:00.000Z',
+              updatedAt: '2026-05-06T06:30:00.000Z',
+            }),
+          ],
+        },
+        { sourceDeviceId: 'mobile-dev', sourceDeviceName: 'Phone', now: '2026-05-06T07:00:00.000Z' },
+      ),
+      previousPacketHash: 'fnv1a32:00000000',
+    };
+
+    expect(getSyncPacketCheckpointStatus(afterFirst, disconnectedPacket)).toBe('packet-hash-mismatch');
+
+    const disconnectedWithValidHash = {
+      ...disconnectedPacket,
+      packetHash: computeSyncPacketHash(disconnectedPacket),
+    };
+
+    expect(getSyncPacketCheckpointStatus(afterFirst, disconnectedWithValidHash)).toBe(
+      'previous-packet-hash-mismatch',
+    );
+    expect(() => applySyncPacket(afterFirst, disconnectedWithValidHash)).toThrow(/checkpoint chain/);
   });
 
   it('previews replayed sync packets as skipped with no vault changes', () => {
