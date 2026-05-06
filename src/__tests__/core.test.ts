@@ -22,6 +22,7 @@ import {
 import { buildKnowledgeGraph, filterKnowledgeGraph, getGraphNeighbors, layoutKnowledgeGraph } from '../graph';
 import { exportStoreAsJson } from '../export';
 import { createMarkdownImport, parseDistillImport } from '../import';
+import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
 
 const now = '2026-05-06T10:00:00.000Z';
 
@@ -258,5 +259,28 @@ describe('portable imports', () => {
       links: ['Roadmap'],
       state: 'linked',
     });
+  });
+});
+
+describe('encrypted vault backups', () => {
+  it('round-trips a Distill export without storing plaintext in the vault file', async () => {
+    const exported = exportStoreAsJson(store);
+    const encrypted = await encryptDistillVault(exported, 'correct horse battery staple', { iterations: 1_000 });
+
+    expect(encrypted).toContain('distill.encrypted-vault');
+    expect(encrypted).not.toContain('Discuss semantic trust');
+
+    const decrypted = await decryptDistillVault(encrypted, 'correct horse battery staple');
+    const parsed = parseDistillImport(decrypted);
+
+    expect(parsed.blocks.map((item) => item.id)).toEqual(['b-1', 'b-2', 'b-3']);
+  });
+
+  it('rejects the wrong vault passphrase', async () => {
+    const encrypted = await encryptDistillVault(exportStoreAsJson(store), 'correct horse battery staple', {
+      iterations: 1_000,
+    });
+
+    await expect(decryptDistillVault(encrypted, 'incorrect horse battery')).rejects.toThrow();
   });
 });

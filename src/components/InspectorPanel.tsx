@@ -26,9 +26,11 @@ type InspectorPanelProps = {
   onSelectBlock: (blockId: string) => void;
   onAssignProject: (blockId: string, projectId: string) => void;
   onBackupJson: () => void;
+  onBackupEncryptedVault: () => void;
   onExportMarkdown: () => void;
   onExportJson: () => void;
   onRestoreJson: (file: File) => void;
+  onRestoreEncryptedVault: (file: File) => void;
   onImportMarkdown: (file: File) => void;
   onUpdateInstallerPathChange: (path: string) => void;
   onStartUpdate: () => void;
@@ -58,9 +60,11 @@ export function InspectorPanel({
   onSelectBlock,
   onAssignProject,
   onBackupJson,
+  onBackupEncryptedVault,
   onExportMarkdown,
   onExportJson,
   onRestoreJson,
+  onRestoreEncryptedVault,
   onImportMarkdown,
   onUpdateInstallerPathChange,
   onStartUpdate,
@@ -86,6 +90,20 @@ export function InspectorPanel({
           browser: 'ブラウザプレビュー',
           feed: '更新フィード',
           latestRelease: '最新リリースページ',
+        };
+  const vaultLabels =
+    ui.navInbox === 'Inbox'
+      ? {
+          title: 'Encrypted vault',
+          hint: 'Create or restore a passphrase-protected vault backup. Active local storage is not encrypted yet.',
+          backup: 'Backup encrypted vault',
+          restore: 'Restore encrypted vault',
+        }
+      : {
+          title: '暗号化Vault',
+          hint: 'パスフレーズ付きのVaultバックアップを作成・復元します。現在のローカル保存自体はまだ暗号化されません。',
+          backup: '暗号化Vaultをバックアップ',
+          restore: '暗号化Vaultを復元',
         };
 
   return (
@@ -254,6 +272,30 @@ export function InspectorPanel({
             />
           </label>
           {restoreStatus ? <span className="restoreStatus">{restoreStatus}</span> : null}
+        </div>
+
+        <div className="restoreBox vaultBox">
+          <strong>{vaultLabels.title}</strong>
+          <span>{vaultLabels.hint}</span>
+          <button className="restoreButton" type="button" onClick={onBackupEncryptedVault}>
+            <Download size={16} />
+            {vaultLabels.backup}
+          </button>
+          <label className="restoreButton">
+            <FileUp size={16} />
+            {vaultLabels.restore}
+            <input
+              accept="application/json,.json,.distill-vault"
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.currentTarget.value = '';
+                if (file) {
+                  onRestoreEncryptedVault(file);
+                }
+              }}
+            />
+          </label>
         </div>
 
         <div className="restoreBox">

@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useMemo, useState } from 'react';
 import { exportStoreAsJson, exportStoreAsMarkdown, downloadTextFile } from './export';
 import { createMarkdownImport, parseDistillImport } from './import';
+import { decryptDistillVault, encryptDistillVault } from './vaultCrypto';
 import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
 import { initialStore, type Project, type SearchResult } from './model';
 import {
@@ -53,6 +54,7 @@ import { Topbar } from './components/Topbar';
 import { copy, getInitialLocale, UI_LOCALE_KEY, type Locale } from './i18n';
 
 const ONBOARDING_KEY = 'distill.onboarding.dismissed';
+const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 
 function App() {
   const [locale, setLocale] = useState<Locale>(getInitialLocale);
@@ -345,8 +347,95 @@ function App() {
     downloadTextFile(`distill-backup-${timestamp}.json`, exportStoreAsJson(store), 'application/json');
   }
 
+  function vaultLabels() {
+    return locale === 'en'
+      ? {
+          passphrase: 'Enter a vault passphrase with at least 12 characters.',
+          confirmPassphrase: 'Re-enter the same vault passphrase.',
+          mismatch: 'Vault passphrases did not match.',
+          encryptedBackupSuccess: 'Encrypted vault backup created.',
+          encryptedRestoreSuccess: (blocks: number, projects: number) => `Restored encrypted vault with ${blocks} blocks and ${projects} projects.`,
+          encryptedRestoreInvalid: 'Could not decrypt or restore that encrypted vault. Check the passphrase and file.',
+          fileTooLarge: 'Import file is too large. Keep imports under 5 MB for this MVP.',
+        }
+      : {
+          passphrase: '12文字以上のVaultパスフレーズを入力してください。',
+          confirmPassphrase: '同じVaultパスフレーズをもう一度入力してください。',
+          mismatch: 'Vaultパスフレーズが一致しません。',
+          encryptedBackupSuccess: '暗号化Vaultバックアップを作成しました。',
+          encryptedRestoreSuccess: (blocks: number, projects: number) => `暗号化Vaultから${blocks}件のブロックと${projects}件のプロジェクトを復元しました。`,
+          encryptedRestoreInvalid: '暗号化Vaultを復号または復元できませんでした。パスフレーズとファイルを確認してください。',
+          fileTooLarge: 'インポートファイルが大きすぎます。このMVPでは5 MB未満にしてください。',
+        };
+  }
+
+  async function backupEncryptedVault() {
+    const labels = vaultLabels();
+    const passphrase = window.prompt(labels.passphrase);
+
+    if (!passphrase) {
+      return;
+    }
+
+    const confirmation = window.prompt(labels.confirmPassphrase);
+
+    if (passphrase !== confirmation) {
+      setRestoreStatus(labels.mismatch);
+      return;
+    }
+
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const encrypted = await encryptDistillVault(exportStoreAsJson(store), passphrase);
+      downloadTextFile(`distill-vault-${timestamp}.distill-vault.json`, encrypted, 'application/json');
+      setRestoreStatus(labels.encryptedBackupSuccess);
+    } catch (error) {
+      console.warn('Failed to create encrypted Distill vault.', error);
+      setRestoreStatus(error instanceof Error ? error.message : labels.encryptedRestoreInvalid);
+    }
+  }
+
+  async function restoreEncryptedVault(file: File) {
+    const labels = vaultLabels();
+
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setRestoreStatus(labels.fileTooLarge);
+      return;
+    }
+
+    const passphrase = window.prompt(labels.passphrase);
+
+    if (!passphrase) {
+      return;
+    }
+
+    setRestoreStatus('');
+
+    try {
+      const decrypted = await decryptDistillVault(await file.text(), passphrase);
+      const importedStore = parseDistillImport(decrypted);
+      const confirmed = window.confirm(ui.restoreConfirm(importedStore.blocks.length, importedStore.projects.length));
+
+      if (!confirmed) {
+        return;
+      }
+
+      setStore(importedStore);
+      setSelectedBlockId(importedStore.blocks[0]?.id);
+      setRestoreStatus(labels.encryptedRestoreSuccess(importedStore.blocks.length, importedStore.projects.length));
+    } catch (error) {
+      console.warn('Failed to restore encrypted Distill vault.', error);
+      setRestoreStatus(labels.encryptedRestoreInvalid);
+    }
+  }
+
   async function restoreJson(file: File) {
     setRestoreStatus('');
+
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setRestoreStatus(vaultLabels().fileTooLarge);
+      return;
+    }
 
     try {
       const importedStore = parseDistillImport(await file.text());
@@ -367,6 +456,11 @@ function App() {
 
   async function importMarkdown(file: File) {
     setRestoreStatus('');
+
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setRestoreStatus(vaultLabels().fileTooLarge);
+      return;
+    }
 
     try {
       const importedStore = createMarkdownImport(await file.text());
@@ -629,9 +723,11 @@ function App() {
             onSelectBlock={setSelectedBlockId}
             onAssignProject={(blockId, projectId) => setStore(assignProject(blockId, projectId))}
             onBackupJson={backupJson}
+            onBackupEncryptedVault={backupEncryptedVault}
             onExportMarkdown={exportMarkdown}
             onExportJson={exportJson}
             onRestoreJson={restoreJson}
+            onRestoreEncryptedVault={restoreEncryptedVault}
             onImportMarkdown={importMarkdown}
             onUpdateInstallerPathChange={setUpdateInstallerPath}
             onStartUpdate={startUpdate}

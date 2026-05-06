@@ -33,6 +33,7 @@ https://awakertakeshi0312-jpg.github.io/distill/
 - Data is stored locally in that phone browser.
 - Data does not sync with desktop.
 - Data is not encrypted by Distill in PWA mode.
+- Encrypted `.distill-vault.json` backup/restore is available for manual transfer.
 - Browser storage can be removed by the browser, profile cleanup, or OS storage pressure.
 
 ### Recommended Mobile Usage

@@ -36,12 +36,15 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added `npm run security:audit`.
 - Added PWA manifest and service worker for mobile web usage.
 - Added GitHub Pages workflow for a web preview build.
+- Added encrypted portable vault backups using passphrase-derived AES-GCM.
 
 ## Findings
 
 ### P1: Local notes are not encrypted at rest
 
 Distill currently stores the primary data in SQLite and automatic JSON backup files in the app data directory. Anyone with OS-level access to the user profile or disk can potentially read the data.
+
+Encrypted `.distill-vault.json` backups are now available, but the active local database is still plaintext.
 
 Recommended remediation:
 
@@ -144,9 +147,8 @@ Before distributing a new public build:
 
 ## Next Security Milestones
 
-1. Add import size limits and tests.
-2. Add explicit web/PWA local-only warning.
-3. Add SHA256 check for manual installer fallback.
-4. Design encrypted vault format.
-5. Add app lock.
-6. Add sync only after encryption model is settled.
+1. Add explicit web/PWA local-only warning.
+2. Add SHA256 check for manual installer fallback.
+3. Add app lock.
+4. Move active local persistence to encrypted vault storage.
+5. Add sync only after encrypted local persistence is complete.
