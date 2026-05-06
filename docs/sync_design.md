@@ -81,6 +81,10 @@ Implemented:
 - block-level sync records for `ThoughtBlock`.
 - checkpoint filtering with `since`.
 - deterministic stable hashes for duplicate detection and tie-breaking.
+- `distill.encrypted-sync.packet` schema version `1`.
+- record-level AES-GCM encrypted sync records.
+- wrong-passphrase rejection for encrypted sync packets.
+- metadata tamper detection between encrypted wrappers and decrypted records.
 - deterministic merge rule:
   - accept a remote block when the local block is missing.
   - accept a remote block when `remote.updatedAt` is newer.
@@ -90,13 +94,37 @@ Implemented:
 
 Not implemented yet:
 
-- record-level encryption.
 - project record sync.
 - deletion tombstones.
 - device registry UI.
 - automatic network or cloud sync.
 
 This keeps the risky part small: the app can prove merge behavior before any private data is sent to a network or cloud provider.
+
+## Encrypted Sync Packet Shape
+
+```json
+{
+  "type": "distill.encrypted-sync.packet",
+  "schemaVersion": 1,
+  "sourceDeviceId": "device-windows",
+  "createdAt": "2026-05-06T00:00:00.000Z",
+  "records": [
+    {
+      "kind": "thought-block",
+      "id": "b-123",
+      "updatedAt": "2026-05-06T00:00:00.000Z",
+      "hash": "fnv1a32:...",
+      "encrypted": {
+        "type": "distill.encrypted-sync-record",
+        "value": "{...AES-GCM envelope...}"
+      }
+    }
+  ]
+}
+```
+
+The outer wrapper contains only the fields required for sync routing, ordering, and deterministic tie-breaking. The decrypted record contains the full `ThoughtBlock` payload. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging.
 
 ## Sync Record Shape
 
@@ -170,7 +198,7 @@ Encrypted file sync MVP:
 
 1. Export encrypted `.distill-vault.json`.
 2. Import encrypted `.distill-vault.json` on another device.
-3. Add record-level encrypted append-only log.
+3. Add record-level encrypted append-only log. Current status: encrypted record packets exist in code, but no file UI exists yet.
 4. Add a manual "merge encrypted vault" command.
 5. Automate file read/write through a user-selected folder later.
 

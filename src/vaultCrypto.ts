@@ -3,6 +3,7 @@ const DEFAULT_PBKDF2_ITERATIONS = 310_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const MIN_PASSPHRASE_LENGTH = 12;
+type EnvelopeType = 'distill.encrypted-vault' | 'distill.encrypted-sync-record';
 
 type VaultCipher = {
   name: 'AES-GCM';
@@ -17,7 +18,7 @@ type VaultKdf = {
 };
 
 export type DistillVaultEnvelope = {
-  type: 'distill.encrypted-vault';
+  type: EnvelopeType;
   schemaVersion: number;
   exportedAt: string;
   kdf: VaultKdf;
@@ -25,7 +26,7 @@ export type DistillVaultEnvelope = {
   payload: string;
 };
 
-type EncryptOptions = {
+export type EncryptOptions = {
   iterations?: number;
 };
 
@@ -103,7 +104,12 @@ async function deriveVaultKey(passphrase: string, salt: Uint8Array, iterations: 
   );
 }
 
-export async function encryptDistillVault(plainJson: string, passphrase: string, options: EncryptOptions = {}) {
+async function encryptJsonEnvelope(
+  plainJson: string,
+  passphrase: string,
+  envelopeType: EnvelopeType,
+  options: EncryptOptions = {},
+) {
   assertPassphrase(passphrase);
 
   const iterations = options.iterations ?? DEFAULT_PBKDF2_ITERATIONS;
@@ -120,7 +126,7 @@ export async function encryptDistillVault(plainJson: string, passphrase: string,
   );
 
   const envelope: DistillVaultEnvelope = {
-    type: 'distill.encrypted-vault',
+    type: envelopeType,
     schemaVersion: VAULT_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     kdf: {
@@ -139,11 +145,19 @@ export async function encryptDistillVault(plainJson: string, passphrase: string,
   return JSON.stringify(envelope, null, 2);
 }
 
-function parseVaultEnvelope(value: string): DistillVaultEnvelope {
+export async function encryptDistillVault(plainJson: string, passphrase: string, options: EncryptOptions = {}) {
+  return encryptJsonEnvelope(plainJson, passphrase, 'distill.encrypted-vault', options);
+}
+
+export async function encryptDistillSyncRecord(plainJson: string, passphrase: string, options: EncryptOptions = {}) {
+  return encryptJsonEnvelope(plainJson, passphrase, 'distill.encrypted-sync-record', options);
+}
+
+function parseEncryptedEnvelope(value: string, envelopeType: EnvelopeType): DistillVaultEnvelope {
   const parsed = JSON.parse(value) as Partial<DistillVaultEnvelope>;
 
   if (
-    parsed.type !== 'distill.encrypted-vault' ||
+    parsed.type !== envelopeType ||
     parsed.schemaVersion !== VAULT_SCHEMA_VERSION ||
     parsed.kdf?.name !== 'PBKDF2' ||
     parsed.kdf.hash !== 'SHA-256' ||
@@ -153,16 +167,16 @@ function parseVaultEnvelope(value: string): DistillVaultEnvelope {
     typeof parsed.kdf.iterations !== 'number' ||
     typeof parsed.cipher.iv !== 'string'
   ) {
-    throw new Error('File is not a supported Distill encrypted vault.');
+    throw new Error('File is not a supported Distill encrypted payload.');
   }
 
   return parsed as DistillVaultEnvelope;
 }
 
-export async function decryptDistillVault(encryptedJson: string, passphrase: string) {
+async function decryptJsonEnvelope(encryptedJson: string, passphrase: string, envelopeType: EnvelopeType) {
   assertPassphrase(passphrase);
 
-  const envelope = parseVaultEnvelope(encryptedJson);
+  const envelope = parseEncryptedEnvelope(encryptedJson, envelopeType);
   const salt = base64ToBytes(envelope.kdf.salt);
   const iv = base64ToBytes(envelope.cipher.iv);
   const payload = base64ToBytes(envelope.payload);
@@ -177,4 +191,12 @@ export async function decryptDistillVault(encryptedJson: string, passphrase: str
   );
 
   return new TextDecoder().decode(decrypted);
+}
+
+export async function decryptDistillVault(encryptedJson: string, passphrase: string) {
+  return decryptJsonEnvelope(encryptedJson, passphrase, 'distill.encrypted-vault');
+}
+
+export async function decryptDistillSyncRecord(encryptedJson: string, passphrase: string) {
+  return decryptJsonEnvelope(encryptedJson, passphrase, 'distill.encrypted-sync-record');
 }

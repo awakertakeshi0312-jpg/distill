@@ -23,7 +23,17 @@ import { buildKnowledgeGraph, filterKnowledgeGraph, getGraphNeighbors, layoutKno
 import { exportStoreAsJson } from '../export';
 import { createMarkdownImport, parseDistillImport } from '../import';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
-import { applySyncPacket, buildSyncPacket, parseSyncPacket, serializeSyncPacket } from '../sync';
+import {
+  applyEncryptedSyncPacket,
+  applySyncPacket,
+  buildEncryptedSyncPacket,
+  buildSyncPacket,
+  decryptEncryptedSyncPacket,
+  parseEncryptedSyncPacket,
+  parseSyncPacket,
+  serializeEncryptedSyncPacket,
+  serializeSyncPacket,
+} from '../sync';
 
 const now = '2026-05-06T10:00:00.000Z';
 
@@ -388,5 +398,81 @@ describe('sync packets', () => {
     expect(() => parseSyncPacket(JSON.stringify({ type: 'distill.sync.packet', schemaVersion: 999 }))).toThrow(
       /sync packet/,
     );
+  });
+
+  it('encrypts sync records without exposing plaintext note content', async () => {
+    const packet = await buildEncryptedSyncPacket(store, {
+      sourceDeviceId: 'windows-dev',
+      now: '2026-05-06T03:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      iterations: 1_000,
+    });
+    const serialized = serializeEncryptedSyncPacket(packet);
+
+    expect(serialized).toContain('distill.encrypted-sync.packet');
+    expect(serialized).toContain('distill.encrypted-sync-record');
+    expect(serialized).not.toContain('Discuss semantic trust');
+    expect(serialized).not.toContain('Semantic Retrieval should explain resurfaced thoughts');
+
+    const decrypted = await decryptEncryptedSyncPacket(
+      parseEncryptedSyncPacket(serialized),
+      'correct horse battery staple',
+    );
+
+    expect(decrypted.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
+    expect(decrypted.records[0].value.content).toBe('Discuss semantic trust with @Aki [[Person: Mina]] #search [[Semantic Retrieval]]');
+  });
+
+  it('applies encrypted sync packets after decrypting records', async () => {
+    const localStore: DistillStore = {
+      projects: [],
+      blocks: [
+        block({
+          id: 'shared',
+          content: 'Local stale text',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T02:00:00.000Z',
+        }),
+      ],
+    };
+    const remoteStore: DistillStore = {
+      projects: [],
+      blocks: [
+        block({
+          id: 'shared',
+          content: 'Remote encrypted update',
+          capturedAt: '2026-05-06T01:00:00.000Z',
+          updatedAt: '2026-05-06T03:00:00.000Z',
+        }),
+      ],
+    };
+    const packet = await buildEncryptedSyncPacket(remoteStore, {
+      sourceDeviceId: 'mobile-dev',
+      now: '2026-05-06T04:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      iterations: 1_000,
+    });
+
+    const merged = await applyEncryptedSyncPacket(localStore, packet, 'correct horse battery staple');
+
+    expect(merged.blocks[0].content).toBe('Remote encrypted update');
+  });
+
+  it('rejects encrypted sync packets with the wrong passphrase or tampered metadata', async () => {
+    const packet = await buildEncryptedSyncPacket(store, {
+      sourceDeviceId: 'windows-dev',
+      now: '2026-05-06T03:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      iterations: 1_000,
+    });
+
+    await expect(decryptEncryptedSyncPacket(packet, 'incorrect horse battery')).rejects.toThrow();
+
+    const tampered = {
+      ...packet,
+      records: [{ ...packet.records[0], hash: 'fnv1a32:00000000' }, ...packet.records.slice(1)],
+    };
+
+    await expect(decryptEncryptedSyncPacket(tampered, 'correct horse battery staple')).rejects.toThrow(/metadata/);
   });
 });
