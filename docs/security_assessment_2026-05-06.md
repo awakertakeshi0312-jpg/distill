@@ -34,7 +34,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Manual sync packets use record-level encrypted records and deletion tombstones.
 - Sync packet imports show an apply preview before changing the vault.
 
-### Changes Applied Through 0.1.13
+### Changes Applied Through 0.1.14
 
 - Added startup vault gate for create/unlock.
 - Added normal encrypted local persistence under `distill.vault.v1`.

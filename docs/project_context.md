@@ -10,7 +10,7 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.13
+- Current version: 0.1.14
 - Desktop target: Windows x64
 - Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, device registry, deletion tombstones, stale-packet rejection, and Personal KM summary-only handoff
 
