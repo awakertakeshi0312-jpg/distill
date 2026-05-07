@@ -1233,8 +1233,16 @@ describe('sync packets', () => {
 
     expect(serialized).toContain('distill.encrypted-sync.packet');
     expect(serialized).toContain('distill.encrypted-sync-record');
+    expect(serialized).toContain('"syncKdf"');
     expect(serialized).not.toContain('Discuss semantic trust');
     expect(serialized).not.toContain('Semantic Retrieval should explain resurfaced thoughts');
+    expect(packet.syncKdf).toMatchObject({
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      iterations: 1_000,
+    });
+    const recordKdfs = packet.records.map((record) => JSON.parse(record.encrypted.value).kdf);
+    expect(recordKdfs.every((kdf) => JSON.stringify(kdf) === JSON.stringify(packet.syncKdf))).toBe(true);
 
     const decrypted = await decryptEncryptedSyncPacket(
       parseEncryptedSyncPacket(serialized),
@@ -1247,6 +1255,21 @@ describe('sync packets', () => {
       throw new Error('Expected first encrypted sync record to be a thought block');
     }
     expect(firstRecordValue.content).toBe('Discuss semantic trust with @Aki [[Person: Mina]] #search [[Semantic Retrieval]]');
+  });
+
+  it('decrypts legacy per-record encrypted sync packets without packet-level sync KDF metadata', async () => {
+    const packet = await buildEncryptedSyncPacket(store, {
+      sourceDeviceId: 'windows-dev',
+      now: '2026-05-06T03:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      iterations: 1_000,
+    });
+    const { syncKdf: _syncKdf, ...legacyPacket } = packet;
+
+    const decrypted = await decryptEncryptedSyncPacket(legacyPacket, 'correct horse battery staple');
+
+    expect('syncKdf' in legacyPacket).toBe(false);
+    expect(decrypted.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
   });
 
   it('signs encrypted sync packets and verifies trusted device signatures', async () => {
@@ -1464,6 +1487,16 @@ describe('sync packets', () => {
     });
 
     await expect(decryptEncryptedSyncPacket(packet, 'incorrect horse battery')).rejects.toThrow();
+
+    const tamperedSyncKdf = {
+      ...packet,
+      syncKdf: {
+        ...packet.syncKdf!,
+        salt: 'dGFtcGVyZWQtc3luYy1rZGY=',
+      },
+    };
+
+    await expect(decryptEncryptedSyncPacket(tamperedSyncKdf, 'correct horse battery staple')).rejects.toThrow(/KDF/);
 
     const tampered = {
       ...packet,

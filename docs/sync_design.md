@@ -83,6 +83,8 @@ Implemented:
 - deterministic stable hashes for duplicate detection and tie-breaking.
 - `distill.encrypted-sync.packet` schema version `1`.
 - record-level AES-GCM encrypted sync records.
+- packet-level sync KDF metadata for new encrypted sync packets, so all records in one packet are encrypted and decrypted with one non-exportable WebCrypto sync session key.
+- legacy encrypted sync packet fallback for older packets without packet-level `syncKdf` metadata.
 - wrong-passphrase rejection for encrypted sync packets.
 - metadata tamper detection between encrypted wrappers and decrypted records.
 - stable per-device identity stored locally as `distill.device.v1`.
@@ -132,6 +134,12 @@ This keeps the risky part small: the app can prove merge behavior before any pri
   "createdAt": "2026-05-06T00:00:00.000Z",
   "previousPacketHash": "fnv1a32:previous",
   "packetHash": "fnv1a32:current",
+  "syncKdf": {
+    "name": "PBKDF2",
+    "hash": "SHA-256",
+    "iterations": 310000,
+    "salt": "base64"
+  },
   "revokedDevices": [
     {
       "id": "device-old-phone",
@@ -175,7 +183,7 @@ This keeps the risky part small: the app can prove merge behavior before any pri
 }
 ```
 
-The outer wrapper contains only the fields required for sync routing, ordering, deterministic tie-breaking, and checkpoint validation. The decrypted record contains either the full `ThoughtBlock` payload or a deletion tombstone. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging.
+The outer wrapper contains only the fields required for sync routing, ordering, deterministic tie-breaking, and checkpoint validation. The decrypted record contains either the full `ThoughtBlock` payload or a deletion tombstone. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging. Packets produced by Distill 0.1.36 and later include `syncKdf`; Distill derives one non-exportable WebCrypto sync session key from that packet metadata and uses it for all records in the packet. Older encrypted packets without `syncKdf` still decrypt through the per-record envelope KDF fallback.
 
 `packetHash` is computed from the plain sync packet with `packetHash` omitted. `previousPacketHash` must match the known source device `lastPacketHash` when Distill already knows that device. This gives manual sync a local hash-chain guard before automatic folder or hosted sync exists.
 
@@ -279,6 +287,7 @@ Allowed:
 
 - encrypted data key wrapped by a user passphrase-derived key
 - encrypted records
+- packet-level sync KDF metadata
 - minimal sync metadata
 
 ## Mobile Implication
@@ -301,7 +310,7 @@ Before enabling automatic sync:
 
 - wrong passphrase test
 - corrupted payload test
-- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, QR display, camera scanner, paste import, known-device forget/removal, and safe semi-automatic inbound preview are implemented. Mobile-native pairing polish remains future work.
+- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, QR display, camera scanner, paste import, known-device forget/removal, packet-level sync session KDF metadata, and safe semi-automatic inbound preview are implemented. Mobile-native pairing polish remains future work.
 - device lifecycle story beyond local revoke/forget actions
 - backup recovery test. Current status: pre-sync encrypted recovery snapshots are saved before sync apply, and restore-from-recovery now has an in-app preview path.
 - local cache clear test

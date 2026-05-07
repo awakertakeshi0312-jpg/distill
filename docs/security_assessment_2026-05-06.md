@@ -11,7 +11,7 @@ This assessment covers the current local-first Distill MVP:
 - browser/PWA preview with install guidance, update-safer offline shell cache, and IndexedDB-backed encrypted vault storage
 - signed Windows updater
 - GitHub Releases updater feed
-- manual encrypted sync packet export/import with apply preview
+- manual encrypted sync packet export/import with apply preview and packet-level sync session KDF metadata
 
 It does not certify the app for regulated data, medical data, legal privilege, or enterprise compliance.
 
@@ -31,11 +31,11 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Release feed is HTTPS-hosted on GitHub Releases.
 - Export/import and sync packet exchange are explicit and user-triggered.
 - Tauri updater is registered only for desktop builds.
-- Manual sync packets use record-level encrypted records and deletion tombstones.
+- Manual sync packets use record-level encrypted records, packet-level sync KDF metadata for new packets, and deletion tombstones.
 - Sync packet imports show an apply preview before changing the vault.
 - Known sync devices now keep `lastPacketHash`, newer packets must continue the known checkpoint chain, and first-seen signed devices require a public-key verification-code match before apply, with QR display, camera scan, and payload paste import available for out-of-band comparison.
 
-### Changes Applied Through 0.1.16
+### Changes Applied Through 0.1.36
 
 - Added startup vault gate for create/unlock.
 - Added normal encrypted local persistence under `distill.vault.v1`.
@@ -70,13 +70,14 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added IndexedDB-backed browser/PWA encrypted vault and sync recovery storage with migration from encrypted localStorage and localStorage fallback only when IndexedDB is unavailable.
 - Moved active vault passphrase handling out of React state and into a volatile in-memory session ref.
 - Added non-exportable WebCrypto CryptoKey sessions for normal vault autosave and encrypted pre-sync recovery snapshots.
+- Added packet-level sync KDF metadata so each new encrypted sync packet uses one non-exportable WebCrypto sync session key for all contained records, with legacy per-record packet compatibility.
 - Added test-covered auto-lock policy normalization and idle-expiry checks.
 
 ## Findings
 
 ### P1: Passphrase still lives in app memory while unlocked
 
-Distill now keeps the active passphrase out of React state, and normal vault autosave uses a non-exportable WebCrypto CryptoKey session. The passphrase is still available in a volatile app-session ref while unlocked for cross-device sync packet decrypt/import/export until the sync-key model is upgraded.
+Distill now keeps the active passphrase out of React state, and normal vault autosave uses a non-exportable WebCrypto CryptoKey session. The passphrase is still available in a volatile app-session ref while unlocked for cross-device sync packet export/import. New encrypted packets derive one non-exportable sync session key per packet, but the cross-device sync-key lifecycle still needs to replace passphrase-based packet access.
 
 Recommended remediation:
 

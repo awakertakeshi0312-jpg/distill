@@ -7,9 +7,13 @@ import {
   type ThoughtBlock,
 } from './model';
 import {
+  createDistillSyncSession,
+  createDistillSyncSessionFromKdf,
   decryptDistillSyncRecord,
-  encryptDistillSyncRecord,
+  decryptDistillSyncRecordWithSession,
+  encryptDistillSyncRecordWithSession,
   type EncryptOptions,
+  type VaultKdf,
 } from './vaultCrypto';
 
 export const SYNC_PACKET_SCHEMA_VERSION = 1;
@@ -65,6 +69,7 @@ export type EncryptedSyncRecord = Omit<SyncRecord, 'value'> & {
 
 export type DistillEncryptedSyncPacket = Omit<DistillSyncPacket, 'type' | 'records'> & {
   type: 'distill.encrypted-sync.packet';
+  syncKdf?: VaultKdf;
   records: EncryptedSyncRecord[];
 };
 
@@ -456,6 +461,23 @@ function isSyncPacketSignature(value: unknown): value is SyncPacketSignature {
   );
 }
 
+function isSyncPacketKdf(value: unknown): value is VaultKdf {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const kdf = value as VaultKdf;
+
+  return (
+    kdf.name === 'PBKDF2' &&
+    kdf.hash === 'SHA-256' &&
+    Number.isInteger(kdf.iterations) &&
+    kdf.iterations > 0 &&
+    typeof kdf.salt === 'string' &&
+    kdf.salt.length > 0
+  );
+}
+
 function isRevokedSyncDevice(value: unknown): value is RevokedSyncDevice {
   if (!value || typeof value !== 'object') {
     return false;
@@ -596,6 +618,7 @@ export function parseEncryptedSyncPacket(json: string): DistillEncryptedSyncPack
     (typeof parsed.previousPacketHash !== 'undefined' && typeof parsed.previousPacketHash !== 'string') ||
     (typeof parsed.packetHash !== 'undefined' && typeof parsed.packetHash !== 'string') ||
     (typeof parsed.signature !== 'undefined' && !isSyncPacketSignature(parsed.signature)) ||
+    (typeof parsed.syncKdf !== 'undefined' && !isSyncPacketKdf(parsed.syncKdf)) ||
     (typeof parsed.devices !== 'undefined' && (!Array.isArray(parsed.devices) || !parsed.devices.every(isSyncDevice))) ||
     (typeof parsed.revokedDevices !== 'undefined' &&
       (!Array.isArray(parsed.revokedDevices) || !parsed.revokedDevices.every(isRevokedSyncDevice))) ||
@@ -634,6 +657,7 @@ export async function buildEncryptedSyncPacket(
         signature: await options.signPacket(unsignedPacket),
       }
     : unsignedPacket;
+  const syncSession = await createDistillSyncSession(options.passphrase, { iterations: options.iterations });
   const records = await Promise.all(
     plainPacket.records.map(async (record): Promise<EncryptedSyncRecord> => ({
       kind: record.kind,
@@ -642,9 +666,7 @@ export async function buildEncryptedSyncPacket(
       hash: record.hash,
       encrypted: {
         type: 'distill.encrypted-sync-record',
-        value: await encryptDistillSyncRecord(stableStringify(record), options.passphrase, {
-          iterations: options.iterations,
-        }),
+        value: await encryptDistillSyncRecordWithSession(stableStringify(record), syncSession),
       },
     })),
   );
@@ -659,6 +681,7 @@ export async function buildEncryptedSyncPacket(
     previousPacketHash: plainPacket.previousPacketHash,
     packetHash: plainPacket.packetHash,
     signature: plainPacket.signature,
+    syncKdf: syncSession.kdf,
     devices: plainPacket.devices?.map(cloneDevice),
     revokedDevices: plainPacket.revokedDevices?.map(cloneRevokedDevice),
     records,
@@ -669,9 +692,13 @@ export async function decryptEncryptedSyncPacket(
   packet: DistillEncryptedSyncPacket,
   passphrase: string,
 ): Promise<DistillSyncPacket> {
+  const syncSession = packet.syncKdf ? await createDistillSyncSessionFromKdf(passphrase, packet.syncKdf) : null;
   const records = await Promise.all(
     packet.records.map(async (record) => {
-      const decrypted = JSON.parse(await decryptDistillSyncRecord(record.encrypted.value, passphrase)) as SyncRecord;
+      const decryptedText = syncSession
+        ? await decryptDistillSyncRecordWithSession(record.encrypted.value, syncSession)
+        : await decryptDistillSyncRecord(record.encrypted.value, passphrase);
+      const decrypted = JSON.parse(decryptedText) as SyncRecord;
       assertRecordMetadataMatches(record, decrypted);
       return decrypted;
     }),
