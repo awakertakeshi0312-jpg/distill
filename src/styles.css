@@ -1002,6 +1002,20 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.verificationQrCode {
+  width: fit-content;
+  padding: 8px;
+  border: 1px solid rgba(47, 102, 78, 0.24);
+  background: #fff;
+}
+
+.verificationQrCode img {
+  display: block;
+  width: 168px;
+  height: 168px;
+  image-rendering: pixelated;
+}
+
 .deviceVerificationCard small,
 .deviceVerificationCard summary {
   color: var(--muted);

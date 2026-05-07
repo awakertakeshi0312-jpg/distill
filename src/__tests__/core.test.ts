@@ -27,6 +27,7 @@ import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
 import {
+  buildDeviceVerificationPayload,
   createDeviceSigningKeyPair,
   deviceFingerprintMatches,
   formatDevicePublicKeyFingerprint,
@@ -1128,6 +1129,27 @@ describe('sync packets', () => {
     expect(fingerprint).toMatch(/^[A-F0-9]{4}(?:-[A-F0-9]{4}){7}$/);
     expect(deviceFingerprintMatches(fingerprint, fingerprint.toLowerCase().replace(/-/g, ' '))).toBe(true);
     expect(deviceFingerprintMatches(fingerprint, '0000 0000 0000 0000 0000 0000 0000 0000')).toBe(false);
+  });
+
+  it('builds parseable device verification payloads for QR pairing', async () => {
+    const signingKeyPair = await createDeviceSigningKeyPair();
+    const fingerprint = await formatDevicePublicKeyFingerprint(signingKeyPair.publicKey);
+    const payload = buildDeviceVerificationPayload({
+      deviceId: 'windows-dev',
+      deviceName: 'Windows desk',
+      publicKey: signingKeyPair.publicKey,
+      fingerprint,
+    });
+    const parsed = JSON.parse(payload);
+
+    expect(parsed).toMatchObject({
+      type: 'distill-device-verification',
+      version: 1,
+      deviceId: 'windows-dev',
+      deviceName: 'Windows desk',
+      fingerprint,
+      publicKey: signingKeyPair.publicKey,
+    });
   });
 
   it('blocks signed packets that do not match the trusted source-device key', async () => {

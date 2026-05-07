@@ -22,6 +22,7 @@ import type { SyncFolderPacketFile, SyncRecoveryVaultFile } from '../storage';
 import type { SyncPreview } from '../syncPreview';
 import { isBlockedSyncFolderPacketReview, type SyncFolderPacketReview } from '../syncFolderReview';
 import { HelpNote } from './HelpNote';
+import { VerificationQrCode } from './VerificationQrCode';
 
 function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
   return Boolean(
@@ -304,9 +305,10 @@ export function InspectorPanel({
           deviceName: 'Device name',
           deviceId: 'Device ID',
           deviceFingerprint: 'Device verification code',
+          deviceVerificationQr: 'Device verification QR code',
           deviceVerificationPayload: 'QR payload',
           deviceVerificationHint:
-            'Show this code on the source device and compare it before trusting a new sync source.',
+            'Show this QR or code on the source device and compare it before trusting a new sync source.',
           rename: 'Save device name',
           export: 'Export sync packet',
           import: 'Import sync packet',
@@ -354,9 +356,10 @@ export function InspectorPanel({
           deviceName: '端末名',
           deviceId: '端末ID',
           deviceFingerprint: '端末確認コード',
+          deviceVerificationQr: '端末確認QRコード',
           deviceVerificationPayload: 'QR用データ',
           deviceVerificationHint:
-            '新しい同期元を信頼する前に、送信元端末のこのコードと取り込み側プレビューのコードを見比べてください。',
+            '新しい同期元を信頼する前に、送信元端末のこのQRまたはコードと取り込み側プレビューのコードを見比べてください。',
           rename: '端末名を保存',
           export: '同期パケットを書き出す',
           import: '同期パケットを取り込む',
@@ -937,6 +940,9 @@ export function InspectorPanel({
           {deviceSigningFingerprint ? (
             <div className="deviceVerificationCard">
               <strong>{syncLabels.deviceFingerprint}</strong>
+              {deviceVerificationPayload ? (
+                <VerificationQrCode payload={deviceVerificationPayload} label={syncLabels.deviceVerificationQr} />
+              ) : null}
               <code>{deviceSigningFingerprint}</code>
               <small>{syncLabels.deviceVerificationHint}</small>
               {deviceVerificationPayload ? (

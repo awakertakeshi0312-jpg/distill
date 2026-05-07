@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.27 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, risk acknowledgement before destructive applies, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, signed device checkpoints, source-device verification codes, unknown-device trust confirmation, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews with decision-review counts.
+Distill 0.1.28 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, risk acknowledgement before destructive applies, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, signed device checkpoints, source-device verification codes with QR display, unknown-device trust confirmation, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews with decision-review counts.
 
 ## Phase 1: Desktop MVP
 
@@ -104,6 +104,7 @@ Status: Foundation in code.
 - Signed device checkpoints using per-device ECDSA P-256 keys.
 - Trusted-device signature verification before applying sync packets.
 - Source-device verification code entry before trusting first-seen signed source-device packets.
+- Local device verification payload QR display in the sync panel.
 - Device trust revocation and revoked-device rejection.
 - Desktop sync-folder packet writing, scanning, selected-packet preview, safety classification, and assisted recommended preview.
 - Monitor-only sync-folder review queue refresh that never auto-applies packets.
@@ -133,4 +134,4 @@ Status: Not started.
 - Passphrase change and restore preview are implemented before 0.2.0.
 - No known data-loss path in normal use.
 - Search, edit, project assignment, archive, restore, import, export, people, graph, vault unlock, and encrypted persistence smoke tests are automated.
-- Sync design has record-level encryption, device registry, deletion tombstones, replay/rollback guard, chained checkpoint validation, sync-folder safety classification, monitor-only review queue, outbound auto-export, assisted recommended preview, signed device checkpoints, source-device verification codes, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with restore preview, and deterministic conflict strategy before automatic transport.
+- Sync design has record-level encryption, device registry, deletion tombstones, replay/rollback guard, chained checkpoint validation, sync-folder safety classification, monitor-only review queue, outbound auto-export, assisted recommended preview, signed device checkpoints, source-device verification codes with QR display, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with restore preview, and deterministic conflict strategy before automatic transport.
