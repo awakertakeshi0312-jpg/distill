@@ -135,6 +135,7 @@ test('MVP browser smoke: capture, search, graph, project, archive', async ({ pag
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Review [[Semantic Retrieval]] with @Aki #search' })).toBeVisible();
   await expect(page.getByText('search').first()).toBeVisible();
 
+  await page.locator('a[href="#search"]').click();
   await page.locator('#search input').fill('Aki');
   await expect(page.locator('.resultRow').filter({ hasText: 'Review [[Semantic Retrieval]]' })).toBeVisible();
 
@@ -193,6 +194,7 @@ test('JSON backup can be restored through the UI', async ({ page }) => {
   await expect(page.locator('.restorePreviewBox')).toContainText('Removed: 3');
   await page.getByRole('button', { name: 'Apply restore' }).click();
   await expect(page.getByText('Restored 1 blocks and 1 projects.')).toBeVisible();
+  await page.locator('a[href="#search"]').click();
   await page.locator('#search input').fill('Imported');
   await expect(page.locator('.resultRow').filter({ hasText: 'Imported backup block' })).toBeVisible();
 });
@@ -208,6 +210,7 @@ test('Markdown import appends blocks without replacing the store', async ({ page
   });
 
   await expect(page.getByText('Imported 1 blocks and 1 projects.')).toBeVisible();
+  await page.locator('a[href="#search"]').click();
   await page.locator('#search input').fill('markdown');
   await expect(page.locator('.resultRow').filter({ hasText: 'Imported markdown item' })).toBeVisible();
   await page.locator('a[href="#projects"]').click();
@@ -299,6 +302,7 @@ test('People index and graph neighbors respond to captured context', async ({ pa
   await page.getByLabel('Capture a thought').fill('Coordinate graph review with @Mina [[Graph Context]] #graph');
   await page.getByRole('button', { name: 'Capture' }).click();
 
+  await page.locator('a[href="#search"]').click();
   await page.locator('#people').scrollIntoViewIfNeeded();
   await expect(page.locator('#people .personCard').filter({ hasText: '@Mina' })).toBeVisible();
   await page.locator('#people .personCard').filter({ hasText: '@Mina' }).getByRole('button', { name: 'Search' }).click();

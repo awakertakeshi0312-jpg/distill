@@ -108,7 +108,7 @@ import { InspectorPanel } from './components/InspectorPanel';
 import { PeoplePanel } from './components/PeoplePanel';
 import { ProjectsPanel } from './components/ProjectsPanel';
 import { SearchPanel } from './components/SearchPanel';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, type AppPage } from './components/Sidebar';
 import { TodayPanel } from './components/TodayPanel';
 import { Topbar } from './components/Topbar';
 import { VaultGate } from './components/VaultGate';
@@ -150,6 +150,20 @@ const SYNC_FOLDER_MONITOR_INTERVAL_MS = 60_000;
 const SYNC_FOLDER_AUTO_EXPORT_INTERVAL_MS = 120_000;
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 type VaultStatus = 'checking' | 'locked' | 'setup' | 'unlocked';
+const APP_PAGES: AppPage[] = ['inbox', 'today', 'search', 'projects', 'graph', 'archive'];
+
+function isAppPage(value: string): value is AppPage {
+  return APP_PAGES.includes(value as AppPage);
+}
+
+function getInitialPage(): AppPage {
+  if (typeof window === 'undefined') {
+    return 'inbox';
+  }
+
+  const hash = window.location.hash.replace('#', '');
+  return isAppPage(hash) ? hash : 'inbox';
+}
 
 function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
   return Boolean(
@@ -177,6 +191,7 @@ function syncPreviewRequiresFingerprintVerification(preview: SyncPreview | null)
 
 function App() {
   const [locale, setLocale] = useState<Locale>(getInitialLocale);
+  const [activePage, setActivePage] = useState<AppPage>(getInitialPage);
   const [store, setStore] = useState(initialStore);
   const [hasLoadedStore, setHasLoadedStore] = useState(false);
   const [vaultStatus, setVaultStatus] = useState<VaultStatus>('checking');
@@ -728,6 +743,22 @@ function App() {
     () => getGraphNeighbors(knowledgeGraph, selectedGraphNodeId),
     [knowledgeGraph, selectedGraphNodeId],
   );
+  const pageTitles: Record<AppPage, string> = {
+    inbox: ui.inboxTriage as string,
+    today: ui.today as string,
+    search: ui.meaningSearch as string,
+    projects: ui.activeKnowledgeWork as string,
+    graph: ui.graphView as string,
+    archive: ui.archivedBlocks as string,
+  };
+  const pageEyebrows: Record<AppPage, string> = {
+    inbox: ui.navInbox as string,
+    today: ui.dailyNote as string,
+    search: ui.hybridRetrieval as string,
+    projects: ui.navProjects as string,
+    graph: ui.navGraph as string,
+    archive: ui.archived as string,
+  };
 
   const commandItems: CommandItem[] = [
     {
@@ -757,6 +788,13 @@ function App() {
       section: ui.commandSections.navigation,
       keywords: 'projects work',
       run: () => scrollToSection('projects'),
+    },
+    {
+      id: 'go-graph',
+      label: ui.navGraph as string,
+      section: ui.commandSections.navigation,
+      keywords: 'graph network links concepts',
+      run: () => scrollToSection('graph'),
     },
     {
       id: 'go-archive',
@@ -843,6 +881,7 @@ function App() {
     setStore(nextStore);
     setSelectedBlockId(block?.id);
     setCaptureText('');
+    setActivePage('inbox');
     if (block) {
       void emitCaptureSaved(block, nextStore);
     }
@@ -2758,8 +2797,14 @@ function App() {
   }
 
   function scrollToSection(sectionId: string) {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (isAppPage(sectionId)) {
+      setActivePage(sectionId);
+    }
+
     window.history.replaceState(null, '', `#${sectionId}`);
+    window.setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
   }
 
   function runCommand(command: CommandItem) {
@@ -2822,12 +2867,22 @@ function App() {
 
   return (
     <main className="shell">
-      <Sidebar ui={ui} blockCount={store.blocks.length} hasLoadedStore={hasLoadedStore} appVersion={APP_VERSION} />
+      <Sidebar
+        ui={ui}
+        blockCount={store.blocks.length}
+        hasLoadedStore={hasLoadedStore}
+        appVersion={APP_VERSION}
+        activePage={activePage}
+        onPageChange={(page) => scrollToSection(page)}
+        onLockVault={() => void lockVault()}
+      />
 
       <section className="workspace">
         <Topbar
           ui={ui}
           locale={locale}
+          title={pageTitles[activePage]}
+          eyebrow={pageEyebrows[activePage]}
           onLocaleChange={setLocale}
           onOpenCommandPalette={() => setIsCommandOpen(true)}
           onLockVault={() => void lockVault()}
@@ -2859,45 +2914,49 @@ function App() {
         />
 
         <div className="contentGrid">
-          <TodayPanel
-            ui={ui}
-            locale={locale}
-            projects={store.projects}
-            todayNoteId={todayNoteId}
-            todayBlocks={todayBlocks}
-            focusProjects={focusProjects}
-            dailyNotes={dailyNotes}
-            onSelectBlock={setSelectedBlockId}
-            onSearchProject={(projectName) => {
-              setQuery(projectName);
-              scrollToSection('search');
-            }}
-          />
+          {activePage === 'today' ? (
+            <TodayPanel
+              ui={ui}
+              locale={locale}
+              projects={store.projects}
+              todayNoteId={todayNoteId}
+              todayBlocks={todayBlocks}
+              focusProjects={focusProjects}
+              dailyNotes={dailyNotes}
+              onSelectBlock={setSelectedBlockId}
+              onSearchProject={(projectName) => {
+                setQuery(projectName);
+                scrollToSection('search');
+              }}
+            />
+          ) : null}
 
-          <InboxPanel
-            ui={ui}
-            locale={locale}
-            projects={store.projects}
-            activeBlocks={activeBlocks}
-            openBlocksCount={openBlocks.length}
-            selectedBlockId={selectedBlockId}
-            editingBlockId={editingBlockId}
-            editingText={editingText}
-            onSelectBlock={setSelectedBlockId}
-            onToggleProcessed={toggleBlockProcessed}
-            onStartEditing={startEditing}
-            onEditingTextChange={setEditingText}
-            onSaveEditing={saveEditing}
-            onCancelEditing={cancelEditing}
-            onArchiveBlock={(blockId) => {
-              setStore(archiveBlock(blockId));
-              if (selectedBlockId === blockId) {
-                setSelectedBlockId(activeBlocks.find((item) => item.id !== blockId)?.id);
-              }
-            }}
-          />
+          {activePage === 'inbox' ? (
+            <>
+              <InboxPanel
+                ui={ui}
+                locale={locale}
+                projects={store.projects}
+                activeBlocks={activeBlocks}
+                openBlocksCount={openBlocks.length}
+                selectedBlockId={selectedBlockId}
+                editingBlockId={editingBlockId}
+                editingText={editingText}
+                onSelectBlock={setSelectedBlockId}
+                onToggleProcessed={toggleBlockProcessed}
+                onStartEditing={startEditing}
+                onEditingTextChange={setEditingText}
+                onSaveEditing={saveEditing}
+                onCancelEditing={cancelEditing}
+                onArchiveBlock={(blockId) => {
+                  setStore(archiveBlock(blockId));
+                  if (selectedBlockId === blockId) {
+                    setSelectedBlockId(activeBlocks.find((item) => item.id !== blockId)?.id);
+                  }
+                }}
+              />
 
-          <InspectorPanel
+              <InspectorPanel
             ui={ui}
             projects={store.projects}
             selectedBlock={selectedBlock}
@@ -3004,69 +3063,81 @@ function App() {
             onInstallAutoUpdate={installAutoUpdate}
             onInstallPwa={() => void installPwa()}
           />
+            </>
+          ) : null}
 
-          <SearchPanel
-            ui={ui}
-            query={query}
-            results={results}
-            onQueryChange={setQuery}
-            onSelectBlock={setSelectedBlockId}
-          />
+          {activePage === 'search' ? (
+            <>
+              <SearchPanel
+                ui={ui}
+                query={query}
+                results={results}
+                onQueryChange={setQuery}
+                onSelectBlock={setSelectedBlockId}
+              />
 
-          <PeoplePanel
-            ui={ui}
-            peopleIndex={peopleIndex}
-            onSearchPerson={(name, firstBlockId) => {
-              setQuery(`@${name}`);
-              setSelectedBlockId(firstBlockId);
-              scrollToSection('search');
-            }}
-          />
+              <PeoplePanel
+                ui={ui}
+                peopleIndex={peopleIndex}
+                onSearchPerson={(name, firstBlockId) => {
+                  setQuery(`@${name}`);
+                  setSelectedBlockId(firstBlockId);
+                  scrollToSection('search');
+                }}
+              />
+            </>
+          ) : null}
 
-          <GraphPanel
-            ui={ui}
-            graphNodes={graphNodes}
-            graphEdges={graphEdges}
-            positionedGraphNodes={positionedGraphNodes}
-            graphPositionById={graphPositionById}
-            edgeFilter={graphEdgeFilter}
-            onEdgeFilterChange={setGraphEdgeFilter}
-            selectedGraphNodeId={selectedGraphNodeId}
-            graphNeighbors={graphNeighbors}
-            selectedBlockId={selectedBlockId}
-            onSelectGraphNode={setSelectedGraphNodeId}
-            onSelectBlock={setSelectedBlockId}
-            onSearchConcept={(concept) => {
-              setQuery(concept);
-              scrollToSection('search');
-            }}
-          />
+          {activePage === 'graph' ? (
+            <GraphPanel
+              ui={ui}
+              graphNodes={graphNodes}
+              graphEdges={graphEdges}
+              positionedGraphNodes={positionedGraphNodes}
+              graphPositionById={graphPositionById}
+              edgeFilter={graphEdgeFilter}
+              onEdgeFilterChange={setGraphEdgeFilter}
+              selectedGraphNodeId={selectedGraphNodeId}
+              graphNeighbors={graphNeighbors}
+              selectedBlockId={selectedBlockId}
+              onSelectGraphNode={setSelectedGraphNodeId}
+              onSelectBlock={setSelectedBlockId}
+              onSearchConcept={(concept) => {
+                setQuery(concept);
+                scrollToSection('search');
+              }}
+            />
+          ) : null}
 
-          <ProjectsPanel
-            ui={ui}
-            projectCounts={projectCounts}
-            newProjectName={newProjectName}
-            newProjectSignal={newProjectSignal}
-            newProjectStatus={newProjectStatus}
-            projectFormError={projectFormError}
-            onNewProjectNameChange={setNewProjectName}
-            onNewProjectSignalChange={setNewProjectSignal}
-            onNewProjectStatusChange={setNewProjectStatus}
-            onClearProjectFormError={() => setProjectFormError('')}
-            onSubmitNewProject={submitNewProject}
-          />
+          {activePage === 'projects' ? (
+            <ProjectsPanel
+              ui={ui}
+              projectCounts={projectCounts}
+              newProjectName={newProjectName}
+              newProjectSignal={newProjectSignal}
+              newProjectStatus={newProjectStatus}
+              projectFormError={projectFormError}
+              onNewProjectNameChange={setNewProjectName}
+              onNewProjectSignalChange={setNewProjectSignal}
+              onNewProjectStatusChange={setNewProjectStatus}
+              onClearProjectFormError={() => setProjectFormError('')}
+              onSubmitNewProject={submitNewProject}
+            />
+          ) : null}
 
-          <ArchivePanel
-            ui={ui}
-            locale={locale}
-            projects={store.projects}
-            archivedBlocks={archivedBlocks}
-            onRestoreBlock={(blockId) => {
-              setStore(restoreBlock(blockId));
-              setSelectedBlockId(blockId);
-            }}
-            onDeleteBlock={permanentlyDeleteArchivedBlock}
-          />
+          {activePage === 'archive' ? (
+            <ArchivePanel
+              ui={ui}
+              locale={locale}
+              projects={store.projects}
+              archivedBlocks={archivedBlocks}
+              onRestoreBlock={(blockId) => {
+                setStore(restoreBlock(blockId));
+                setSelectedBlockId(blockId);
+              }}
+              onDeleteBlock={permanentlyDeleteArchivedBlock}
+            />
+          ) : null}
         </div>
       </section>
 

@@ -386,11 +386,20 @@ button:disabled {
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 9;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+  padding: 8px 0 12px;
+  background:
+    linear-gradient(135deg, rgba(45, 106, 79, 0.12), transparent 34%),
+    linear-gradient(315deg, rgba(49, 95, 140, 0.09), transparent 42%),
+    rgba(237, 242, 236, 0.92);
+  backdrop-filter: blur(16px);
 }
 
 .topbar h1,
@@ -406,6 +415,15 @@ button:disabled {
 .topbar p,
 .panelHeader p {
   margin: 0 0 3px;
+}
+
+.topbarEyebrow {
+  display: block;
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .topbarActions {
@@ -546,6 +564,27 @@ button:disabled {
   border: 1px solid var(--line);
   background: var(--paper);
   color: var(--ink);
+}
+
+.vaultLockButton,
+.sidebarLockButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #1c2520;
+  background: #1c2520;
+  color: #f7f5e8;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.sidebarLockButton {
+  width: 100%;
+  margin-top: 6px;
+  border-color: rgba(28, 37, 32, 0.72);
 }
 
 .capture,
@@ -1945,6 +1984,10 @@ button.resultRow:hover {
   .localeToggle,
   .captureHeader {
     width: 100%;
+  }
+
+  .vaultLockButton {
+    flex: 1;
   }
 
   .captureHeader {

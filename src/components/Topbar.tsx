@@ -4,21 +4,25 @@ import type { Locale, UiCopy } from '../i18n';
 type TopbarProps = {
   ui: UiCopy;
   locale: Locale;
+  title: string;
+  eyebrow: string;
   onLocaleChange: (locale: Locale) => void;
   onOpenCommandPalette: () => void;
   onLockVault: () => void;
 };
 
-export function Topbar({ ui, locale, onLocaleChange, onOpenCommandPalette, onLockVault }: TopbarProps) {
+export function Topbar({ ui, locale, title, eyebrow, onLocaleChange, onOpenCommandPalette, onLockVault }: TopbarProps) {
   const displayDate = new Intl.DateTimeFormat(locale === 'ja' ? 'ja-JP' : 'en-US', {
     dateStyle: 'full',
   }).format(new Date());
+  const lockLabel = locale === 'en' ? 'Lock vault' : 'Vaultをロック';
 
   return (
     <header className="topbar">
       <div>
         <p>{displayDate}</p>
-        <h1>{ui.inboxTriage as string}</h1>
+        <span className="topbarEyebrow">{eyebrow}</span>
+        <h1>{title}</h1>
       </div>
       <div className="topbarActions">
         <div className="localeToggle" aria-label={ui.languageLabel as string}>
@@ -38,14 +42,9 @@ export function Topbar({ ui, locale, onLocaleChange, onOpenCommandPalette, onLoc
         >
           <Command size={19} />
         </button>
-        <button
-          className="iconButton"
-          type="button"
-          aria-label={locale === 'en' ? 'Lock vault' : 'Vaultをロック'}
-          title={locale === 'en' ? 'Lock vault' : 'Vaultをロック'}
-          onClick={onLockVault}
-        >
+        <button className="vaultLockButton" type="button" aria-label={lockLabel} title={lockLabel} onClick={onLockVault}>
           <LockKeyhole size={18} />
+          <span>{lockLabel}</span>
         </button>
       </div>
     </header>

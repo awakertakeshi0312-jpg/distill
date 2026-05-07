@@ -1,14 +1,42 @@
-﻿import { Archive, BookOpen, CalendarDays, Inbox, Network, Search } from 'lucide-react';
+import { Archive, BookOpen, CalendarDays, Inbox, LockKeyhole, Network, Search, type LucideIcon } from 'lucide-react';
 import type { UiCopy } from '../i18n';
+
+export type AppPage = 'inbox' | 'today' | 'search' | 'projects' | 'graph' | 'archive';
 
 type SidebarProps = {
   ui: UiCopy;
   blockCount: number;
   hasLoadedStore: boolean;
   appVersion: string;
+  activePage: AppPage;
+  onPageChange: (page: AppPage) => void;
+  onLockVault: () => void;
 };
 
-export function Sidebar({ ui, blockCount, hasLoadedStore, appVersion }: SidebarProps) {
+type NavItem = {
+  id: AppPage;
+  icon: LucideIcon;
+  label: string;
+};
+
+export function Sidebar({
+  ui,
+  blockCount,
+  hasLoadedStore,
+  appVersion,
+  activePage,
+  onPageChange,
+  onLockVault,
+}: SidebarProps) {
+  const items: NavItem[] = [
+    { id: 'inbox', icon: Inbox, label: ui.navInbox as string },
+    { id: 'today', icon: CalendarDays, label: ui.navToday as string },
+    { id: 'search', icon: Search, label: ui.navSearch as string },
+    { id: 'projects', icon: BookOpen, label: ui.navProjects as string },
+    { id: 'graph', icon: Network, label: ui.navGraph as string },
+    { id: 'archive', icon: Archive, label: ui.navArchive as string },
+  ];
+
   return (
     <aside className="sidebar" aria-label="Primary navigation">
       <div className="brand">
@@ -20,30 +48,24 @@ export function Sidebar({ ui, blockCount, hasLoadedStore, appVersion }: SidebarP
       </div>
 
       <nav className="navList">
-        <a className="navItem active" href="#inbox">
-          <Inbox size={18} />
-          {ui.navInbox as string}
-        </a>
-        <a className="navItem" href="#today">
-          <CalendarDays size={18} />
-          {ui.navToday as string}
-        </a>
-        <a className="navItem" href="#search">
-          <Search size={18} />
-          {ui.navSearch as string}
-        </a>
-        <a className="navItem" href="#projects">
-          <BookOpen size={18} />
-          {ui.navProjects as string}
-        </a>
-        <a className="navItem" href="#graph">
-          <Network size={18} />
-          {ui.navGraph as string}
-        </a>
-        <a className="navItem" href="#archive">
-          <Archive size={18} />
-          {ui.navArchive as string}
-        </a>
+        {items.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <a
+              className={`navItem ${activePage === item.id ? 'active' : ''}`}
+              href={`#${item.id}`}
+              key={item.id}
+              onClick={(event) => {
+                event.preventDefault();
+                onPageChange(item.id);
+              }}
+            >
+              <Icon size={18} />
+              {item.label}
+            </a>
+          );
+        })}
       </nav>
 
       <div className="trustPanel">
@@ -51,6 +73,10 @@ export function Sidebar({ ui, blockCount, hasLoadedStore, appVersion }: SidebarP
         <strong>{ui.blocksIndexed(blockCount)}</strong>
         <small>{hasLoadedStore ? (ui.storageReady as string) : (ui.storageLoading as string)}</small>
         <small>Distill v{appVersion}</small>
+        <button className="sidebarLockButton" type="button" onClick={onLockVault}>
+          <LockKeyhole size={16} />
+          Vaultをロック
+        </button>
       </div>
     </aside>
   );
