@@ -1,6 +1,87 @@
 import { expect, test } from '@playwright/test';
 
 const VAULT_PASSPHRASE = 'correct horse battery staple';
+const BROWSER_VAULT_DB_NAME = 'distill-browser-vault';
+const BROWSER_VAULT_STORE_NAME = 'vaults';
+const BROWSER_VAULT_KEY = 'distill.vault.v1';
+
+async function clearBrowserVault(page: import('@playwright/test').Page) {
+  await page.evaluate(
+    ({ dbName }) =>
+      new Promise<void>((resolve) => {
+        window.localStorage.clear();
+        const request = window.indexedDB.deleteDatabase(dbName);
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => resolve();
+        request.onblocked = () => resolve();
+      }),
+    { dbName: BROWSER_VAULT_DB_NAME },
+  );
+}
+
+async function readBrowserVault(page: import('@playwright/test').Page, key = BROWSER_VAULT_KEY) {
+  return page.evaluate(
+    ({ dbName, storeName, valueKey }) =>
+      new Promise<string | null>((resolve, reject) => {
+        const request = window.indexedDB.open(dbName, 1);
+
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains(storeName)) {
+            request.result.createObjectStore(storeName);
+          }
+        };
+        request.onerror = () => reject(request.error ?? new Error('Could not open test IndexedDB vault.'));
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction(storeName, 'readonly');
+          const readRequest = transaction.objectStore(storeName).get(valueKey);
+
+          readRequest.onsuccess = () => resolve(typeof readRequest.result === 'string' ? readRequest.result : null);
+          readRequest.onerror = () => reject(readRequest.error ?? new Error('Could not read test IndexedDB vault.'));
+          transaction.oncomplete = () => database.close();
+        };
+      }),
+    { dbName: BROWSER_VAULT_DB_NAME, storeName: BROWSER_VAULT_STORE_NAME, valueKey: key },
+  );
+}
+
+async function waitForBrowserVaultWrite(page: import('@playwright/test').Page, previousVault?: string | null) {
+  await page.waitForFunction(
+    async ({ dbName, storeName, valueKey, previous }) => {
+      const stored = await new Promise<string | null>((resolve, reject) => {
+        const request = window.indexedDB.open(dbName, 1);
+
+        request.onerror = () => reject(request.error ?? new Error('Could not open IndexedDB vault.'));
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction(storeName, 'readonly');
+          const readRequest = transaction.objectStore(storeName).get(valueKey);
+
+          readRequest.onsuccess = () => resolve(typeof readRequest.result === 'string' ? readRequest.result : null);
+          readRequest.onerror = () => reject(readRequest.error ?? new Error('Could not read IndexedDB vault.'));
+          transaction.oncomplete = () => database.close();
+        };
+      });
+
+      if (typeof stored !== 'string' || !stored.includes('distill.encrypted-vault')) {
+        return false;
+      }
+
+      if (window.localStorage.getItem(valueKey) !== null) {
+        return false;
+      }
+
+      return previous === undefined ? true : stored !== previous;
+    },
+    {
+      dbName: BROWSER_VAULT_DB_NAME,
+      storeName: BROWSER_VAULT_STORE_NAME,
+      valueKey: BROWSER_VAULT_KEY,
+      previous: previousVault,
+    },
+  );
+}
 
 async function openUnlockedVault(page: import('@playwright/test').Page, passphraseValue = VAULT_PASSPHRASE) {
   await page.goto('/');
@@ -23,7 +104,7 @@ async function openUnlockedVault(page: import('@playwright/test').Page, passphra
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(() => window.localStorage.clear());
+  await clearBrowserVault(page);
 });
 
 test('Japanese UI is available by default', async ({ page }) => {
@@ -241,14 +322,14 @@ test('Project assignment persists after reload in browser fallback', async ({ pa
   await page.locator('a[href="#inbox"]').click();
   await page.getByLabel('Capture a thought').fill('Persist assignment [[Persistence]] #state');
   await page.getByRole('button', { name: 'Capture' }).click();
-  const vaultBeforeAssignment = await page.evaluate(() => window.localStorage.getItem('distill.vault.v1'));
+  await waitForBrowserVaultWrite(page);
+  const vaultBeforeAssignment = await readBrowserVault(page);
   await page.locator('.inspectorControls select').first().selectOption({ label: 'Persistence Project' });
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Persistence Project' })).toBeVisible();
-  await page.waitForFunction((previousVault) => {
-    const stored = window.localStorage.getItem('distill.vault.v1') ?? '';
-    return stored !== previousVault && stored.includes('distill.encrypted-vault') && !stored.includes('Persist assignment') && !stored.includes('Persistence Project');
-  }, vaultBeforeAssignment);
+  await waitForBrowserVaultWrite(page, vaultBeforeAssignment);
 
+  await page.getByRole('button', { name: 'Lock vault' }).click();
+  await expect(page.locator('input[aria-label="Vault passphrase"]')).toBeVisible();
   await page.reload();
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();

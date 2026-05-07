@@ -1,5 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { check, type DownloadEvent, type Update } from '@tauri-apps/plugin-updater';
+import {
+  browserVaultPath,
+  getBrowserVaultStorageInfo,
+  loadBrowserEncryptedValue,
+  saveBrowserEncryptedValue,
+  type BrowserVaultBackend,
+} from './browserVaultStore';
 import type { GraphSnapshot } from './graph';
 import { DistillStore, SearchResult, searchBlocks } from './model';
 
@@ -16,6 +23,7 @@ export type StorageInfo = {
   mode: 'encrypted-vault' | 'browser';
   path: string;
   backupPath?: string;
+  browserBackend?: BrowserVaultBackend;
 };
 
 export type AppUpdateInfo = {
@@ -64,7 +72,7 @@ export async function loadEncryptedVault(): Promise<string | null> {
     }
   }
 
-  return localStorage.getItem(VAULT_KEY);
+  return loadBrowserEncryptedValue(VAULT_KEY);
 }
 
 export async function saveEncryptedVault(value: string): Promise<void> {
@@ -73,7 +81,7 @@ export async function saveEncryptedVault(value: string): Promise<void> {
     return;
   }
 
-  localStorage.setItem(VAULT_KEY, value);
+  await saveBrowserEncryptedValue(VAULT_KEY, value);
 }
 
 export async function saveSyncRecoveryVault(value: string, label: string): Promise<string> {
@@ -81,8 +89,8 @@ export async function saveSyncRecoveryVault(value: string, label: string): Promi
     return await invoke<string>('save_sync_recovery_vault_json', { value, label });
   }
 
-  localStorage.setItem(SYNC_RECOVERY_KEY, value);
-  return `localStorage:${SYNC_RECOVERY_KEY}`;
+  const backend = await saveBrowserEncryptedValue(SYNC_RECOVERY_KEY, value);
+  return browserVaultPath(SYNC_RECOVERY_KEY, backend);
 }
 
 export async function listSyncRecoveryVaults(): Promise<SyncRecoveryVaultFile[]> {
@@ -91,13 +99,13 @@ export async function listSyncRecoveryVaults(): Promise<SyncRecoveryVaultFile[]>
     return JSON.parse(value) as SyncRecoveryVaultFile[];
   }
 
-  const recovery = localStorage.getItem(SYNC_RECOVERY_KEY);
+  const recovery = await loadBrowserEncryptedValue(SYNC_RECOVERY_KEY);
 
   return recovery
     ? [
         {
           fileName: 'browser-latest-sync-recovery.json',
-          path: `localStorage:${SYNC_RECOVERY_KEY}`,
+          path: getBrowserVaultStorageInfo(SYNC_RECOVERY_KEY).path,
           bytes: recovery.length,
           modifiedAt: 'browser-latest',
         },
@@ -110,11 +118,16 @@ export async function readSyncRecoveryVault(filePath: string): Promise<string> {
     return await invoke<string>('read_sync_recovery_vault_file', { filePath });
   }
 
-  if (filePath !== `localStorage:${SYNC_RECOVERY_KEY}`) {
+  const expectedPaths = [
+    browserVaultPath(SYNC_RECOVERY_KEY, 'indexeddb'),
+    browserVaultPath(SYNC_RECOVERY_KEY, 'localStorage'),
+  ];
+
+  if (!expectedPaths.includes(filePath)) {
     throw new Error('Unknown browser sync recovery snapshot.');
   }
 
-  const recovery = localStorage.getItem(SYNC_RECOVERY_KEY);
+  const recovery = await loadBrowserEncryptedValue(SYNC_RECOVERY_KEY);
 
   if (!recovery) {
     throw new Error('No browser sync recovery snapshot was found.');
@@ -172,10 +185,13 @@ export async function loadStorageInfo(): Promise<StorageInfo> {
     }
   }
 
+  const browserInfo = getBrowserVaultStorageInfo(VAULT_KEY);
+
   return {
     mode: 'browser',
-    path: `localStorage:${VAULT_KEY}`,
-    backupPath: 'encrypted browser vault',
+    path: browserInfo.path,
+    backupPath: browserInfo.backupPath,
+    browserBackend: browserInfo.backend,
   };
 }
 

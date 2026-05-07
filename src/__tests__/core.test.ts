@@ -23,6 +23,7 @@ import {
 import { buildKnowledgeGraph, filterKnowledgeGraph, getGraphNeighbors, layoutKnowledgeGraph } from '../graph';
 import { exportStoreAsJson } from '../export';
 import { createMarkdownImport, parseDistillImport } from '../import';
+import { browserVaultPath, getBrowserVaultStorageInfo, isBrowserIndexedDbSupported } from '../browserVaultStore';
 import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { detectPwaPlatform, getPwaInstallGuidance } from '../pwaInstall';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
@@ -167,6 +168,28 @@ describe('PWA install guidance', () => {
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
       }).kind,
     ).toBe('ios-manual');
+  });
+});
+
+describe('browser vault storage planning', () => {
+  it('uses IndexedDB paths when browser support is available', () => {
+    expect(browserVaultPath('distill.vault.v1', 'indexeddb')).toBe(
+      'indexedDB:distill-browser-vault/vaults/distill.vault.v1',
+    );
+
+    expect(getBrowserVaultStorageInfo('distill.vault.v1', true)).toMatchObject({
+      backend: 'indexeddb',
+      path: 'indexedDB:distill-browser-vault/vaults/distill.vault.v1',
+    });
+  });
+
+  it('falls back to localStorage paths when IndexedDB is unavailable', () => {
+    expect(getBrowserVaultStorageInfo('distill.vault.v1', false)).toMatchObject({
+      backend: 'localStorage',
+      path: 'localStorage:distill.vault.v1',
+    });
+
+    expect(isBrowserIndexedDbSupported()).toBe(false);
   });
 });
 

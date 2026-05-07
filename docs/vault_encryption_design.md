@@ -12,7 +12,7 @@ Implemented:
 - After migration, known plaintext SQLite tables, the legacy `distill.store.v1` JSON row, and the old automatic JSON backup are cleared.
 - The persistent vault value is stored as `distill.vault.v1`.
 - Desktop stores the encrypted envelope in the Tauri SQLite `app_store` table and writes an encrypted latest backup at `backups/distill-encrypted-vault-latest.json`.
-- Browser/PWA preview stores the encrypted envelope in `localStorage:distill.vault.v1`.
+- Browser/PWA preview stores the encrypted envelope in `indexedDB:distill-browser-vault/vaults/distill.vault.v1` when IndexedDB is available, migrates existing encrypted `localStorage:distill.vault.v1` values into IndexedDB, and uses localStorage only as a fallback.
 - Search and graph are generated from the decrypted in-memory store after unlock, not from a persistent plaintext SQLite index.
 - Users can change the vault passphrase from the Inspector.
 - Distill can auto-lock after inactivity and locks when the document is hidden.

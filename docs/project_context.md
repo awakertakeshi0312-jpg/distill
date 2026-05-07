@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.32
+- Current version: 0.1.33
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, mobile/PWA readiness diagnostics, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -58,7 +58,7 @@ Implemented app features:
 - One-time migration from legacy plaintext local store
 - Explicit clearing of known plaintext legacy data
 - English/Japanese UI
-- PWA/mobile preview path with install guidance, mobile app metadata, update-safer service worker caching, and phone-width E2E smoke coverage
+- PWA/mobile preview path with install guidance, mobile app metadata, update-safer service worker caching, phone-width E2E smoke coverage, and IndexedDB-backed encrypted vault storage
 - Signed Tauri updater check/install flow
 - Manual update launcher fallback for newer Distill setup packages
 - Stable local device identity for sync packet source tracking
@@ -92,7 +92,7 @@ Normal persistence is now encrypted at rest:
 
 - Desktop key: `distill.vault.v1` in the Tauri SQLite `app_store` table
 - Desktop encrypted backup: `backups/distill-encrypted-vault-latest.json`
-- Browser/PWA key: `localStorage:distill.vault.v1`
+- Browser/PWA key: `indexedDB:distill-browser-vault/vaults/distill.vault.v1`, with `localStorage:distill.vault.v1` retained only as a fallback or migration source
 - Encryption: PBKDF2 SHA-256 plus AES-256-GCM
 - Search/graph: decrypted in memory after unlock
 
@@ -108,7 +108,7 @@ Known remaining security limits:
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - restore preview exists, but restore still replaces the full local store after user approval
 - no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, signed trusted-device verification, source-device verification code confirmation, unknown-device trust confirmation, recovery snapshot gating before apply, and manual recovery preview after apply
-- browser/PWA preview still depends on localStorage for the encrypted envelope; PWA installation is a local preview path, not hosted sync
+- browser/PWA preview now prefers IndexedDB for the encrypted envelope, but it is still this-device-only; PWA installation is a local preview path, not hosted sync
 
 ## Technical Stack
 

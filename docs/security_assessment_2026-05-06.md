@@ -8,7 +8,7 @@ This assessment covers the current local-first Distill MVP:
 - React/Vite frontend
 - encrypted local vault persistence
 - legacy plaintext migration path
-- browser/PWA preview with install guidance and update-safer offline shell cache
+- browser/PWA preview with install guidance, update-safer offline shell cache, and IndexedDB-backed encrypted vault storage
 - signed Windows updater
 - GitHub Releases updater feed
 - manual encrypted sync packet export/import with apply preview
@@ -67,6 +67,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added monitor-only sync-folder review refresh that updates safety classifications without auto-preview or auto-apply.
 - Added outbound sync-folder auto-export for encrypted packets only; inbound preview/apply remains manual.
 - Added PWA/mobile install guidance, app metadata, touch icon, update-safer service worker navigation strategy, and phone-width E2E smoke coverage.
+- Added IndexedDB-backed browser/PWA encrypted vault and sync recovery storage with migration from encrypted localStorage and localStorage fallback only when IndexedDB is unavailable.
 
 ## Findings
 
@@ -92,13 +93,13 @@ Recommended remediation:
 - Keep plaintext sync metadata minimal.
 - Define rollback/replay protection before automatic sync.
 
-### P2: Browser/PWA mode still depends on localStorage
+### P2: Browser/PWA mode is still this-device-only
 
-The browser preview stores the encrypted envelope in localStorage. Content is encrypted, but localStorage can be deleted, replaced, or copied by anything with browser profile access.
+The browser/PWA preview now stores the encrypted envelope in IndexedDB when available and removes the old encrypted localStorage copy after migration/save. Content is encrypted, but browser profile data can still be deleted, replaced, or copied by anything with profile access.
 
 Recommended remediation:
 
-- Treat PWA mode as a preview until IndexedDB + better key/session handling is implemented. The app now labels PWA/mobile status and keeps navigation network-first to reduce stale shell risk.
+- Treat PWA mode as a preview until better key/session handling and production E2EE sync transport are implemented. The app now labels PWA/mobile status, keeps navigation network-first to reduce stale shell risk, and prefers IndexedDB over localStorage for encrypted vault values.
 - Add backup/export prompts on mobile.
 - Consider native mobile for stronger platform storage.
 

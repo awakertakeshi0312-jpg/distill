@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.32.
-- Current phase: Mobile/PWA readiness and Trust Layer sync hardening.
-- Current completion estimate: 81% overall; this phase advanced +3pt in this pass.
-- Implemented in this pass: mobile/PWA readiness hardening. Distill now exposes install guidance in the Inspector, reports PWA/offline-shell status, includes mobile install metadata/icons, and uses an update-safer service worker strategy so mobile browsers prefer fresh navigation HTML while keeping an offline shell fallback.
+- Current version: 0.1.33.
+- Current phase: Mobile/PWA vault persistence and Trust Layer sync hardening.
+- Current completion estimate: 84% overall; this phase advanced +3pt in this pass.
+- Implemented in this pass: IndexedDB-backed browser/PWA encrypted vault persistence. Browser and PWA mode now prefer IndexedDB for encrypted vault and sync recovery values, migrate existing encrypted localStorage vaults into IndexedDB, remove the old encrypted localStorage copy after successful migration/save, and keep localStorage only as a fallback when IndexedDB is unavailable.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
-- Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, IndexedDB-backed PWA vault persistence, and production mobile sync transport.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.32.md`.
+- Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, record-level normal vault persistence, and production mobile sync transport.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.33.md`.
 ## 役割
 
 思老E�E断牁E��捕まえ、タグ・リンク・検索・グラフ�Eレビューを通じて、判断めE��識に蒸留するローカルファースト�EチE��クトップアプリ、E

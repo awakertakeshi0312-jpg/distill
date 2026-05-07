@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.32 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, risk acknowledgement before destructive applies, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, signed device checkpoints, source-device verification codes with QR display/scanner import, known-device forget/removal, safe semi-automatic inbound preview, mobile/PWA install guidance, update-safer offline shell caching, phone-width PWA smoke coverage, unknown-device trust confirmation, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews with decision-review counts.
+Distill 0.1.33 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, risk acknowledgement before destructive applies, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, signed device checkpoints, source-device verification codes with QR display/scanner import, known-device forget/removal, safe semi-automatic inbound preview, mobile/PWA install guidance, update-safer offline shell caching, phone-width PWA smoke coverage, IndexedDB-backed encrypted browser vault persistence, unknown-device trust confirmation, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews with decision-review counts.
 
 ## Phase 1: Desktop MVP
 
@@ -36,7 +36,7 @@ Completed:
 - Local semantic-overlap retrieval.
 - Manual update launcher for newer setup packages.
 - Installed-app QA on Windows.
-- PWA/mobile preview path with install metadata, home-screen guidance, update-safer service worker caching, and phone-width E2E smoke coverage.
+- PWA/mobile preview path with install metadata, home-screen guidance, update-safer service worker caching, phone-width E2E smoke coverage, and IndexedDB-backed encrypted browser vault storage.
 - E2E coverage for vault unlock, passphrase change, Japanese UI, MVP flow, restore/import, edit/archive/restore, exports, people/graph, and encrypted persistence.
 
 Remaining polish:
