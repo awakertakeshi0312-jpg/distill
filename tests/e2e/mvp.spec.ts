@@ -160,6 +160,7 @@ test('MVP browser smoke: capture, search, graph, project, archive', async ({ pag
 test('JSON backup can be restored through the UI', async ({ page }) => {
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
+  await page.locator('a[href="#settings"]').click();
 
   await page.locator('input[type="file"]').first().setInputFiles({
     name: 'distill-import.json',
@@ -199,6 +200,7 @@ test('JSON backup can be restored through the UI', async ({ page }) => {
 test('Markdown import appends blocks without replacing the store', async ({ page }) => {
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
+  await page.locator('a[href="#settings"]').click();
 
   await page.locator('input[type="file"]').nth(1).setInputFiles({
     name: 'notes.md',
@@ -251,6 +253,7 @@ test('Edit, archive, and restore keep a block usable', async ({ page }) => {
 test('Markdown, JSON, and backup exports download files', async ({ page }) => {
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
+  await page.locator('a[href="#settings"]').click();
 
   const markdownDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Markdown' }).click();
@@ -273,6 +276,7 @@ test('Markdown, JSON, and backup exports download files', async ({ page }) => {
 test('Update section validates installer launch boundary in browser fallback', async ({ page }) => {
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
+  await page.locator('a[href="#settings"]').click();
 
   await page.getByPlaceholder('Paste path to Distill_0.1.0_x64-setup.exe').fill('C:\\Downloads\\Distill_0.1.0_x64-setup.exe');
   await page.getByRole('button', { name: 'Start manual update' }).click();
@@ -285,9 +289,9 @@ test('Mobile PWA readiness panel is available on a phone-sized viewport', async 
   await page.getByRole('button', { name: 'English' }).click();
 
   await expect(page.locator('.navList')).toBeVisible();
-  await page.getByText('Mobile / PWA').scrollIntoViewIfNeeded();
-  await expect(page.getByText('Mobile / PWA')).toBeVisible();
-  const pwaPanel = page.locator('.restoreBox').filter({ hasText: 'Mobile / PWA' });
+  await page.locator('a[href="#mobile"]').click();
+  await expect(page.locator('.mobilePanel').getByRole('heading', { name: 'Mobile access' })).toBeVisible();
+  const pwaPanel = page.locator('.mobilePanel');
   await expect(pwaPanel.getByText('Offline shell')).toBeVisible();
   await expect(pwaPanel.getByText('Network')).toBeVisible();
 });
@@ -329,7 +333,7 @@ test('Project assignment persists after reload in browser fallback', async ({ pa
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Persistence Project' })).toBeVisible();
   await waitForBrowserVaultWrite(page, vaultBeforeAssignment);
 
-  await page.getByRole('button', { name: 'Lock vault' }).click();
+  await page.locator('.vaultLockButton').click();
   await expect(page.locator('input[aria-label="Vault passphrase"]')).toBeVisible();
   await page.reload();
   await openUnlockedVault(page);
@@ -341,6 +345,7 @@ test('Vault passphrase can be changed and old passphrase stops unlocking', async
   const nextPassphrase = 'new correct horse battery staple';
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
+  await page.locator('a[href="#settings"]').click();
 
   await page.locator('.vaultSecurityBox').scrollIntoViewIfNeeded();
   await page.getByLabel('Current vault passphrase').fill(VAULT_PASSPHRASE);
@@ -349,7 +354,7 @@ test('Vault passphrase can be changed and old passphrase stops unlocking', async
   await page.getByRole('button', { name: 'Change passphrase' }).click();
   await expect(page.getByText('Vault passphrase changed.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Lock vault' }).click();
+  await page.locator('.vaultLockButton').click();
   await expect(page.locator('input[aria-label="Vault passphrase"]')).toBeVisible();
 
   await page.locator('input[aria-label="Vault passphrase"]').fill(VAULT_PASSPHRASE);
@@ -364,7 +369,7 @@ test('Vault passphrase can be changed and old passphrase stops unlocking', async
 test('Existing vault unlock does not block short legacy passphrases at the form layer', async ({ page }) => {
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
-  await page.getByRole('button', { name: 'Lock vault' }).click();
+  await page.locator('.vaultLockButton').click();
 
   const passphrase = page.locator('input[aria-label="Vault passphrase"]');
   await expect(passphrase).toBeVisible();
@@ -375,7 +380,7 @@ test('Locked vault can be reset into a new passphrase setup flow', async ({ page
   const nextPassphrase = 'fresh reset vault passphrase';
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();
-  await page.getByRole('button', { name: 'Lock vault' }).click();
+  await page.locator('.vaultLockButton').click();
 
   await page.getByText('Forgot the passphrase?').click();
   await page.getByLabel('Confirm vault reset').fill('RESET');
@@ -389,7 +394,7 @@ test('Locked vault can be reset into a new passphrase setup flow', async ({ page
   await page.getByRole('button', { name: 'Create vault' }).click();
   await expect(page.locator('.shell')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Lock vault' }).click();
+  await page.locator('.vaultLockButton').click();
   await page.getByLabel('Vault passphrase', { exact: true }).fill(VAULT_PASSPHRASE);
   await page.getByRole('button', { name: 'Unlock vault' }).click();
   await expect(page.getByText('Could not unlock the vault. Check the passphrase.')).toBeVisible();

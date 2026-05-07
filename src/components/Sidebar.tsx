@@ -1,7 +1,18 @@
-import { Archive, BookOpen, CalendarDays, Inbox, LockKeyhole, Network, Search, type LucideIcon } from 'lucide-react';
+import {
+  Archive,
+  BookOpen,
+  CalendarDays,
+  Inbox,
+  LockKeyhole,
+  Network,
+  Search,
+  Settings,
+  Smartphone,
+  type LucideIcon,
+} from 'lucide-react';
 import type { UiCopy } from '../i18n';
 
-export type AppPage = 'inbox' | 'today' | 'search' | 'projects' | 'graph' | 'archive';
+export type AppPage = 'inbox' | 'today' | 'search' | 'projects' | 'graph' | 'archive' | 'settings' | 'mobile';
 
 type SidebarProps = {
   ui: UiCopy;
@@ -35,6 +46,8 @@ export function Sidebar({
     { id: 'projects', icon: BookOpen, label: ui.navProjects as string },
     { id: 'graph', icon: Network, label: ui.navGraph as string },
     { id: 'archive', icon: Archive, label: ui.navArchive as string },
+    { id: 'settings', icon: Settings, label: ui.navSettings as string },
+    { id: 'mobile', icon: Smartphone, label: ui.navMobile as string },
   ];
 
   return (
@@ -75,7 +88,7 @@ export function Sidebar({
         <small>Distill v{appVersion}</small>
         <button className="sidebarLockButton" type="button" onClick={onLockVault}>
           <LockKeyhole size={16} />
-          Vaultをロック
+          {ui.lockVault as string}
         </button>
       </div>
     </aside>

@@ -57,6 +57,7 @@ function syncPreviewRequiresFingerprintVerification(preview: SyncPreview | null)
 
 type InspectorPanelProps = {
   ui: UiCopy;
+  mode?: 'context' | 'full';
   projects: Project[];
   selectedBlock?: ThoughtBlock;
   selectedPeople: string[];
@@ -156,6 +157,7 @@ type InspectorPanelProps = {
 
 export function InspectorPanel({
   ui,
+  mode = 'full',
   projects,
   selectedBlock,
   selectedPeople,
@@ -907,7 +909,7 @@ export function InspectorPanel({
   }
 
   return (
-    <aside className="panel contextPanel" aria-label="Context inspector">
+    <aside className={`panel contextPanel ${mode === 'full' ? 'settingsPanel' : 'compactContextPanel'}`} aria-label="Context inspector">
       <div className="panelHeader compact">
         <div>
           <p>{ui.inspector as string}</p>
@@ -1034,6 +1036,8 @@ export function InspectorPanel({
           </button>
         </div>
 
+        {mode === 'full' ? (
+          <>
         <div className="restoreBox">
           <strong>{ui.backupRestore as string}</strong>
           <span>{ui.restoreJsonHint as string}</span>
@@ -1835,6 +1839,8 @@ export function InspectorPanel({
           </button>
           {updateStatus ? <span className="restoreStatus">{updateStatus}</span> : null}
         </div>
+          </>
+        ) : null}
       </div>
     </aside>
   );

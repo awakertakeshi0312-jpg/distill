@@ -105,6 +105,7 @@ import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { GraphPanel } from './components/GraphPanel';
 import { InboxPanel } from './components/InboxPanel';
 import { InspectorPanel } from './components/InspectorPanel';
+import { MobilePanel } from './components/MobilePanel';
 import { PeoplePanel } from './components/PeoplePanel';
 import { ProjectsPanel } from './components/ProjectsPanel';
 import { SearchPanel } from './components/SearchPanel';
@@ -150,7 +151,7 @@ const SYNC_FOLDER_MONITOR_INTERVAL_MS = 60_000;
 const SYNC_FOLDER_AUTO_EXPORT_INTERVAL_MS = 120_000;
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 type VaultStatus = 'checking' | 'locked' | 'setup' | 'unlocked';
-const APP_PAGES: AppPage[] = ['inbox', 'today', 'search', 'projects', 'graph', 'archive'];
+const APP_PAGES: AppPage[] = ['inbox', 'today', 'search', 'projects', 'graph', 'archive', 'settings', 'mobile'];
 
 function isAppPage(value: string): value is AppPage {
   return APP_PAGES.includes(value as AppPage);
@@ -750,6 +751,8 @@ function App() {
     projects: ui.activeKnowledgeWork as string,
     graph: ui.graphView as string,
     archive: ui.archivedBlocks as string,
+    settings: ui.settingsTitle as string,
+    mobile: ui.mobileTitle as string,
   };
   const pageEyebrows: Record<AppPage, string> = {
     inbox: ui.navInbox as string,
@@ -758,6 +761,8 @@ function App() {
     projects: ui.navProjects as string,
     graph: ui.navGraph as string,
     archive: ui.archived as string,
+    settings: ui.settingsEyebrow as string,
+    mobile: ui.mobileEyebrow as string,
   };
 
   const commandItems: CommandItem[] = [
@@ -2906,12 +2911,14 @@ function App() {
           </section>
         ) : null}
 
-        <CapturePanel
-          ui={ui}
-          captureText={captureText}
-          onCaptureTextChange={setCaptureText}
-          onCapture={captureBlock}
-        />
+        {activePage !== 'settings' && activePage !== 'mobile' ? (
+          <CapturePanel
+            ui={ui}
+            captureText={captureText}
+            onCaptureTextChange={setCaptureText}
+            onCapture={captureBlock}
+          />
+        ) : null}
 
         <div className="contentGrid">
           {activePage === 'today' ? (
@@ -2932,8 +2939,7 @@ function App() {
           ) : null}
 
           {activePage === 'inbox' ? (
-            <>
-              <InboxPanel
+            <InboxPanel
                 ui={ui}
                 locale={locale}
                 projects={store.projects}
@@ -2955,8 +2961,11 @@ function App() {
                   }
                 }}
               />
+          ) : null}
 
-              <InspectorPanel
+          {activePage === 'inbox' || activePage === 'settings' ? (
+            <InspectorPanel
+            mode={activePage === 'settings' ? 'full' : 'context'}
             ui={ui}
             projects={store.projects}
             selectedBlock={selectedBlock}
@@ -3063,7 +3072,20 @@ function App() {
             onInstallAutoUpdate={installAutoUpdate}
             onInstallPwa={() => void installPwa()}
           />
-            </>
+          ) : null}
+
+          {activePage === 'mobile' ? (
+            <MobilePanel
+              ui={ui}
+              locale={locale}
+              pwaInstallGuidance={pwaInstallGuidance}
+              pwaInstallStatus={pwaInstallStatus}
+              appVersion={APP_VERSION}
+              latestReleaseUrl={LATEST_RELEASE_URL}
+              isDesktopRuntime={isDesktopRuntime()}
+              onInstallPwa={() => void installPwa()}
+              onOpenSettings={() => scrollToSection('settings')}
+            />
           ) : null}
 
           {activePage === 'search' ? (
