@@ -125,6 +125,7 @@ type InspectorPanelProps = {
   onRotateSyncKey: () => void;
   onRunSyncKeyRecoveryDrill: () => void;
   onRunMultiDeviceSyncKeyRecoveryDrill: () => void;
+  onRunSyncFolderOperationDrill: () => void;
   onSyncFolderPathChange: (path: string) => void;
   onSyncFolderMonitorToggle: (enabled: boolean) => void;
   onSyncFolderAutoPreviewToggle: (enabled: boolean) => void;
@@ -225,6 +226,7 @@ export function InspectorPanel({
   onRotateSyncKey,
   onRunSyncKeyRecoveryDrill,
   onRunMultiDeviceSyncKeyRecoveryDrill,
+  onRunSyncFolderOperationDrill,
   onSyncFolderPathChange,
   onSyncFolderMonitorToggle,
   onSyncFolderAutoPreviewToggle,
@@ -463,6 +465,7 @@ export function InspectorPanel({
           syncKeyRotate: 'Rotate sync key',
           syncKeyRecoveryDrill: 'Run recovery drill',
           syncKeyMultiDeviceDrill: 'Run A/B drill',
+          syncFolderOperationDrill: 'A/B operation drill',
           syncKeyRecoveryDrillHint:
             'Checks local recovery, then simulates device A -> recovery device B -> device A without applying remote changes.',
           syncKeyRotateWarning:
@@ -532,6 +535,7 @@ export function InspectorPanel({
           syncKeyRotate: '同期キーをローテーション',
           syncKeyRecoveryDrill: '復旧ドリルを実行',
           syncKeyMultiDeviceDrill: 'A/Bドリルを実行',
+          syncFolderOperationDrill: 'A/B operation drill',
           syncKeyRecoveryDrillHint:
             'ローカル復旧に加えて、端末A -> 復旧端末B -> 端末A の往復を、リモート変更の適用なしで確認します。',
           syncKeyRotateWarning:
@@ -1356,6 +1360,12 @@ export function InspectorPanel({
                 <button className="restoreButton inlineActionButton" type="button" onClick={onRunMultiDeviceSyncKeyRecoveryDrill}>
                   <Network size={14} />
                   {syncLabels.syncKeyMultiDeviceDrill}
+                </button>
+              ) : null}
+              {syncKeyId ? (
+                <button className="restoreButton inlineActionButton" type="button" onClick={onRunSyncFolderOperationDrill}>
+                  <Network size={14} />
+                  {syncLabels.syncFolderOperationDrill}
                 </button>
               ) : null}
             </div>

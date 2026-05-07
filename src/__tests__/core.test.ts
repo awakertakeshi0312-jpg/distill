@@ -75,6 +75,7 @@ import {
   type SyncFolderPacketReview,
 } from '../syncFolderReview';
 import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from '../syncRecoveryDrill';
+import { runSyncFolderOperationDrill } from '../syncOperationDrill';
 import { runSyncRollbackDrill } from '../syncRollbackDrill';
 import {
   applyEncryptedSyncPacket,
@@ -1633,6 +1634,40 @@ describe('sync packets', () => {
       bootstrapPacketCreatedAt: '2026-05-06T03:00:00.000Z',
       returnPacketCreatedAt: '2026-05-06T04:00:00.000Z',
     });
+  });
+
+  it('runs an A/B sync operation drill with project and block return records', async () => {
+    const keyedStore = ensureSyncKeyMaterial(store, '2026-05-06T02:00:00.000Z');
+    const syncKey = getSyncKeyMaterial(keyedStore);
+
+    if (!syncKey) {
+      throw new Error('Expected test store to have sync key material');
+    }
+
+    const before = JSON.stringify(keyedStore);
+    const result = await runSyncFolderOperationDrill(keyedStore, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      partnerDeviceId: 'phone-dev',
+      partnerDeviceName: 'Phone',
+      now: '2026-05-06T03:00:00.000Z',
+      returnNow: '2026-05-06T04:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      syncKey,
+      iterations: 1_000,
+    });
+
+    expect(result).toMatchObject({
+      syncKeyId: syncKey.id,
+      sourceDeviceId: 'windows-dev',
+      partnerDeviceId: 'phone-dev',
+      bootstrapRecords: 5,
+      returnPreviewAddedProjects: 1,
+      returnPreviewAddedBlocks: 1,
+      activeStoreUnchanged: true,
+    });
+    expect(result.returnRecords).toBeGreaterThan(result.bootstrapRecords);
+    expect(JSON.stringify(keyedStore)).toBe(before);
   });
 
   it('runs a sync rollback drill without changing the active store', () => {

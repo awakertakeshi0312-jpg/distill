@@ -1,11 +1,11 @@
 # Distill Project Context
 
-## Current Status (2026-05-07)
+## Current Status (2026-05-08)
 
-- Current version: 0.1.56.
+- Current version: 0.1.57.
 - Current phase: Desktop blank-screen recovery hardening and Trust Layer sync hardening.
-- Current completion estimate: 99% overall; this hotfix advanced +1pt in this pass.
-- Implemented in this pass: Distill now disables browser Service Worker registration in the Tauri desktop runtime, clears stale Windows WebView cache in the NSIS installer preinstall hook, and removes the 12-character browser form constraint from existing-vault unlock so legacy/short passphrases can reach the actual decrypt check.
+- Current completion estimate: local MVP 99%; full productization 73%.
+- Implemented in this pass: Distill now has an A/B sync-folder operation drill that simulates source export, partner bootstrap, partner project/block creation, return preview, and dry-run merge without mutating the active vault.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
 - Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, promoting the shadow record log to the primary normal persistence path, and production mobile sync transport.
 - Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/storage_boundary.md`, `docs/desktop_troubleshooting.md`, `docs/release_notes_0.1.48.md`.

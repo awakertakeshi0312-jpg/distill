@@ -119,6 +119,7 @@ import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
 import { buildSyncPreview, type SyncPreview } from './syncPreview';
 import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from './syncRecoveryDrill';
+import { runSyncFolderOperationDrill } from './syncOperationDrill';
 import { runSyncRollbackDrill } from './syncRollbackDrill';
 import {
   buildEncryptedVaultRecordLog,
@@ -1357,6 +1358,10 @@ function App() {
           syncFolderAutoPreviewDisabled: 'Safe inbound preview disabled.',
           syncFolderAutoPreviewOpened: (fileName: string) =>
             `Safe inbound preview opened ${fileName}. Review it manually before applying.`,
+          syncFolderOperationDrillSuccess: (projects: number, blocks: number, partnerDeviceId: string) =>
+            `A/B sync operation drill passed through ${partnerDeviceId}. Return preview added project records and block records; dry run ended with ${projects} projects and ${blocks} blocks.`,
+          syncFolderOperationDrillFailed:
+            'A/B sync operation drill failed. Check the vault passphrase, sync key, and packet preview path before trusting multi-device sync.',
           syncFolderAutoExportEnabled:
             'Sync folder auto-export enabled. Distill will write encrypted outbound packets when local content changes, but will not import or apply anything automatically.',
           syncFolderAutoExportDisabled: 'Sync folder auto-export disabled.',
@@ -1467,6 +1472,10 @@ function App() {
           syncFolderAutoPreviewDisabled: 'Safe inbound preview disabled.',
           syncFolderAutoPreviewOpened: (fileName: string) =>
             `Safe inbound preview opened ${fileName}. Review it manually before applying.`,
+          syncFolderOperationDrillSuccess: (projects: number, blocks: number, partnerDeviceId: string) =>
+            `A/B sync operation drill passed through ${partnerDeviceId}. Return preview added project records and block records; dry run ended with ${projects} projects and ${blocks} blocks.`,
+          syncFolderOperationDrillFailed:
+            'A/B sync operation drill failed. Check the vault passphrase, sync key, and packet preview path before trusting multi-device sync.',
           syncFolderAutoExportEnabled:
             '同期フォルダへの自動書き出しを有効にしました。ローカル内容が変わった時だけ暗号化パケットを書き出しますが、受信パケットは自動適用しません。',
           syncFolderAutoExportDisabled: '同期フォルダへの自動書き出しを無効にしました。',
@@ -1644,6 +1653,56 @@ function App() {
     } catch (error) {
       console.warn('Failed to run Distill multi-device sync key recovery drill.', error);
       setSyncStatus(error instanceof Error ? error.message : labels.syncKeyRecoveryDrillFailed);
+    }
+  }
+
+  async function runSyncFolderOperationDrillFromUi() {
+    const labels = syncLabels();
+    const passphrase = getVaultPassphrase();
+
+    if (!passphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    try {
+      const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
+      const signingKeyPair = await getOrCreateDeviceSigningKeyPair();
+      const signedIdentity = {
+        ...identity,
+        signingKeyAlgorithm: signingKeyPair.algorithm,
+        signingPublicKey: signingKeyPair.publicKey,
+      };
+      const registeredStore = ensureSyncKeyMaterial(registerSyncDevice(store, signedIdentity));
+      const syncKey = getSyncKeyMaterial(registeredStore);
+
+      if (!syncKey) {
+        throw new Error(labels.syncFolderOperationDrillFailed);
+      }
+
+      const result = await runSyncFolderOperationDrill(registeredStore, {
+        sourceDeviceId: identity.id,
+        sourceDeviceName: identity.name,
+        sourceDeviceSigningPublicKey: signingKeyPair.publicKey,
+        partnerDeviceId: `${identity.id}-ab-drill`,
+        partnerDeviceName: `${identity.name} A/B drill partner`,
+        passphrase,
+        syncKey,
+        signPacket: (plainPacket) => signSyncPacket(plainPacket, signingKeyPair),
+      });
+
+      if (!result.activeStoreUnchanged) {
+        throw new Error(labels.syncFolderOperationDrillFailed);
+      }
+
+      setDeviceIdentity(identity);
+      setStore(registeredStore);
+      setSyncStatus(
+        labels.syncFolderOperationDrillSuccess(result.returnedProjects, result.returnedBlocks, result.partnerDeviceId),
+      );
+    } catch (error) {
+      console.warn('Failed to run Distill A/B sync operation drill.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.syncFolderOperationDrillFailed);
     }
   }
 
@@ -3050,6 +3109,7 @@ function App() {
             onRotateSyncKey={rotateDedicatedSyncKey}
             onRunSyncKeyRecoveryDrill={() => void runDedicatedSyncKeyRecoveryDrill()}
             onRunMultiDeviceSyncKeyRecoveryDrill={() => void runMultiDeviceSyncKeyRecoveryDrill()}
+            onRunSyncFolderOperationDrill={() => void runSyncFolderOperationDrillFromUi()}
             onSyncFolderPathChange={(path) => {
               setSyncFolderPath(path);
               setSyncFolderPacketReviews([]);
