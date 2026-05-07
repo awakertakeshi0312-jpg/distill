@@ -13,11 +13,6 @@ function Convert-SecureStringToPlainText {
   }
 }
 
-function Convert-Base64ToBytes {
-  param([string] $Value)
-  [Convert]::FromBase64String($Value)
-}
-
 $vaultPath = Join-Path $env:APPDATA "app.distill.local\backups\distill-encrypted-vault-latest.json"
 
 if (-not (Test-Path $vaultPath)) {
@@ -25,63 +20,74 @@ if (-not (Test-Path $vaultPath)) {
   exit 2
 }
 
-$vault = Get-Content -Raw -Encoding UTF8 $vaultPath | ConvertFrom-Json
-
-if (
-  $vault.type -ne "distill.encrypted-vault" -or
-  $vault.schemaVersion -ne 1 -or
-  $vault.kdf.name -ne "PBKDF2" -or
-  $vault.kdf.hash -ne "SHA-256" -or
-  $vault.cipher.name -ne "AES-GCM"
-) {
-  Write-Host "NG: unsupported Distill encrypted vault format."
-  exit 3
-}
-
 $secure = Read-Host "Vault passphrase (input is hidden)" -AsSecureString
 $passphrase = Convert-SecureStringToPlainText $secure
+$env:DISTILL_VAULT_PATH = $vaultPath
+$env:DISTILL_VAULT_PASSPHRASE = $passphrase
 
 try {
-  $salt = Convert-Base64ToBytes $vault.kdf.salt
-  $iterations = [int] $vault.kdf.iterations
-  $iv = Convert-Base64ToBytes $vault.cipher.iv
-  $payload = Convert-Base64ToBytes $vault.payload
+  $nodeScript = @'
+const fs = require('fs');
+const crypto = require('crypto');
 
-  $derive = [Security.Cryptography.Rfc2898DeriveBytes]::new(
-    $passphrase,
-    $salt,
-    $iterations,
-    [Security.Cryptography.HashAlgorithmName]::SHA256
-  )
-  $key = $derive.GetBytes(32)
+const vaultPath = process.env.DISTILL_VAULT_PATH;
+const passphrase = process.env.DISTILL_VAULT_PASSPHRASE;
 
-  $tagLength = 16
-  if ($payload.Length -le $tagLength) {
-    throw "Encrypted payload is too short."
-  }
+if (!vaultPath || !passphrase) {
+  console.log('NG: vault path or passphrase was not provided.');
+  process.exit(2);
+}
 
-  $ciphertextLength = $payload.Length - $tagLength
-  $ciphertext = New-Object byte[] $ciphertextLength
-  $tag = New-Object byte[] $tagLength
-  [Array]::Copy($payload, 0, $ciphertext, 0, $ciphertextLength)
-  [Array]::Copy($payload, $ciphertextLength, $tag, 0, $tagLength)
+let vault;
+try {
+  vault = JSON.parse(fs.readFileSync(vaultPath, 'utf8'));
+} catch (error) {
+  console.log('NG: encrypted vault JSON could not be read.');
+  process.exit(3);
+}
 
-  $plaintext = New-Object byte[] $ciphertextLength
-  $aes = [Security.Cryptography.AesGcm]::new($key, $tagLength)
-  $aes.Decrypt($iv, $ciphertext, $tag, $plaintext)
+if (
+  vault.type !== 'distill.encrypted-vault' ||
+  vault.schemaVersion !== 1 ||
+  vault.kdf?.name !== 'PBKDF2' ||
+  vault.kdf?.hash !== 'SHA-256' ||
+  vault.cipher?.name !== 'AES-GCM' ||
+  typeof vault.kdf?.salt !== 'string' ||
+  typeof vault.kdf?.iterations !== 'number' ||
+  typeof vault.cipher?.iv !== 'string' ||
+  typeof vault.payload !== 'string'
+) {
+  console.log('NG: unsupported Distill encrypted vault format.');
+  process.exit(4);
+}
 
-  $json = [Text.Encoding]::UTF8.GetString($plaintext) | ConvertFrom-Json
-  $blockCount = if ($json.blocks) { @($json.blocks).Count } else { 0 }
-  $projectCount = if ($json.projects) { @($json.projects).Count } else { 0 }
+try {
+  const salt = Buffer.from(vault.kdf.salt, 'base64');
+  const iv = Buffer.from(vault.cipher.iv, 'base64');
+  const payload = Buffer.from(vault.payload, 'base64');
+  const tagLength = 16;
+  const ciphertext = payload.subarray(0, payload.length - tagLength);
+  const tag = payload.subarray(payload.length - tagLength);
+  const key = crypto.pbkdf2Sync(passphrase, salt, vault.kdf.iterations, 32, 'sha256');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+  const store = JSON.parse(plaintext);
+  console.log('OK: passphrase decrypted the vault.');
+  console.log(`Blocks: ${Array.isArray(store.blocks) ? store.blocks.length : 0}`);
+  console.log(`Projects: ${Array.isArray(store.projects) ? store.projects.length : 0}`);
+  process.exit(0);
+} catch (error) {
+  console.log('NG: passphrase did not decrypt this vault.');
+  console.log('Reason: AES-GCM authentication failed or the vault payload is invalid.');
+  process.exit(1);
+}
+'@
 
-  Write-Host "OK: passphrase decrypted the vault."
-  Write-Host "Blocks: $blockCount"
-  Write-Host "Projects: $projectCount"
-  exit 0
-} catch {
-  Write-Host "NG: passphrase did not decrypt this vault."
-  Write-Host "Reason: AES-GCM authentication failed or the vault payload is invalid."
-  exit 1
+  node -e $nodeScript
+  exit $LASTEXITCODE
 } finally {
+  $env:DISTILL_VAULT_PATH = $null
+  $env:DISTILL_VAULT_PASSPHRASE = $null
   $passphrase = $null
 }

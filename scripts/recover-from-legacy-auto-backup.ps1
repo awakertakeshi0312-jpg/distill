@@ -80,7 +80,16 @@ $nodeScript = @'
 const fs = require('fs');
 const crypto = require('crypto');
 
-const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+const input = {
+  sourcePath: process.env.DISTILL_RECOVERY_SOURCE_PATH,
+  outputPath: process.env.DISTILL_RECOVERY_OUTPUT_PATH,
+  passphrase: process.env.DISTILL_RECOVERY_PASSPHRASE,
+};
+
+if (!input.sourcePath || !input.outputPath || !input.passphrase) {
+  throw new Error('Recovery input was not provided.');
+}
+
 const plainJson = fs.readFileSync(input.sourcePath, 'utf8');
 const salt = crypto.randomBytes(16);
 const iv = crypto.randomBytes(12);
@@ -110,15 +119,19 @@ const envelope = {
 fs.writeFileSync(input.outputPath, `${JSON.stringify(envelope, null, 2)}\n`, 'utf8');
 '@
 
-$nodeInput = @{
-  sourcePath = (Resolve-Path $SourcePath).Path
-  outputPath = $tempVaultPath
-  passphrase = $passphrase
-} | ConvertTo-Json -Compress
+try {
+  $env:DISTILL_RECOVERY_SOURCE_PATH = (Resolve-Path $SourcePath).Path
+  $env:DISTILL_RECOVERY_OUTPUT_PATH = $tempVaultPath
+  $env:DISTILL_RECOVERY_PASSPHRASE = $passphrase
 
-$nodeInput | node -e $nodeScript
-if ($LASTEXITCODE -ne 0) {
-  throw "Failed to encrypt the recovered vault with Node.js crypto."
+  node -e $nodeScript
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to encrypt the recovered vault with Node.js crypto."
+  }
+} finally {
+  $env:DISTILL_RECOVERY_SOURCE_PATH = $null
+  $env:DISTILL_RECOVERY_OUTPUT_PATH = $null
+  $env:DISTILL_RECOVERY_PASSPHRASE = $null
 }
 
 $encryptedJson = [System.IO.File]::ReadAllText($tempVaultPath)
