@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.29 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, risk acknowledgement before destructive applies, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, signed device checkpoints, source-device verification codes with QR display/scanner import, unknown-device trust confirmation, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews with decision-review counts.
+Distill 0.1.30 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, risk acknowledgement before destructive applies, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, signed device checkpoints, source-device verification codes with QR display/scanner import, known-device forget/removal, unknown-device trust confirmation, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews with decision-review counts.
 
 ## Phase 1: Desktop MVP
 
@@ -65,7 +65,7 @@ Next:
 - Restore preview before replacing vault. Complete.
 - Corrupted/tampered vault tests. Complete for unsupported envelope and tampered payload coverage.
 - User-selectable vault location.
-- Record-level encrypted records. Complete for manual sync packet export/import with apply preview, deletion tombstones, device registry, device trust revocation, stale packet rejection, chained checkpoint validation, sync decision-review counts, risk acknowledgement, encrypted pre-sync recovery snapshots with restore preview, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, and explicit desktop sync-folder packet exchange; automatic inbound apply/cloud sync is not enabled yet.
+- Record-level encrypted records. Complete for manual sync packet export/import with apply preview, deletion tombstones, device registry, device trust revocation, known-device forget/removal, stale packet rejection, chained checkpoint validation, sync decision-review counts, risk acknowledgement, encrypted pre-sync recovery snapshots with restore preview, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, and explicit desktop sync-folder packet exchange; automatic inbound apply/cloud sync is not enabled yet.
 - Optional platform keyring or Tauri Stronghold convenience unlock.
 
 ## Phase 4: Retrieval Upgrade
@@ -106,7 +106,7 @@ Status: Foundation in code.
 - Source-device verification code entry before trusting first-seen signed source-device packets.
 - Local device verification payload QR display in the sync panel.
 - Receiving-device QR scanner and paste import for source-device verification payloads.
-- Device trust revocation and revoked-device rejection.
+- Device trust revocation, known-device forget/removal, and revoked-device rejection.
 - Desktop sync-folder packet writing, scanning, selected-packet preview, safety classification, and assisted recommended preview.
 - Monitor-only sync-folder review queue refresh that never auto-applies packets.
 - Outbound sync-folder auto-export for local content changes, with duplicate-loop prevention.
@@ -135,4 +135,4 @@ Status: Not started.
 - Passphrase change and restore preview are implemented before 0.2.0.
 - No known data-loss path in normal use.
 - Search, edit, project assignment, archive, restore, import, export, people, graph, vault unlock, and encrypted persistence smoke tests are automated.
-- Sync design has record-level encryption, device registry, deletion tombstones, replay/rollback guard, chained checkpoint validation, sync-folder safety classification, monitor-only review queue, outbound auto-export, assisted recommended preview, signed device checkpoints, source-device verification codes with QR display/scanner import, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with restore preview, and deterministic conflict strategy before automatic transport.
+- Sync design has record-level encryption, device registry, deletion tombstones, replay/rollback guard, chained checkpoint validation, sync-folder safety classification, monitor-only review queue, outbound auto-export, assisted recommended preview, signed device checkpoints, source-device verification codes with QR display/scanner import, known-device forget/removal, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with restore preview, and deterministic conflict strategy before automatic transport.

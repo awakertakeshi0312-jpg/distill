@@ -18,6 +18,7 @@ import {
   buildEncryptedSyncPacket,
   createSyncAutoExportFingerprint,
   decryptEncryptedSyncPacket,
+  forgetKnownSyncDevice,
   forgetRevokedSyncDevice,
   getSyncPacketCheckpointStatus,
   isSyncDeviceRevoked,
@@ -1821,6 +1822,31 @@ function App() {
     setSyncStatus(labels.deviceRevoked(deviceName));
   }
 
+  function forgetKnownDeviceRecord(deviceId: string) {
+    if (!deviceId || deviceId === deviceIdentity?.id) {
+      return;
+    }
+
+    const deviceName = syncDevices.find((device) => device.id === deviceId)?.name ?? deviceId;
+    const confirmed = window.confirm(
+      locale === 'en'
+        ? `Forget known device ${deviceName}? Future packets from that device will require trust verification again.`
+        : `${deviceName} を既知デバイスから削除しますか？今後このデバイスのパケットは再度信頼確認が必要になります。`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStore((current) => forgetKnownSyncDevice(current, deviceId));
+    setSyncPreview(null);
+    setSyncStatus(
+      locale === 'en'
+        ? `Forgot known device ${deviceName}.`
+        : `${deviceName} を既知デバイスから削除しました。`,
+    );
+  }
+
   function forgetRevokedDeviceRecord(deviceId: string) {
     if (!deviceId) {
       return;
@@ -2364,6 +2390,7 @@ function App() {
             onSyncDeviceTrustAcceptedChange={setSyncDeviceTrustAccepted}
             onSyncDeviceVerificationCodeChange={setSyncDeviceVerificationCode}
             onRevokeSyncDevice={revokeKnownSyncDevice}
+            onForgetKnownSyncDevice={forgetKnownDeviceRecord}
             onForgetRevokedSyncDevice={forgetRevokedDeviceRecord}
             onHandoffToPersonalKm={() => void handoffToPersonalKm()}
             onChangeVaultPassphrase={(currentPassphrase, nextPassphrase, confirmation) =>
@@ -2456,4 +2483,3 @@ function App() {
 }
 
 export default App;
-

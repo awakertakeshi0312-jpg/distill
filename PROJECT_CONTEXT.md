@@ -2,31 +2,19 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.29.
+- Current version: 0.1.30.
 - Current phase: Trust Layer / Phase 6 Sync hardening.
-- Current completion estimate: 73% overall; this phase advanced +3pt in this pass.
-- Implemented in this pass: QR scanner and payload paste import for source-device verification. Distill now lets the receiving device scan or paste the source-device verification QR payload, verifies device ID, public key, and fingerprint against the sync packet, and fills the verification code only on a match.
+- Current completion estimate: 75% overall; this phase advanced +2pt in this pass.
+- Implemented in this pass: known-device forget/removal UI for the sync device registry. Distill can now remove a known non-current device without revoking it, preserving tombstones/revocations while forcing future packets from that device through trust verification again.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
-- Still not implemented: automatic inbound sync/apply, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate, polished mobile-native pairing flow, and device removal beyond revocation.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.29.md`.
+- Still not implemented: automatic inbound sync/apply, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate, polished mobile-native pairing flow, and richer multi-device lifecycle management beyond local revoke/forget.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.30.md`.
 ## 役割
 
-思考の断片を捕まえ、タグ・リンク・検索・グラフ・レビューを通じて、判断や知識に蒸留するローカルファーストのデスクトップアプリ。
-
-## 現在の状態
-
-- 現在の公開版は `0.1.11`。
-- Project ID は `distill`、AI Org 上の役割は Thinking Core。
-- Kernel API は `http://localhost:3001/api/org`。
-- React + TypeScript + Vite + Tauri。
-- ブラウザ開発ポートは `4173`。
-- encrypted local vault gate、パスフレーズ変更、自動ロック、ローカル保存を持つ。
-- 手動の暗号化sync packet export/import、端末ID、端末レジストリ、削除tombstoneを持つ。
-- Inbox、Today、Search、Graph、Projects、Archive、Export/Import、言語切替を実装済み。
-- MVP は Windows で buildable。
-
-## 起動コマンド
-
+思老E�E断牁E��捕まえ、タグ・リンク・検索・グラフ�Eレビューを通じて、判断めE��識に蒸留するローカルファースト�EチE��クトップアプリ、E
+## 現在の状慁E
+- 現在の公開版は `0.1.11`、E- Project ID は `distill`、AI Org 上�E役割は Thinking Core、E- Kernel API は `http://localhost:3001/api/org`、E- React + TypeScript + Vite + Tauri、E- ブラウザ開発ポ�Eト�E `4173`、E- encrypted local vault gate、パスフレーズ変更、�E動ロチE��、ローカル保存を持つ、E- 手動の暗号化sync packet export/import、端末ID、端末レジストリ、削除tombstoneを持つ、E- Inbox、Today、Search、Graph、Projects、Archive、Export/Import、言語�E替を実裁E��み、E- MVP は Windows で buildable、E
+## 起動コマンチE
 ```powershell
 cd C:\Users\awake\dev\active\distill
 npm run dev
@@ -38,8 +26,7 @@ Tauri 開発:
 npm run tauri:dev:windows
 ```
 
-## テストコマンド
-
+## チE��トコマンチE
 ```powershell
 npm test
 npm run build
@@ -47,18 +34,8 @@ npm run test:rust
 npm run test:e2e
 ```
 
-## 壊してはいけない境界
+## 壊してはぁE��なぁE��E��
 
-- 暗号化 vault、バックアップ、復元の互換性を壊さない。
-- Tauri capability を不要に広げない。
-- ユーザーのローカル思考データを外部送信しない。
-- リリース署名・アップデータ導線を不用意に変更しない。
-
-## 完成判定
-
-- `npm run build` が成功する。
-- `npm test` が成功する。
-- `npm run test:rust` が成功する。
-- `npm run test:e2e` が成功する。
-- vault unlock、capture、search、export/import の主要導線が維持される。
-- 判断や成果物を `decision.created` / `artifact.ready` として AI Org に送れる。
+- 暗号匁Evault、バチE��アチE�E、復允E�E互換性を壊さなぁE��E- Tauri capability を不要に庁E��なぁE��E- ユーザーのローカル思老E��ータを外部送信しなぁE��E- リリース署名�EアチE�EチE�Eタ導線を不用意に変更しなぁE��E
+## 完�E判宁E
+- `npm run build` が�E功する、E- `npm test` が�E功する、E- `npm run test:rust` が�E功する、E- `npm run test:e2e` が�E功する、E- vault unlock、capture、search、export/import の主要導線が維持される、E- 判断めE�E果物めE`decision.created` / `artifact.ready` として AI Org に送れる、E

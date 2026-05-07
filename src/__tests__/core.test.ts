@@ -51,6 +51,7 @@ import {
   computeSyncPacketHash,
   createSyncAutoExportFingerprint,
   decryptEncryptedSyncPacket,
+  forgetKnownSyncDevice,
   forgetRevokedSyncDevice,
   getSyncPacketCheckpointStatus,
   isKnownSyncDevice,
@@ -705,6 +706,40 @@ describe('sync packets', () => {
 
     expect(afterForget.blocks.find((item) => item.id === 'phone-note-2')?.content).toBe('Blocked phone note');
     expect(afterForget.sync?.revokedDevices).toEqual([]);
+  });
+
+  it('forgets known devices without revoking or removing sync safety history', () => {
+    const registered = registerSyncDevice(
+      {
+        projects: [],
+        blocks: [],
+        sync: {
+          tombstones: [
+            {
+              kind: 'thought-block',
+              id: 'deleted-note',
+              deletedAt: '2026-05-06T07:00:00.000Z',
+              deletedByDeviceId: 'phone-dev',
+            },
+          ],
+          devices: [],
+          revokedDevices: [{ id: 'old-tablet', name: 'Old Tablet', revokedAt: '2026-05-06T06:00:00.000Z' }],
+        },
+      },
+      { id: 'phone-dev', name: 'Phone' },
+      '2026-05-06T08:00:00.000Z',
+    );
+
+    const forgotten = forgetKnownSyncDevice(registered, 'phone-dev');
+
+    expect(forgotten.sync?.devices.some((device) => device.id === 'phone-dev')).toBe(false);
+    expect(forgotten.sync?.revokedDevices).toEqual([
+      { id: 'old-tablet', name: 'Old Tablet', revokedAt: '2026-05-06T06:00:00.000Z' },
+    ]);
+    expect(forgotten.sync?.tombstones[0]).toMatchObject({
+      id: 'deleted-note',
+      deletedByDeviceId: 'phone-dev',
+    });
   });
 
   it('previews sync packet additions, updates, skips, and deletions before applying', () => {

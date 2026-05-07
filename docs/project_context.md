@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.29
+- Current version: 0.1.30
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, and paste import for first trust, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -72,7 +72,7 @@ Implemented app features:
 - Encrypted pre-sync recovery snapshot before any sync preview is applied
 - In-app listing and restore preview for encrypted pre-sync recovery snapshots
 - Sync-folder packet quarantine into `.distill-quarantine`
-- Manual sync device registry in the Inspector
+- Manual sync device registry in the Inspector with revoke and forget actions for non-current devices
 - Signed device checkpoints on outbound sync packets
 - Source-device verification codes derived from signing public keys for first trust
 - Local device verification payload QR display in the sync panel
@@ -163,9 +163,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after source-device QR scanner update:
+Latest verification after known-device forget/removal update:
 
-- `npm test`: 53 passed
+- `npm test`: 54 passed
 - `npm run build`: passed
 - `npm run test:rust`: 18 passed
 - `npm run test:e2e`: 10 passed
@@ -264,13 +264,13 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
-Current status: manual encrypted sync packets, signed device checkpoints, apply preview, sync-folder safety scan, monitor-only review queue, outbound auto-export, recommended preview, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation exist. Automatic inbound apply and cloud/background sync are still blocked until background transport, mobile storage, and stronger source-device verification UX is exercised.
+Current status: manual encrypted sync packets, signed device checkpoints, apply preview, sync-folder safety scan, monitor-only review queue, outbound auto-export, recommended preview, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with in-app restore preview, device registry with revoke/forget actions, deletion tombstones, device trust revocation, known-device forget/removal, and chained checkpoint validation exist. Automatic inbound apply and cloud/background sync are still blocked until background transport, mobile storage, and stronger source-device verification UX is exercised.
 
 ## Recommended Next Steps
 
 ### Trust/Security
 
-1. Add device removal UI beyond trust revocation.
+1. Add safer semi-automatic inbound sync preview. Known-device forget/removal is implemented for local registry cleanup.
 2. Add guarded inbound folder sync prototype after signed-device assurance.
 3. Polish mobile-native pairing. QR rendering, camera scan, paste import, and fingerprint comparison are implemented.
 4. Add user-selectable vault location.
@@ -293,4 +293,4 @@ Current status: manual encrypted sync packets, signed device checkpoints, apply 
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, signed device checkpoints, source-device verification codes with QR display/scanner import, sync-folder safety scans, monitor-only review queues, outbound auto-export, recommended previews, unknown-device trust confirmation, apply previews, encrypted pre-sync recovery snapshots with restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation. The next major architecture decision is automatic sync transport and automatic sync transport, mobile-native pairing polish, and mobile storage UX, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, signed device checkpoints, source-device verification codes with QR display/scanner import, sync-folder safety scans, monitor-only review queues, outbound auto-export, recommended previews, unknown-device trust confirmation, apply previews, encrypted pre-sync recovery snapshots with restore preview, device registry, deletion tombstones, device trust revocation, known-device forget/removal, and chained checkpoint validation. The next major architecture decision is automatic sync transport and automatic sync transport, mobile-native pairing polish, and mobile storage UX, not more plaintext SQLite indexing.

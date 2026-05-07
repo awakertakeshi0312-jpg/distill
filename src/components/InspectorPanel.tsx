@@ -123,6 +123,7 @@ type InspectorPanelProps = {
   onSyncDeviceTrustAcceptedChange: (accepted: boolean) => void;
   onSyncDeviceVerificationCodeChange: (value: string) => void;
   onRevokeSyncDevice: (deviceId: string) => void;
+  onForgetKnownSyncDevice: (deviceId: string) => void;
   onForgetRevokedSyncDevice: (deviceId: string) => void;
   onHandoffToPersonalKm: () => void;
   onChangeVaultPassphrase: (currentPassphrase: string, nextPassphrase: string, confirmation: string) => void;
@@ -207,6 +208,7 @@ export function InspectorPanel({
   onSyncDeviceTrustAcceptedChange,
   onSyncDeviceVerificationCodeChange,
   onRevokeSyncDevice,
+  onForgetKnownSyncDevice,
   onForgetRevokedSyncDevice,
   onHandoffToPersonalKm,
   onChangeVaultPassphrase,
@@ -1030,6 +1032,14 @@ export function InspectorPanel({
                         >
                           <ShieldOff size={14} />
                           {syncLabels.revoke}
+                        </button>
+                        <button
+                          className="restoreButton inlineActionButton"
+                          type="button"
+                          onClick={() => onForgetKnownSyncDevice(device.id)}
+                        >
+                          <Trash2 size={14} />
+                          {syncLabels.forget}
                         </button>
                       </div>
                     ) : null}

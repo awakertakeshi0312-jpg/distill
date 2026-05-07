@@ -356,6 +356,19 @@ export function forgetRevokedSyncDevice(store: DistillStore, deviceId: string): 
   };
 }
 
+export function forgetKnownSyncDevice(store: DistillStore, deviceId: string): DistillStore {
+  const sync = normalizeSyncMetadata(store.sync);
+
+  return {
+    ...store,
+    sync: normalizeSyncMetadata({
+      tombstones: sync.tombstones,
+      devices: sync.devices.filter((item) => item.id !== deviceId),
+      revokedDevices: sync.revokedDevices,
+    }),
+  };
+}
+
 export function isSyncDeviceRevoked(store: DistillStore, deviceId: string) {
   const sync = normalizeSyncMetadata(store.sync);
   return sync.revokedDevices.some((device) => device.id === deviceId);

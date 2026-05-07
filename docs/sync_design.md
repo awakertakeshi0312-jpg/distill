@@ -98,7 +98,7 @@ Implemented:
 - risk acknowledgement before applying packets that update/delete local data or rely on same-time tie-breaks.
 - encrypted pre-sync recovery snapshots saved before applying any sync preview.
 - in-app recovery snapshot listing, reading, and restore preview for saved pre-sync snapshots.
-- known device registry persisted in the encrypted vault metadata.
+- known device registry persisted in the encrypted vault metadata, with local forget/removal for non-current devices.
 - revoked device registry and rejection of future packets from locally revoked devices.
 - deletion tombstones for permanent thought-block deletion.
 - replay/rollback guard that skips packets whose `createdAt` is not newer than the known source device `lastPacketAt`.
@@ -262,7 +262,7 @@ The current registry is local and manual:
 - the current device is registered when exporting a sync packet or renaming the device.
 - imported packets merge `devices` metadata into the encrypted vault.
 - the Inspector shows known devices.
-- local device trust revocation exists; full device removal is still not implemented.
+- local device trust revocation exists, and known non-current devices can be forgotten without revoking them so future packets require trust verification again.
 - `lastPacketAt` is used to reject stale imports from known devices.
 - `lastPacketHash` is used to reject disconnected newer packets from known devices.
 
@@ -301,7 +301,7 @@ Before enabling automatic sync:
 
 - wrong passphrase test
 - corrupted payload test
-- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, QR display, camera scanner, and paste import are implemented. Mobile-native pairing polish remains future work.
-- device removal story beyond local trust revocation
+- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, QR display, camera scanner, paste import, and known-device forget/removal are implemented. Mobile-native pairing polish remains future work.
+- device lifecycle story beyond local revoke/forget actions
 - backup recovery test. Current status: pre-sync encrypted recovery snapshots are saved before sync apply, and restore-from-recovery now has an in-app preview path.
 - local cache clear test
