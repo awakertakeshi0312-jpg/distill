@@ -191,7 +191,7 @@ flowchart TB
   Store --> Graph["graph.ts"]
   Crypto --> Storage["storage.ts"]
   Storage --> Tauri["Tauri commands"]
-  Storage --> Browser["Browser localStorage preview"]
+  Storage --> Browser["Browser IndexedDB-first preview"]
   Tauri --> SQLite["SQLite app_store encrypted envelope"]
 ```
 

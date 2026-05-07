@@ -27,6 +27,7 @@ import { browserVaultPath, getBrowserVaultStorageInfo, isBrowserIndexedDbSupport
 import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { detectPwaPlatform, getPwaInstallGuidance } from '../pwaInstall';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
+import { isVaultAutoLockExpired, normalizeVaultAutoLockMinutes } from '../vaultSession';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
 import {
   buildDeviceVerificationPayload,
@@ -190,6 +191,24 @@ describe('browser vault storage planning', () => {
     });
 
     expect(isBrowserIndexedDbSupported()).toBe(false);
+  });
+});
+
+describe('vault session policy', () => {
+  it('normalizes auto-lock minutes into the supported range', () => {
+    expect(normalizeVaultAutoLockMinutes(Number.NaN)).toBe(15);
+    expect(normalizeVaultAutoLockMinutes(0)).toBe(0);
+    expect(normalizeVaultAutoLockMinutes(0.4)).toBe(1);
+    expect(normalizeVaultAutoLockMinutes(12.6)).toBe(13);
+    expect(normalizeVaultAutoLockMinutes(999)).toBe(240);
+  });
+
+  it('expires only after the configured idle window', () => {
+    const lastActivityAt = 1_000;
+
+    expect(isVaultAutoLockExpired(lastActivityAt, 0, lastActivityAt + 999_999)).toBe(false);
+    expect(isVaultAutoLockExpired(lastActivityAt, 15, lastActivityAt + 14 * 60 * 1000)).toBe(false);
+    expect(isVaultAutoLockExpired(lastActivityAt, 15, lastActivityAt + 15 * 60 * 1000)).toBe(true);
   });
 });
 

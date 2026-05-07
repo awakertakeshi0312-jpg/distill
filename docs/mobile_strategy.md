@@ -32,7 +32,7 @@ https://awakertakeshi0312-jpg.github.io/distill/
 
 - Data is stored locally in that phone browser.
 - Data does not sync with desktop.
-- Data content is encrypted by Distill in PWA mode after vault setup, but the encrypted envelope still lives in browser localStorage.
+- Data content is encrypted by Distill in PWA mode after vault setup, but the encrypted envelope still lives in browser IndexedDB-first storage.
 - Encrypted `.distill-vault.json` backup/restore is available for manual transfer.
 - Browser storage can be removed by the browser, profile cleanup, or OS storage pressure.
 

@@ -68,16 +68,17 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added outbound sync-folder auto-export for encrypted packets only; inbound preview/apply remains manual.
 - Added PWA/mobile install guidance, app metadata, touch icon, update-safer service worker navigation strategy, and phone-width E2E smoke coverage.
 - Added IndexedDB-backed browser/PWA encrypted vault and sync recovery storage with migration from encrypted localStorage and localStorage fallback only when IndexedDB is unavailable.
+- Moved active vault passphrase handling out of React state and into a volatile in-memory session ref.
+- Added test-covered auto-lock policy normalization and idle-expiry checks.
 
 ## Findings
 
-### P1: Passphrase lives in app memory while unlocked
+### P1: Passphrase still lives in app memory while unlocked
 
-Distill keeps the passphrase available during the unlocked session so autosave and updater flows can persist the encrypted vault.
+Distill now keeps the active passphrase out of React state and in a volatile app-session ref, but the passphrase is still available in app memory while unlocked so autosave and sync operations can persist encrypted data.
 
 Recommended remediation:
 
-- Replace passphrase-in-state with a session key model.
 - Derive and hold a non-exportable CryptoKey where possible.
 - Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
 - Keep lock-on-idle defaults conservative and add OS-native idle integration later.
@@ -99,7 +100,7 @@ The browser/PWA preview now stores the encrypted envelope in IndexedDB when avai
 
 Recommended remediation:
 
-- Treat PWA mode as a preview until better key/session handling and production E2EE sync transport are implemented. The app now labels PWA/mobile status, keeps navigation network-first to reduce stale shell risk, and prefers IndexedDB over localStorage for encrypted vault values.
+- Treat PWA mode as a preview until stronger session-key handling and production E2EE sync transport are implemented. The app now labels PWA/mobile status, keeps navigation network-first to reduce stale shell risk, and prefers IndexedDB over localStorage for encrypted vault values.
 - Add backup/export prompts on mobile.
 - Consider native mobile for stronger platform storage.
 

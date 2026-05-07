@@ -2,6 +2,7 @@ import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { exportStoreAsJson, exportStoreAsMarkdown, downloadTextFile } from './export';
 import { createMarkdownImport, parseDistillImport } from './import';
 import { decryptDistillVault, encryptDistillVault } from './vaultCrypto';
+import { isVaultAutoLockExpired, normalizeVaultAutoLockMinutes } from './vaultSession';
 import { getOrCreateDeviceIdentity, renameDeviceIdentity, type DeviceIdentity } from './device';
 import {
   buildDeviceVerificationPayload,
@@ -148,7 +149,8 @@ function App() {
   const [hasLoadedStore, setHasLoadedStore] = useState(false);
   const [vaultStatus, setVaultStatus] = useState<VaultStatus>('checking');
   const [legacyPlainStore, setLegacyPlainStore] = useState<DistillStore | null>(null);
-  const [vaultPassphrase, setVaultPassphrase] = useState('');
+  const vaultPassphraseRef = useRef('');
+  const [vaultSessionVersion, setVaultSessionVersion] = useState(0);
   const [vaultError, setVaultError] = useState('');
   const [vaultNotice, setVaultNotice] = useState('');
   const vaultSaveSerial = useRef(0);
@@ -247,13 +249,13 @@ function App() {
     return navigator.onLine;
   });
   const [vaultSecurityStatus, setVaultSecurityStatus] = useState('');
-  const [autoLockMinutes, setAutoLockMinutes] = useState(() => {
+  const [autoLockMinutes, setAutoLockMinutesState] = useState(() => {
     if (typeof window === 'undefined') {
       return 15;
     }
 
     const stored = Number(localStorage.getItem(AUTO_LOCK_MINUTES_KEY));
-    return Number.isFinite(stored) ? stored : 15;
+    return normalizeVaultAutoLockMinutes(stored);
   });
   const [isOnboardingVisible, setIsOnboardingVisible] = useState(() => {
     if (typeof window === 'undefined') {
@@ -275,6 +277,25 @@ function App() {
       }),
     [isOnline, isPwaStandalone, pwaInstallPrompt],
   );
+
+  function getVaultPassphrase() {
+    return vaultPassphraseRef.current;
+  }
+
+  function openVaultSession(passphrase: string) {
+    vaultPassphraseRef.current = passphrase;
+    lastVaultActivityAt.current = Date.now();
+    setVaultSessionVersion((current) => current + 1);
+  }
+
+  function clearVaultSession() {
+    vaultPassphraseRef.current = '';
+    setVaultSessionVersion((current) => current + 1);
+  }
+
+  function handleAutoLockMinutesChange(value: number) {
+    setAutoLockMinutesState(normalizeVaultAutoLockMinutes(value));
+  }
 
   useEffect(() => {
     function handleBeforeInstallPrompt(event: Event) {
@@ -366,7 +387,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (vaultStatus !== 'unlocked' || !hasLoadedStore || !vaultPassphrase) {
+    if (vaultStatus !== 'unlocked' || !hasLoadedStore || !getVaultPassphrase()) {
       return;
     }
 
@@ -380,7 +401,7 @@ function App() {
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [store, hasLoadedStore, vaultStatus, vaultPassphrase]);
+  }, [store, hasLoadedStore, vaultStatus, vaultSessionVersion]);
 
   useEffect(() => {
     localStorage.setItem(UI_LOCALE_KEY, locale);
@@ -463,7 +484,7 @@ function App() {
   }, [syncPreview]);
 
   useEffect(() => {
-    if (vaultStatus !== 'unlocked' || autoLockMinutes <= 0) {
+    if (vaultStatus !== 'unlocked' || autoLockMinutes <= 0 || !getVaultPassphrase()) {
       return;
     }
 
@@ -476,9 +497,7 @@ function App() {
     markActivity();
 
     const timer = window.setInterval(() => {
-      const idleMs = Date.now() - lastVaultActivityAt.current;
-
-      if (idleMs >= autoLockMinutes * 60 * 1000) {
+      if (isVaultAutoLockExpired(lastVaultActivityAt.current, autoLockMinutes)) {
         void lockVault(runtimeVaultLabels().autoLocked);
       }
     }, 10_000);
@@ -496,7 +515,7 @@ function App() {
       document.removeEventListener('visibilitychange', lockBeforeSleepOrHide);
       window.clearInterval(timer);
     };
-  }, [autoLockMinutes, vaultStatus, vaultPassphrase, hasLoadedStore, store]);
+  }, [autoLockMinutes, vaultStatus, vaultSessionVersion, hasLoadedStore, store]);
 
   useEffect(() => {
     let isMounted = true;
@@ -527,7 +546,7 @@ function App() {
       vaultStatus !== 'unlocked' ||
       (!syncFolderMonitorEnabled && !syncFolderAutoPreviewEnabled) ||
       !syncFolderPath.trim() ||
-      !vaultPassphrase ||
+      !getVaultPassphrase() ||
       !isDesktopRuntime()
     ) {
       return;
@@ -539,14 +558,14 @@ function App() {
     }, SYNC_FOLDER_MONITOR_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [vaultStatus, syncFolderMonitorEnabled, syncFolderAutoPreviewEnabled, syncFolderPath, vaultPassphrase, store]);
+  }, [vaultStatus, syncFolderMonitorEnabled, syncFolderAutoPreviewEnabled, syncFolderPath, vaultSessionVersion, store]);
 
   useEffect(() => {
     if (
       vaultStatus !== 'unlocked' ||
       !syncFolderAutoExportEnabled ||
       !syncFolderPath.trim() ||
-      !vaultPassphrase ||
+      !getVaultPassphrase() ||
       !isDesktopRuntime()
     ) {
       return;
@@ -562,7 +581,7 @@ function App() {
     vaultStatus,
     syncFolderAutoExportEnabled,
     syncFolderPath,
-    vaultPassphrase,
+    vaultSessionVersion,
     store,
     deviceIdentity,
     syncFolderAutoExportFingerprint,
@@ -856,11 +875,13 @@ function App() {
   }
 
   async function persistEncryptedStore(nextStore: DistillStore, serial?: number) {
-    if (!vaultPassphrase) {
+    const passphrase = getVaultPassphrase();
+
+    if (!passphrase) {
       throw new Error(runtimeVaultLabels().passphraseRequired);
     }
 
-    const encrypted = await encryptDistillVault(exportStoreAsJson(nextStore), vaultPassphrase);
+    const encrypted = await encryptDistillVault(exportStoreAsJson(nextStore), passphrase);
 
     if (serial !== undefined && serial !== vaultSaveSerial.current) {
       return;
@@ -887,7 +908,7 @@ function App() {
 
       setStore(loadedStore);
       setSelectedBlockId(loadedStore.blocks[0]?.id);
-      setVaultPassphrase(passphrase);
+      openVaultSession(passphrase);
       setHasLoadedStore(true);
       setVaultStatus('unlocked');
     } catch (error) {
@@ -916,7 +937,7 @@ function App() {
 
       setStore(nextStore);
       setSelectedBlockId(nextStore.blocks[0]?.id);
-      setVaultPassphrase(passphrase);
+      openVaultSession(passphrase);
       setHasLoadedStore(true);
       setVaultStatus('unlocked');
       setLegacyPlainStore(null);
@@ -957,7 +978,7 @@ function App() {
       // Cancel any pending autosave that may still be using the old passphrase.
       vaultSaveSerial.current += 1;
       await saveEncryptedVault(encrypted);
-      setVaultPassphrase(nextPassphrase);
+      openVaultSession(nextPassphrase);
       setVaultSecurityStatus(labels.passphraseChanged);
     } catch (error) {
       console.warn('Failed to change Distill vault passphrase.', error);
@@ -967,11 +988,11 @@ function App() {
 
   async function lockVault(notice = '') {
     try {
-      if (hasLoadedStore && vaultPassphrase) {
+      if (hasLoadedStore && getVaultPassphrase()) {
         await persistEncryptedStore(store);
       }
     } finally {
-      setVaultPassphrase('');
+      clearVaultSession();
       setHasLoadedStore(false);
       setStore(initialStore);
       setResults([]);
@@ -1256,6 +1277,12 @@ function App() {
   }
 
   async function createCurrentEncryptedSyncPacket() {
+    const passphrase = getVaultPassphrase();
+
+    if (!passphrase) {
+      throw new Error(syncLabels().passphraseRequired);
+    }
+
     const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
     const signingKeyPair = await getOrCreateDeviceSigningKeyPair();
     const signedIdentity = {
@@ -1268,7 +1295,7 @@ function App() {
       sourceDeviceId: identity.id,
       sourceDeviceName: identity.name,
       sourceDeviceSigningPublicKey: signingKeyPair.publicKey,
-      passphrase: vaultPassphrase,
+      passphrase,
       signPacket: (plainPacket) => signSyncPacket(plainPacket, signingKeyPair),
     });
 
@@ -1299,7 +1326,7 @@ function App() {
     setSyncDeviceTrustAccepted(false);
     setSyncDeviceVerificationCode('');
 
-    if (!vaultPassphrase) {
+    if (!getVaultPassphrase()) {
       setSyncStatus(labels.passphraseRequired);
       return;
     }
@@ -1343,11 +1370,20 @@ function App() {
 
   async function createSyncFolderPacketReview(packetFile: SyncFolderPacketFile): Promise<SyncFolderPacketReview> {
     const labels = syncLabels();
+    const passphrase = getVaultPassphrase();
+
+    if (!passphrase) {
+      return {
+        ...packetFile,
+        status: 'blocked',
+        reason: labels.passphraseRequired,
+      };
+    }
 
     try {
       const packetText = await readEncryptedSyncPacketFile(packetFile.path);
       const encryptedPacket = parseEncryptedSyncPacket(packetText);
-      const packet = await decryptEncryptedSyncPacket(encryptedPacket, vaultPassphrase);
+      const packet = await decryptEncryptedSyncPacket(encryptedPacket, passphrase);
       const sourceDevice = packet.sourceDeviceName || packet.sourceDeviceId;
       const baseReview = {
         ...packetFile,
@@ -1454,7 +1490,7 @@ function App() {
       return null;
     }
 
-    if (!vaultPassphrase) {
+    if (!getVaultPassphrase()) {
       setSyncStatus(labels.passphraseRequired);
       return null;
     }
@@ -1549,7 +1585,7 @@ function App() {
       return;
     }
 
-    if (enabled && !vaultPassphrase) {
+    if (enabled && !getVaultPassphrase()) {
       setSyncStatus(labels.passphraseRequired);
       return;
     }
@@ -1575,7 +1611,7 @@ function App() {
       return;
     }
 
-    if (enabled && !vaultPassphrase) {
+    if (enabled && !getVaultPassphrase()) {
       setSyncStatus(labels.passphraseRequired);
       return;
     }
@@ -1606,7 +1642,7 @@ function App() {
       return;
     }
 
-    if (!vaultPassphrase) {
+    if (!getVaultPassphrase()) {
       setSyncStatus(labels.passphraseRequired);
       return;
     }
@@ -1648,7 +1684,7 @@ function App() {
       return;
     }
 
-    if (enabled && !vaultPassphrase) {
+    if (enabled && !getVaultPassphrase()) {
       setSyncStatus(labels.passphraseRequired);
       return;
     }
@@ -1705,7 +1741,7 @@ function App() {
       return;
     }
 
-    if (!vaultPassphrase) {
+    if (!getVaultPassphrase()) {
       setSyncStatus(labels.passphraseRequired);
       return;
     }
@@ -1729,12 +1765,13 @@ function App() {
 
   async function previewEncryptedSyncPacketText(packetText: string, readyMessage?: string) {
     const labels = syncLabels();
+    const passphrase = getVaultPassphrase();
     setSyncPreview(null);
     setSyncRiskAccepted(false);
     setSyncDeviceTrustAccepted(false);
     setSyncDeviceVerificationCode('');
 
-    if (!vaultPassphrase) {
+    if (!passphrase) {
       setSyncStatus(labels.passphraseRequired);
       return;
     }
@@ -1743,7 +1780,7 @@ function App() {
 
     try {
       const encryptedPacket = parseEncryptedSyncPacket(packetText);
-      const packet = await decryptEncryptedSyncPacket(encryptedPacket, vaultPassphrase);
+      const packet = await decryptEncryptedSyncPacket(encryptedPacket, passphrase);
 
       if (isSyncDeviceRevoked(store, packet.sourceDeviceId)) {
         setSyncStatus(labels.revokedSourceRejected(packet.sourceDeviceId));
@@ -1807,7 +1844,7 @@ function App() {
   async function importEncryptedSyncPacketFromFolder(packetFile: SyncFolderPacketFile, readyMessage?: string) {
     const labels = syncLabels();
 
-    if (!vaultPassphrase) {
+    if (!getVaultPassphrase()) {
       setSyncStatus(labels.passphraseRequired);
       return;
     }
@@ -1863,7 +1900,13 @@ function App() {
   }
 
   async function savePreSyncRecoverySnapshot(preview: SyncPreview) {
-    const encrypted = await encryptDistillVault(exportStoreAsJson(store), vaultPassphrase);
+    const passphrase = getVaultPassphrase();
+
+    if (!passphrase) {
+      throw new Error(syncLabels().passphraseRequired);
+    }
+
+    const encrypted = await encryptDistillVault(exportStoreAsJson(store), passphrase);
     return await saveSyncRecoveryVault(encrypted, preview.packet.sourceDeviceId);
   }
 
@@ -2591,7 +2634,7 @@ function App() {
             onChangeVaultPassphrase={(currentPassphrase, nextPassphrase, confirmation) =>
               void changeVaultPassphrase(currentPassphrase, nextPassphrase, confirmation)
             }
-            onAutoLockMinutesChange={setAutoLockMinutes}
+            onAutoLockMinutesChange={handleAutoLockMinutesChange}
             onUpdateInstallerPathChange={setUpdateInstallerPath}
             onStartUpdate={startUpdate}
             onCheckForUpdates={checkForUpdates}

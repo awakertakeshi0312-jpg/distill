@@ -163,7 +163,7 @@ Current stack:
 - Frontend: React + TypeScript + Vite.
 - Desktop shell: Tauri 2.
 - Desktop persistence: encrypted vault envelope through Rust Tauri commands.
-- Browser fallback: encrypted vault envelope in localStorage.
+- Browser fallback: encrypted vault envelope in IndexedDB when available, with localStorage fallback.
 - Encryption: WebCrypto PBKDF2 SHA-256 and AES-256-GCM.
 - Testing: Vitest, Rust tests, Playwright E2E.
 - Packaging: Tauri NSIS Windows installer.
@@ -192,7 +192,7 @@ flowchart TB
   Store --> Crypto
   Crypto --> Storage["storage.ts adapter"]
   Storage --> Tauri["Tauri encrypted vault commands"]
-  Storage --> Browser["encrypted localStorage preview"]
+  Storage --> Browser["encrypted IndexedDB-first preview"]
   Tauri --> SQLite["SQLite app_store encrypted envelope"]
 ```
 

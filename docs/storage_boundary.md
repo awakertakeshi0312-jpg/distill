@@ -17,7 +17,7 @@ Distill treats `src/repository.ts` as the mutation boundary and `src/storage.ts`
 
 Desktop mode stores an encrypted vault envelope in SQLite `app_store` under key `distill.vault.v1`.
 
-Browser/PWA preview stores the encrypted vault envelope in `localStorage:distill.vault.v1`.
+Browser/PWA preview stores the encrypted vault envelope in `indexedDB:distill-browser-vault/vaults/distill.vault.v1`.
 
 Tauri commands exposed to the frontend capability:
 

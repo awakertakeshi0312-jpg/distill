@@ -92,7 +92,7 @@ npm run check:all
 
 Current passing suite:
 
-- Frontend/domain tests: 60 passed.
+- Frontend/domain tests: 62 passed.
 - Rust/SQLite tests: 18 passed.
 - Browser E2E smoke tests: 11 passed.
 - Production frontend build: passing.
@@ -140,19 +140,19 @@ src-tauri/target/release/app.exe
 Current Windows installer output:
 
 ```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.33_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Distill_0.1.34_x64-setup.exe
 ```
 
 Installer SHA256:
 
 ```text
-D91A36CF94A71953D3A7C8E02FBE21045372B32E2D5D1DC8212768615038F0AC
+40AA07EE4E1FE80F43B1ACDA1315C8A4C91163A8C630B5FC29B372DEB1D02B89
 ```
 
 Signed auto-update flow:
 
 1. Build a signed release with `npm run release:windows`.
-2. Upload `release/Distill_0.1.33_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
+2. Upload `release/Distill_0.1.34_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
 3. Open the installed Distill desktop app.
 4. Click `Check for updates` in the Inspector update section.
 5. Click `Install update` when a newer signed version is available.
