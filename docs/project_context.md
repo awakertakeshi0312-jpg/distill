@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.30
+- Current version: 0.1.31
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -63,7 +63,7 @@ Implemented app features:
 - Manual update launcher fallback for newer Distill setup packages
 - Stable local device identity for sync packet source tracking
 - Manual encrypted sync packet export/import using record-level encrypted records
-- Desktop sync-folder path for writing, scanning, safety-classifying, recommended preview, and manual previewing encrypted sync packet files
+- Desktop sync-folder path for writing, scanning, safety-classifying, recommended preview, safe semi-automatic inbound preview, and manual previewing encrypted sync packet files
 - Monitor-only sync-folder review queue that refreshes safety scan results without auto-previewing or auto-applying
 - Outbound sync-folder auto-export that writes encrypted packets only when local sync content changes
 - Sync packet apply preview with add/update/skip/delete counts before merging
@@ -163,9 +163,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after known-device forget/removal update:
+Latest verification after safe semi-automatic inbound preview update:
 
-- `npm test`: 54 passed
+- `npm test`: 55 passed
 - `npm run build`: passed
 - `npm run test:rust`: 18 passed
 - `npm run test:e2e`: 10 passed
@@ -264,13 +264,13 @@ Tradeoff: search/graph indexes are rebuilt from memory and not yet optimized for
 
 Reason: syncing before the encryption model is stable risks leaking or locking private data into the wrong architecture.
 
-Current status: manual encrypted sync packets, signed device checkpoints, apply preview, sync-folder safety scan, monitor-only review queue, outbound auto-export, recommended preview, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with in-app restore preview, device registry with revoke/forget actions, deletion tombstones, device trust revocation, known-device forget/removal, and chained checkpoint validation exist. Automatic inbound apply and cloud/background sync are still blocked until background transport, mobile storage, and stronger source-device verification UX is exercised.
+Current status: manual encrypted sync packets, signed device checkpoints, apply preview, sync-folder safety scan, monitor-only review queue, outbound auto-export, recommended preview, unknown-device trust confirmation, encrypted pre-sync recovery snapshots with in-app restore preview, device registry with revoke/forget actions, safe semi-automatic inbound preview, deletion tombstones, device trust revocation, known-device forget/removal, safe semi-automatic inbound preview, and chained checkpoint validation exist. Automatic inbound apply and cloud/background sync are still blocked until background transport, mobile storage, and stronger source-device verification UX is exercised.
 
 ## Recommended Next Steps
 
 ### Trust/Security
 
-1. Add safer semi-automatic inbound sync preview. Known-device forget/removal is implemented for local registry cleanup.
+1. Add safer semi-automatic inbound sync preview. Safe semi-automatic inbound preview is implemented for one unambiguous known-device ready packet; apply remains manual.
 2. Add guarded inbound folder sync prototype after signed-device assurance.
 3. Polish mobile-native pairing. QR rendering, camera scan, paste import, and fingerprint comparison are implemented.
 4. Add user-selectable vault location.

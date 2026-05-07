@@ -48,6 +48,18 @@ export type SyncFolderAssistedPreviewDecision =
       counts: SyncFolderReviewCounts;
     };
 
+export type SyncFolderAutoPreviewDecision =
+  | {
+      kind: 'auto-preview';
+      candidate: SyncFolderPacketReview;
+      counts: SyncFolderReviewCounts;
+    }
+  | {
+      kind: 'no-action';
+      counts: SyncFolderReviewCounts;
+      reason: 'not-unambiguous' | 'preview-open' | 'already-previewed';
+    };
+
 export function isBlockedSyncFolderPacketReview(review: SyncFolderPacketReview) {
   return review.status === 'blocked' || review.status === 'checkpoint-risk' || review.status === 'invalid';
 }
@@ -100,4 +112,44 @@ export function chooseAssistedSyncFolderPreview(
     kind: 'no-action',
     counts,
   };
+}
+
+export function createSyncFolderPacketReviewKey(review: SyncFolderPacketReview) {
+  return `${review.path}|${review.modifiedAt}|${review.bytes}`;
+}
+
+export function chooseAutoSyncFolderPreview(
+  reviews: SyncFolderPacketReview[],
+  options: { hasOpenPreview?: boolean; lastPreviewedKey?: string } = {},
+): SyncFolderAutoPreviewDecision {
+  const assistedDecision = chooseAssistedSyncFolderPreview(reviews);
+
+  if (assistedDecision.kind !== 'auto-preview') {
+    return {
+      kind: 'no-action',
+      counts: assistedDecision.counts,
+      reason: 'not-unambiguous',
+    };
+  }
+
+  if (options.hasOpenPreview) {
+    return {
+      kind: 'no-action',
+      counts: assistedDecision.counts,
+      reason: 'preview-open',
+    };
+  }
+
+  if (
+    options.lastPreviewedKey &&
+    createSyncFolderPacketReviewKey(assistedDecision.candidate) === options.lastPreviewedKey
+  ) {
+    return {
+      kind: 'no-action',
+      counts: assistedDecision.counts,
+      reason: 'already-previewed',
+    };
+  }
+
+  return assistedDecision;
 }

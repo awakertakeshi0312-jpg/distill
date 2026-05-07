@@ -69,6 +69,7 @@ type InspectorPanelProps = {
   syncFolderPath: string;
   syncFolderMonitorEnabled: boolean;
   syncFolderLastCheckedAt: string;
+  syncFolderAutoPreviewEnabled: boolean;
   syncFolderAutoExportEnabled: boolean;
   syncFolderAutoExportLastAt: string;
   syncFolderAutoExportLastFile: string;
@@ -110,6 +111,7 @@ type InspectorPanelProps = {
   onImportEncryptedSyncPacket: (file: File) => void;
   onSyncFolderPathChange: (path: string) => void;
   onSyncFolderMonitorToggle: (enabled: boolean) => void;
+  onSyncFolderAutoPreviewToggle: (enabled: boolean) => void;
   onSyncFolderAutoExportToggle: (enabled: boolean) => void;
   onExportEncryptedSyncPacketToFolder: () => void;
   onRefreshSyncFolderPackets: () => void;
@@ -154,6 +156,7 @@ export function InspectorPanel({
   syncFolderPath,
   syncFolderMonitorEnabled,
   syncFolderLastCheckedAt,
+  syncFolderAutoPreviewEnabled,
   syncFolderAutoExportEnabled,
   syncFolderAutoExportLastAt,
   syncFolderAutoExportLastFile,
@@ -195,6 +198,7 @@ export function InspectorPanel({
   onImportEncryptedSyncPacket,
   onSyncFolderPathChange,
   onSyncFolderMonitorToggle,
+  onSyncFolderAutoPreviewToggle,
   onSyncFolderAutoExportToggle,
   onExportEncryptedSyncPacketToFolder,
   onRefreshSyncFolderPackets,
@@ -335,6 +339,10 @@ export function InspectorPanel({
           monitorOn: 'Monitor on',
           monitorOff: 'Monitor off',
           monitorHint: 'Refreshes the safety review queue every minute. Distill never applies packets automatically.',
+          autoPreviewOn: 'Safe preview on',
+          autoPreviewOff: 'Safe preview off',
+          autoPreviewHint:
+            'When exactly one known-device ready packet is available, Distill opens its preview automatically. Apply still stays manual.',
           autoExportOn: 'Auto-export on',
           autoExportOff: 'Auto-export off',
           autoExportHint:
@@ -386,6 +394,10 @@ export function InspectorPanel({
           monitorOn: '監視オン',
           monitorOff: '監視オフ',
           monitorHint: '1分ごとに安全レビューキューを更新します。Distillはパケットを自動適用しません。',
+          autoPreviewOn: 'Safe preview on',
+          autoPreviewOff: 'Safe preview off',
+          autoPreviewHint:
+            'When exactly one known-device ready packet is available, Distill opens its preview automatically. Apply still stays manual.',
           autoExportOn: '自動書き出しオン',
           autoExportOff: '自動書き出しオフ',
           autoExportHint:
@@ -1119,6 +1131,17 @@ export function InspectorPanel({
               type="checkbox"
               checked={syncFolderMonitorEnabled}
               onChange={(event) => onSyncFolderMonitorToggle(event.target.checked)}
+            />
+          </label>
+          <label className="riskGate syncMonitorGate">
+            <span>
+              <strong>{syncFolderAutoPreviewEnabled ? syncLabels.autoPreviewOn : syncLabels.autoPreviewOff}</strong>
+              {syncLabels.autoPreviewHint}
+            </span>
+            <input
+              type="checkbox"
+              checked={syncFolderAutoPreviewEnabled}
+              onChange={(event) => onSyncFolderAutoPreviewToggle(event.target.checked)}
             />
           </label>
           <label className="riskGate syncAutoExportGate">

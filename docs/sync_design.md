@@ -87,8 +87,8 @@ Implemented:
 - metadata tamper detection between encrypted wrappers and decrypted records.
 - stable per-device identity stored locally as `distill.device.v1`.
 - manual encrypted sync packet export/import UI.
-- desktop sync-folder path for writing encrypted packet files, scanning packet candidates, safety-scanning candidates, auto-opening exactly one unambiguous known-device safe candidate, and loading a selected packet into the existing preview flow.
-- monitor-only sync-folder review queue that refreshes safety scan results on an interval without starting preview or apply.
+- desktop sync-folder path for writing encrypted packet files, scanning packet candidates, safety-scanning candidates, auto-opening exactly one unambiguous known-device safe candidate manually or through the safe inbound preview toggle, and loading a selected packet into the existing preview flow.
+- monitor-only sync-folder review queue that refreshes safety scan results on an interval, plus optional safe auto-preview for exactly one unambiguous known-device ready packet. Apply remains manual.
 - outbound sync-folder auto-export that writes encrypted packets only when local block/tombstone/revocation content changes, while ignoring source-device checkpoint metadata to avoid export loops.
 - signed device checkpoints: outbound packets are signed with a local per-device ECDSA P-256 key, trusted-device packets must verify against the stored public key, key mismatch/tampered signatures are blocked, the local device verification payload is rendered as a QR code, the receiving device can scan or paste that QR payload, and first-seen signed source devices require a verified code match before apply.
 - unknown-device trust confirmation: first-seen source devices are classified as risk review and cannot be applied until the user explicitly trusts the source device.
@@ -202,7 +202,7 @@ The current UI supports local manual sync only:
 17. The user can run a safety scan that classifies folder packets as ready, risk review, stale, blocked, checkpoint risk, or invalid before previewing them.
 18. The user can ask Distill to open a recommended preview only when exactly one safe packet is available and no risky/blocked/invalid packet is present.
 19. Unknown source devices are classified as risk review. Applying a first-seen signed source-device packet requires typing the source-device verification code shown on the other device, scanning its QR payload, or pasting that payload; legacy unsigned packets still require explicit trust confirmation.
-20. The user can turn on monitor-only review queue refresh. This periodically scans and classifies folder packets, but never opens a preview or applies a packet automatically.
+20. The user can turn on monitor-only review queue refresh. This periodically scans and classifies folder packets. If safe inbound preview is enabled, Distill may open exactly one unambiguous known-device ready packet as a preview, but it never applies a packet automatically.
 21. The user can turn on outbound auto-export. Distill writes an encrypted packet to the sync folder only when local block/tombstone/revocation content changes, and records a content fingerprint to avoid exporting the same payload repeatedly.
 22. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
 23. If a preview would update/delete local data or rely on same-time tie-breaking, Distill requires an explicit risk acknowledgement before applying it.
@@ -293,7 +293,7 @@ Encrypted file sync MVP:
 2. Import encrypted `.distill-vault.json` on another device.
 3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
 4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges block records, tombstones, device metadata, and checkpoint state.
-5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, safety scan classifies packet candidates before import, monitor-only review queue refresh can keep the review list current, outbound auto-export can write local changes, recommended preview can open one unambiguous known-device safe candidate without applying it, signed checkpoint verification blocks trusted-device signature failures, sync apply first saves an encrypted recovery snapshot, and saved recovery snapshots can be reopened through Restore preview.
+5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, safety scan classifies packet candidates before import, monitor-only review queue refresh can keep the review list current, outbound auto-export can write local changes, recommended preview or safe inbound preview can open one unambiguous known-device safe candidate without applying it, signed checkpoint verification blocks trusted-device signature failures, sync apply first saves an encrypted recovery snapshot, and saved recovery snapshots can be reopened through Restore preview.
 
 ## Security Gate
 
@@ -301,7 +301,7 @@ Before enabling automatic sync:
 
 - wrong passphrase test
 - corrupted payload test
-- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, QR display, camera scanner, paste import, and known-device forget/removal are implemented. Mobile-native pairing polish remains future work.
+- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, QR display, camera scanner, paste import, known-device forget/removal, and safe semi-automatic inbound preview are implemented. Mobile-native pairing polish remains future work.
 - device lifecycle story beyond local revoke/forget actions
 - backup recovery test. Current status: pre-sync encrypted recovery snapshots are saved before sync apply, and restore-from-recovery now has an in-app preview path.
 - local cache clear test

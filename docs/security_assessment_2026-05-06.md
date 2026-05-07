@@ -57,7 +57,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added encrypted sync packet apply preview with add/update/skip/delete counts before merging.
 - Added chained sync checkpoint validation using packet hashes.
 - Added signed device checkpoints with per-device ECDSA P-256 keys and trusted-device signature verification.
-- Added source-device verification codes, QR display, scanner import, payload paste import, and known-device forget/removal for sync device lifecycle management, plus legacy unknown-device trust confirmation for unsigned packets.
+- Added source-device verification codes, QR display, scanner import, payload paste import, known-device forget/removal, and safe semi-automatic inbound preview for sync device lifecycle management, plus legacy unknown-device trust confirmation for unsigned packets.
 - Added sync device trust revocation and revoked-device packet rejection.
 - Added explicit desktop sync-folder packet exchange with Tauri-side file name, schema, and size validation.
 - Added sync-folder safety scan that decrypts packet candidates in memory, classifies revoked-source/checkpoint-risk/invalid packets before preview, and keeps quarantine available.
@@ -178,7 +178,7 @@ Before distributing a new public build:
 
 ## Next Security Milestones
 
-1. Continue device lifecycle hardening beyond local revoke/forget actions.
+1. Continue device lifecycle hardening beyond local revoke/forget actions and validate mobile-safe sync transport.
 2. Add OS-native idle/sleep integration and optional keyring convenience unlock.
 3. Add automatic inbound encrypted folder sync only after recovery drills, signed-device assurance, and rollback drills are documented and exercised.
 4. Add QR/fingerprint comparison for new-device public-key verification. Signed checkpoint verification is implemented, but first trust still needs a better out-of-band verification UX.

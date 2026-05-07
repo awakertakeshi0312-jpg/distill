@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Distill 0.1.30 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, risk acknowledgement before destructive applies, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, signed device checkpoints, source-device verification codes with QR display/scanner import, known-device forget/removal, unknown-device trust confirmation, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews with decision-review counts.
+Distill 0.1.31 is past the local MVP gate. The main current phase is Trust Layer and Sync hardening: encrypted local vault is implemented, passphrase lifecycle is in place, restore preview is implemented, and record-level encrypted sync packets now have manual export/import, desktop sync-folder packet exchange, sync-folder safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, packet quarantine, risk acknowledgement before destructive applies, encrypted pre-sync recovery snapshots with in-app restore preview, device registry, signed device checkpoints, source-device verification codes with QR display/scanner import, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, replay/rollback protection, chained checkpoint validation, and apply-before-confirm sync previews with decision-review counts.
 
 ## Phase 1: Desktop MVP
 
@@ -108,7 +108,7 @@ Status: Foundation in code.
 - Receiving-device QR scanner and paste import for source-device verification payloads.
 - Device trust revocation, known-device forget/removal, and revoked-device rejection.
 - Desktop sync-folder packet writing, scanning, selected-packet preview, safety classification, and assisted recommended preview.
-- Monitor-only sync-folder review queue refresh that never auto-applies packets.
+- Monitor-only sync-folder review queue refresh, plus safe semi-automatic preview opening for one unambiguous known-device ready packet. Apply is never automatic.
 - Outbound sync-folder auto-export for local content changes, with duplicate-loop prevention.
 - Sync preview decision review for remote wins, local wins, same-time tie-breaks, and local changes/deletes.
 - Risk acknowledgement before applying destructive or same-time tie-break sync packets.

@@ -94,8 +94,10 @@ import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
 import { buildSyncPreview, type SyncPreview } from './syncPreview';
 import {
+  chooseAutoSyncFolderPreview,
   chooseAssistedSyncFolderPreview,
   countSyncFolderPacketReviews,
+  createSyncFolderPacketReviewKey,
   type SyncFolderPacketReview,
 } from './syncFolderReview';
 
@@ -103,6 +105,7 @@ const ONBOARDING_KEY = 'distill.onboarding.dismissed';
 const AUTO_LOCK_MINUTES_KEY = 'distill.autoLockMinutes';
 const SYNC_FOLDER_PATH_KEY = 'distill.syncFolderPath';
 const SYNC_FOLDER_MONITOR_ENABLED_KEY = 'distill.syncFolderMonitor.enabled';
+const SYNC_FOLDER_AUTO_PREVIEW_ENABLED_KEY = 'distill.syncFolderAutoPreview.enabled';
 const SYNC_FOLDER_AUTO_EXPORT_ENABLED_KEY = 'distill.syncFolderAutoExport.enabled';
 const SYNC_FOLDER_AUTO_EXPORT_FINGERPRINT_KEY = 'distill.syncFolderAutoExport.fingerprint';
 const SYNC_FOLDER_MONITOR_INTERVAL_MS = 60_000;
@@ -187,6 +190,13 @@ function App() {
     return localStorage.getItem(SYNC_FOLDER_MONITOR_ENABLED_KEY) === 'true';
   });
   const [syncFolderLastCheckedAt, setSyncFolderLastCheckedAt] = useState('');
+  const [syncFolderAutoPreviewEnabled, setSyncFolderAutoPreviewEnabled] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return localStorage.getItem(SYNC_FOLDER_AUTO_PREVIEW_ENABLED_KEY) === 'true';
+  });
   const [syncFolderAutoExportEnabled, setSyncFolderAutoExportEnabled] = useState(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -203,6 +213,9 @@ function App() {
   });
   const [syncFolderAutoExportLastAt, setSyncFolderAutoExportLastAt] = useState('');
   const [syncFolderAutoExportLastFile, setSyncFolderAutoExportLastFile] = useState('');
+  const syncFolderAutoPreviewLastKey = useRef('');
+  const syncFolderAutoPreviewInFlight = useRef(false);
+  const syncPreviewOpenRef = useRef(false);
   const syncFolderAutoExportInFlight = useRef(false);
   const [personalKmHandoffStatus, setPersonalKmHandoffStatus] = useState('');
   const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(() => {
@@ -360,12 +373,20 @@ function App() {
   }, [syncFolderMonitorEnabled]);
 
   useEffect(() => {
+    localStorage.setItem(SYNC_FOLDER_AUTO_PREVIEW_ENABLED_KEY, String(syncFolderAutoPreviewEnabled));
+  }, [syncFolderAutoPreviewEnabled]);
+
+  useEffect(() => {
     localStorage.setItem(SYNC_FOLDER_AUTO_EXPORT_ENABLED_KEY, String(syncFolderAutoExportEnabled));
   }, [syncFolderAutoExportEnabled]);
 
   useEffect(() => {
     localStorage.setItem(SYNC_FOLDER_AUTO_EXPORT_FINGERPRINT_KEY, syncFolderAutoExportFingerprint);
   }, [syncFolderAutoExportFingerprint]);
+
+  useEffect(() => {
+    syncPreviewOpenRef.current = Boolean(syncPreview);
+  }, [syncPreview]);
 
   useEffect(() => {
     if (vaultStatus !== 'unlocked' || autoLockMinutes <= 0) {
@@ -430,7 +451,7 @@ function App() {
   useEffect(() => {
     if (
       vaultStatus !== 'unlocked' ||
-      !syncFolderMonitorEnabled ||
+      (!syncFolderMonitorEnabled && !syncFolderAutoPreviewEnabled) ||
       !syncFolderPath.trim() ||
       !vaultPassphrase ||
       !isDesktopRuntime()
@@ -444,7 +465,7 @@ function App() {
     }, SYNC_FOLDER_MONITOR_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [vaultStatus, syncFolderMonitorEnabled, syncFolderPath, vaultPassphrase, store]);
+  }, [vaultStatus, syncFolderMonitorEnabled, syncFolderAutoPreviewEnabled, syncFolderPath, vaultPassphrase, store]);
 
   useEffect(() => {
     if (
@@ -893,6 +914,7 @@ function App() {
       setSyncDeviceVerificationCode('');
       setSyncFolderMonitorEnabled(false);
       setSyncFolderLastCheckedAt('');
+      setSyncFolderAutoPreviewEnabled(false);
       setSyncFolderAutoExportEnabled(false);
       setSyncFolderAutoExportLastAt('');
       setSyncFolderAutoExportLastFile('');
@@ -985,6 +1007,11 @@ function App() {
           syncFolderMonitorDisabled: 'Sync folder monitor disabled.',
           syncFolderMonitorUpdated: (files: number, ready: number, risky: number, blocked: number) =>
             `Monitor refreshed ${files} packets: ${ready} ready, ${risky} risk review, ${blocked} blocked/invalid.`,
+          syncFolderAutoPreviewEnabled:
+            'Safe inbound preview enabled. Distill may open one unambiguous ready packet preview, but will never apply it automatically.',
+          syncFolderAutoPreviewDisabled: 'Safe inbound preview disabled.',
+          syncFolderAutoPreviewOpened: (fileName: string) =>
+            `Safe inbound preview opened ${fileName}. Review it manually before applying.`,
           syncFolderAutoExportEnabled:
             'Sync folder auto-export enabled. Distill will write encrypted outbound packets when local content changes, but will not import or apply anything automatically.',
           syncFolderAutoExportDisabled: 'Sync folder auto-export disabled.',
@@ -1074,6 +1101,11 @@ function App() {
           syncFolderMonitorDisabled: '同期フォルダ監視を無効にしました。',
           syncFolderMonitorUpdated: (files: number, ready: number, risky: number, blocked: number) =>
             `監視で${files}件を更新しました。安全候補${ready}件、リスク確認${risky}件、ブロック/無効${blocked}件です。`,
+          syncFolderAutoPreviewEnabled:
+            'Safe inbound preview enabled. Distill may open one unambiguous ready packet preview, but will never apply it automatically.',
+          syncFolderAutoPreviewDisabled: 'Safe inbound preview disabled.',
+          syncFolderAutoPreviewOpened: (fileName: string) =>
+            `Safe inbound preview opened ${fileName}. Review it manually before applying.`,
           syncFolderAutoExportEnabled:
             '同期フォルダへの自動書き出しを有効にしました。ローカル内容が変わった時だけ暗号化パケットを書き出しますが、受信パケットは自動適用しません。',
           syncFolderAutoExportDisabled: '同期フォルダへの自動書き出しを無効にしました。',
@@ -1401,6 +1433,30 @@ function App() {
 
     const counts = countSyncFolderPacketReviews(reviews);
     setSyncFolderLastCheckedAt(new Date().toLocaleString());
+
+    if (syncFolderAutoPreviewEnabled && !syncFolderAutoPreviewInFlight.current) {
+      const autoPreviewDecision = chooseAutoSyncFolderPreview(reviews, {
+        hasOpenPreview: syncPreviewOpenRef.current,
+        lastPreviewedKey: syncFolderAutoPreviewLastKey.current,
+      });
+
+      if (autoPreviewDecision.kind === 'auto-preview') {
+        syncFolderAutoPreviewInFlight.current = true;
+        syncFolderAutoPreviewLastKey.current = createSyncFolderPacketReviewKey(autoPreviewDecision.candidate);
+
+        try {
+          await importEncryptedSyncPacketFromFolder(
+            autoPreviewDecision.candidate,
+            labels.syncFolderAutoPreviewOpened(autoPreviewDecision.candidate.fileName),
+          );
+        } finally {
+          syncFolderAutoPreviewInFlight.current = false;
+        }
+
+        return;
+      }
+    }
+
     setSyncStatus(
       labels.syncFolderMonitorUpdated(
         reviews.length,
@@ -1434,6 +1490,33 @@ function App() {
 
     if (!enabled) {
       setSyncFolderLastCheckedAt('');
+    }
+  }
+
+  function toggleSyncFolderAutoPreview(enabled: boolean) {
+    const labels = syncLabels();
+
+    if (enabled && !syncFolderPath.trim()) {
+      setSyncStatus(labels.syncFolderRequired);
+      return;
+    }
+
+    if (enabled && !vaultPassphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    if (enabled && !isDesktopRuntime()) {
+      setSyncStatus(labels.syncFolderDesktopRequired);
+      return;
+    }
+
+    setSyncFolderAutoPreviewEnabled(enabled);
+    setSyncStatus(enabled ? labels.syncFolderAutoPreviewEnabled : labels.syncFolderAutoPreviewDisabled);
+
+    if (!enabled) {
+      syncFolderAutoPreviewLastKey.current = '';
+      syncFolderAutoPreviewInFlight.current = false;
     }
   }
 
@@ -2330,6 +2413,7 @@ function App() {
             syncFolderPath={syncFolderPath}
             syncFolderMonitorEnabled={syncFolderMonitorEnabled}
             syncFolderLastCheckedAt={syncFolderLastCheckedAt}
+            syncFolderAutoPreviewEnabled={syncFolderAutoPreviewEnabled}
             syncFolderAutoExportEnabled={syncFolderAutoExportEnabled}
             syncFolderAutoExportLastAt={syncFolderAutoExportLastAt}
             syncFolderAutoExportLastFile={syncFolderAutoExportLastFile}
@@ -2375,8 +2459,10 @@ function App() {
             onSyncFolderPathChange={(path) => {
               setSyncFolderPath(path);
               setSyncFolderPacketReviews([]);
+              syncFolderAutoPreviewLastKey.current = '';
             }}
             onSyncFolderMonitorToggle={toggleSyncFolderMonitor}
+            onSyncFolderAutoPreviewToggle={toggleSyncFolderAutoPreview}
             onSyncFolderAutoExportToggle={toggleSyncFolderAutoExport}
             onExportEncryptedSyncPacketToFolder={() => void exportEncryptedSyncPacketToFolder()}
             onRefreshSyncFolderPackets={() => void refreshSyncFolderPackets()}

@@ -39,8 +39,10 @@ import {
 import { buildRestorePreview } from '../restorePreview';
 import { buildSyncPreview } from '../syncPreview';
 import {
+  chooseAutoSyncFolderPreview,
   chooseAssistedSyncFolderPreview,
   countSyncFolderPacketReviews,
+  createSyncFolderPacketReviewKey,
   type SyncFolderPacketReview,
 } from '../syncFolderReview';
 import {
@@ -1383,6 +1385,31 @@ describe('sync folder review', () => {
     expect(chooseAssistedSyncFolderPreview([safe, review('invalid')])).toMatchObject({ kind: 'choose' });
     expect(chooseAssistedSyncFolderPreview([review('stale'), review('blocked')])).toMatchObject({
       kind: 'no-action',
+    });
+  });
+
+  it('safe auto-preview avoids open previews and already previewed packets', () => {
+    const safe = review('ready', 'distill-sync-safe.distill-sync.json');
+
+    expect(chooseAutoSyncFolderPreview([safe, review('stale')])).toMatchObject({
+      kind: 'auto-preview',
+      candidate: safe,
+    });
+    expect(chooseAutoSyncFolderPreview([safe], { hasOpenPreview: true })).toMatchObject({
+      kind: 'no-action',
+      reason: 'preview-open',
+    });
+    expect(
+      chooseAutoSyncFolderPreview([safe], {
+        lastPreviewedKey: createSyncFolderPacketReviewKey(safe),
+      }),
+    ).toMatchObject({
+      kind: 'no-action',
+      reason: 'already-previewed',
+    });
+    expect(chooseAutoSyncFolderPreview([safe, review('invalid')])).toMatchObject({
+      kind: 'no-action',
+      reason: 'not-unambiguous',
     });
   });
 });
