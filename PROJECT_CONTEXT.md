@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.40.
-- Current phase: Multi-device sync-key recovery drill and Trust Layer sync hardening.
-- Current completion estimate: 96% overall; this phase advanced +1pt in this pass.
-- Implemented in this pass: Distill now exposes an A/B multi-device recovery drill that simulates source device -> recovery device -> source device packet flow, verifies wrapped sync-key bootstrap on the recovery side, verifies return-packet decrypt on the source side, and keeps the drill dry-run only.
+- Current version: 0.1.41.
+- Current phase: Sync rollback drill and Trust Layer sync hardening.
+- Current completion estimate: 97% overall; this phase advanced +1pt in this pass.
+- Implemented in this pass: Distill now exposes a sync preview rollback drill that snapshots the current vault, dry-runs the incoming packet, builds the recovery-preview path back to the pre-sync snapshot, and confirms the active vault did not change.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
 - Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, record-level normal vault persistence, and production mobile sync transport.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.40.md`.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.41.md`.
 ## 役割
 
 思老E�E断牁E��捕まえ、タグ・リンク・検索・グラフ�Eレビューを通じて、判断めE��識に蒸留するローカルファースト�EチE��クトップアプリ、E

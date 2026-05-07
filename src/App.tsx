@@ -113,6 +113,7 @@ import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
 import { buildSyncPreview, type SyncPreview } from './syncPreview';
 import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from './syncRecoveryDrill';
+import { runSyncRollbackDrill } from './syncRollbackDrill';
 import {
   getPwaInstallGuidance,
   isPwaStandaloneDisplay,
@@ -1118,6 +1119,11 @@ function App() {
             `Multi-device drill passed for ${records} records: ${sourceDeviceId} -> ${recoveredDeviceId} -> ${sourceDeviceId}.`,
           syncKeyRecoveryDrillFailed:
             'Sync key recovery drill failed. Check the vault passphrase, sync key status, and current backups before rotating again.',
+          syncRollbackDrillPreviewRequired: 'Open a sync preview before running a rollback drill.',
+          syncRollbackDrillSuccess: (sourceDeviceId: string, records: number, rollbackChanges: number) =>
+            `Rollback drill passed for ${records} records from ${sourceDeviceId}. Dry-run rollback would revert ${rollbackChanges} applied block changes and restore the pre-sync snapshot.`,
+          syncRollbackDrillFailed:
+            'Rollback drill failed. Do not apply this sync preview until you have a verified encrypted recovery snapshot.',
           knownDevices: 'Known devices',
           noKnownDevices: 'No synced devices yet',
           revokedDevices: 'Revoked devices',
@@ -1220,6 +1226,12 @@ function App() {
             `複数端末ドリルに成功しました。${records}件を ${sourceDeviceId} -> ${recoveredDeviceId} -> ${sourceDeviceId} の往復で復号できました。`,
           syncKeyRecoveryDrillFailed:
             '同期キー復旧ドリルに失敗しました。再ローテーション前にVaultパスフレーズ、同期キー状態、現在のバックアップを確認してください。',
+          syncRollbackDrillPreviewRequired:
+            '\u5148\u306b\u540c\u671f\u30d7\u30ec\u30d3\u30e5\u30fc\u3092\u958b\u3044\u3066\u304b\u3089\u30ed\u30fc\u30eb\u30d0\u30c3\u30af\u30c9\u30ea\u30eb\u3092\u5b9f\u884c\u3057\u3066\u304f\u3060\u3055\u3044\u3002',
+          syncRollbackDrillSuccess: (sourceDeviceId: string, records: number, rollbackChanges: number) =>
+            `\u30ed\u30fc\u30eb\u30d0\u30c3\u30af\u30c9\u30ea\u30eb\u306b\u6210\u529f\u3057\u307e\u3057\u305f\u3002${sourceDeviceId}\u304b\u3089\u306e${records}\u4ef6\u3092\u30c9\u30e9\u30a4\u30e9\u30f3\u691c\u8a3c\u3057\u3001\u9069\u7528\u5f8c\u306e\u30d6\u30ed\u30c3\u30af\u5dee\u5206${rollbackChanges}\u4ef6\u3092\u623b\u3057\u3066\u540c\u671f\u524d\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u306b\u5fa9\u5143\u3067\u304d\u308b\u3053\u3068\u3092\u78ba\u8a8d\u3057\u307e\u3057\u305f\u3002`,
+          syncRollbackDrillFailed:
+            '\u30ed\u30fc\u30eb\u30d0\u30c3\u30af\u30c9\u30ea\u30eb\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002\u691c\u8a3c\u6e08\u307f\u306e\u6697\u53f7\u5316\u30ea\u30ab\u30d0\u30ea\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u304c\u3042\u308b\u307e\u3067\u3001\u3053\u306e\u540c\u671f\u30d7\u30ec\u30d3\u30e5\u30fc\u306f\u9069\u7528\u3057\u306a\u3044\u3067\u304f\u3060\u3055\u3044\u3002',
           knownDevices: '同期済み端末',
           noKnownDevices: '同期済み端末はまだありません',
           revokedDevices: '信頼解除済み端末',
@@ -2176,6 +2188,27 @@ function App() {
     }
   }
 
+  function runSyncPreviewRollbackDrill() {
+    const labels = syncLabels();
+
+    if (!syncPreview) {
+      setSyncStatus(labels.syncRollbackDrillPreviewRequired);
+      return;
+    }
+
+    try {
+      const result = runSyncRollbackDrill(store, syncPreview.packet);
+      const rollbackChanges =
+        result.rollbackAddedBlocks + result.rollbackUpdatedBlocks + result.rollbackRemovedBlocks;
+      setSyncStatus(
+        labels.syncRollbackDrillSuccess(result.sourceDeviceId, result.records, rollbackChanges),
+      );
+    } catch (error) {
+      console.warn('Failed to run Distill sync rollback drill.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.syncRollbackDrillFailed);
+    }
+  }
+
   function cancelSyncPreview() {
     setSyncPreview(null);
     setSyncRiskAccepted(false);
@@ -2808,6 +2841,7 @@ function App() {
             onPreviewRecommendedSyncFolderPacket={() => void previewRecommendedSyncFolderPacket()}
             onImportSyncFolderPacket={(packetFile) => void importEncryptedSyncPacketFromFolder(packetFile)}
             onQuarantineSyncFolderPacket={(packetFile) => void quarantineSyncFolderPacket(packetFile)}
+            onRunSyncRollbackDrill={runSyncPreviewRollbackDrill}
             onApplySyncPreview={() => void applySyncPreview()}
             onCancelSyncPreview={cancelSyncPreview}
             onSyncRiskAcceptedChange={setSyncRiskAccepted}

@@ -62,6 +62,7 @@ import {
   type SyncFolderPacketReview,
 } from '../syncFolderReview';
 import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from '../syncRecoveryDrill';
+import { runSyncRollbackDrill } from '../syncRollbackDrill';
 import {
   applyEncryptedSyncPacket,
   applySyncPacket,
@@ -1395,6 +1396,41 @@ describe('sync packets', () => {
       bootstrapPacketCreatedAt: '2026-05-06T03:00:00.000Z',
       returnPacketCreatedAt: '2026-05-06T04:00:00.000Z',
     });
+  });
+
+  it('runs a sync rollback drill without changing the active store', () => {
+    const incomingStore: DistillStore = {
+      ...store,
+      blocks: [
+        ...store.blocks,
+        block({
+          id: 'remote-added',
+          content: 'Remote-only block for rollback drill',
+          capturedAt: '2026-05-06T11:00:00.000Z',
+          updatedAt: '2026-05-06T11:00:00.000Z',
+        }),
+      ],
+    };
+    const packet = buildSyncPacket(incomingStore, {
+      sourceDeviceId: 'phone-dev',
+      sourceDeviceName: 'Phone',
+      now: '2026-05-06T12:00:00.000Z',
+    });
+    const before = JSON.stringify(store);
+
+    const result = runSyncRollbackDrill(store, packet);
+
+    expect(result).toMatchObject({
+      sourceDeviceId: 'phone-dev',
+      records: 4,
+      beforeBlocks: 3,
+      afterApplyBlocks: 4,
+      afterRollbackBlocks: 3,
+      addedBlocksAfterApply: 1,
+      rollbackRemovedBlocks: 1,
+      rollbackUnchangedBlocks: 3,
+    });
+    expect(JSON.stringify(store)).toBe(before);
   });
 
   it('preserves local sync key material while applying incoming sync packets', () => {

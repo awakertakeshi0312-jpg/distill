@@ -128,6 +128,7 @@ type InspectorPanelProps = {
   onPreviewRecommendedSyncFolderPacket: () => void;
   onImportSyncFolderPacket: (packetFile: SyncFolderPacketFile) => void;
   onQuarantineSyncFolderPacket: (packetFile: SyncFolderPacketFile) => void;
+  onRunSyncRollbackDrill: () => void;
   onApplySyncPreview: () => void;
   onCancelSyncPreview: () => void;
   onSyncRiskAcceptedChange: (accepted: boolean) => void;
@@ -224,6 +225,7 @@ export function InspectorPanel({
   onPreviewRecommendedSyncFolderPacket,
   onImportSyncFolderPacket,
   onQuarantineSyncFolderPacket,
+  onRunSyncRollbackDrill,
   onApplySyncPreview,
   onCancelSyncPreview,
   onSyncRiskAcceptedChange,
@@ -658,6 +660,7 @@ export function InspectorPanel({
           scanMatched: 'Source-device QR matched this sync packet.',
           scanMismatch: 'That QR payload does not match this sync packet source.',
           warning: 'This packet is stale or already imported. Applying will not change the vault.',
+          rollbackDrill: 'Run rollback drill',
           apply: 'Apply sync',
           dismiss: 'Dismiss packet',
           cancel: 'Cancel',
@@ -721,6 +724,7 @@ export function InspectorPanel({
           scanMatched: '送信元端末QRがこの同期パケットと一致しました。',
           scanMismatch: 'このQR用データは、この同期パケットの送信元と一致しません。',
           warning: 'このパケットは古い、または取り込み済みです。適用してもVaultは変更されません。',
+          rollbackDrill: '\u30ed\u30fc\u30eb\u30d0\u30c3\u30af\u30c9\u30ea\u30eb',
           apply: '同期を適用',
           dismiss: 'パケットを閉じる',
           cancel: 'キャンセル',
@@ -1556,6 +1560,9 @@ export function InspectorPanel({
                 </label>
               ) : null}
               <div className="restorePreviewActions">
+                <button className="restoreButton" type="button" onClick={onRunSyncRollbackDrill}>
+                  {syncPreviewLabels.rollbackDrill}
+                </button>
                 <button className="restoreButton dangerButton" type="button" onClick={onApplySyncPreview}>
                   {syncPreview.diff.replay ? syncPreviewLabels.dismiss : syncPreviewLabels.apply}
                 </button>

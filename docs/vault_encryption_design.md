@@ -2,7 +2,7 @@
 
 ## Current Implementation
 
-Distill 0.1.40 uses an encrypted local vault for normal app persistence.
+Distill 0.1.41 uses an encrypted local vault for normal app persistence.
 
 Implemented:
 
@@ -17,7 +17,7 @@ Implemented:
 - Users can change the vault passphrase from the Inspector.
 - Distill can auto-lock after inactivity and locks when the document is hidden.
 - JSON and encrypted vault restore now build a preview before replacing the current store.
-- Manual sync packets use record-level encrypted records, packet-level sync KDF metadata, dedicated encrypted-vault sync key material with create/rotate lifecycle controls plus single-vault and A/B multi-device recovery drills, passphrase-wrapped sync key bootstrap metadata, device registry metadata, revoked device metadata, and deletion tombstones.
+- Manual sync packets use record-level encrypted records, packet-level sync KDF metadata, dedicated encrypted-vault sync key material with create/rotate lifecycle controls plus single-vault and A/B multi-device recovery drills, sync preview rollback drill, passphrase-wrapped sync key bootstrap metadata, device registry metadata, revoked device metadata, and deletion tombstones.
 - Desktop sync-folder packet exchange can write, scan, and preview encrypted packet files through the same explicit sync preview flow.
 - Tests cover wrong passphrases, unsupported encrypted vault envelopes, and tampered vault payloads.
 
@@ -57,7 +57,7 @@ This is acceptable for the current local MVP, but it is not equivalent to a hard
 ## Important Limits
 
 - If the user forgets the passphrase, Distill cannot recover the vault.
-- Normal vault autosave uses a non-exportable WebCrypto CryptoKey derived from the passphrase and vault KDF metadata at unlock/create time. The passphrase still remains in a volatile app-session ref for sync bootstrap/recovery paths. New sync packets prefer dedicated sync key material stored inside the encrypted vault, use one non-exportable WebCrypto sync session key per packet, expose create/rotate/recovery-drill controls including an A/B multi-device drill, and keep old per-record encrypted packets readable.
+- Normal vault autosave uses a non-exportable WebCrypto CryptoKey derived from the passphrase and vault KDF metadata at unlock/create time. The passphrase still remains in a volatile app-session ref for sync bootstrap/recovery paths. New sync packets prefer dedicated sync key material stored inside the encrypted vault, use one non-exportable WebCrypto sync session key per packet, expose create/rotate/recovery-drill controls including an A/B multi-device drill and sync preview rollback drill, and keep old per-record encrypted packets readable.
 - Normal vault persistence encrypts the whole store as one envelope, while manual sync packets encrypt individual records.
 - Automatic/background sync is not implemented yet; desktop sync-folder packet exchange is explicit and user-triggered.
 - Browser/PWA mode prefers IndexedDB and keeps localStorage only as a fallback/migration source, but browser profile compromise can still delete, replace, or copy encrypted data.
