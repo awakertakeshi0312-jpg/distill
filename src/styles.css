@@ -1074,6 +1074,70 @@ button:disabled {
   color: var(--muted);
 }
 
+.deviceLossRunbookCard {
+  background: #fbfaf1;
+  border-color: rgba(159, 104, 36, 0.28);
+}
+
+.deviceLossRunbookCard-ready {
+  background: #f2faf1;
+  border-color: rgba(47, 111, 78, 0.32);
+}
+
+.deviceLossRunbookCard-setup-required {
+  background: #fff7e8;
+  border-color: rgba(138, 75, 15, 0.34);
+}
+
+.runbookChecklist {
+  display: grid;
+  gap: 6px;
+}
+
+.runbookStep {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.runbookStep b {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+}
+
+.runbookStatus {
+  width: fit-content;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+}
+
+.runbookStatus-ready {
+  border-color: rgba(47, 111, 78, 0.32);
+  background: #edf6ed;
+  color: #2f6f4e;
+}
+
+.runbookStatus-todo {
+  border-color: rgba(138, 75, 15, 0.34);
+  background: #fff7e8;
+  color: #8a4b0f;
+}
+
+.runbookStatus-watch {
+  border-color: rgba(38, 82, 128, 0.28);
+  background: #eef5fb;
+  color: #265280;
+}
+
 .restorePreviewActions {
   display: grid;
   grid-template-columns: 1fr 1fr;

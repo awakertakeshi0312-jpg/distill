@@ -52,6 +52,7 @@ import {
   resolveDeviceVerificationCodeFromPayload,
   signSyncPacket,
 } from '../deviceSigning';
+import { buildDeviceLossRunbook } from '../deviceLossRunbook';
 import { buildRestorePreview } from '../restorePreview';
 import { buildSyncPreview } from '../syncPreview';
 import {
@@ -224,6 +225,43 @@ describe('vault session policy', () => {
     expect(isVaultAutoLockExpired(lastActivityAt, 0, lastActivityAt + 999_999)).toBe(false);
     expect(isVaultAutoLockExpired(lastActivityAt, 15, lastActivityAt + 14 * 60 * 1000)).toBe(false);
     expect(isVaultAutoLockExpired(lastActivityAt, 15, lastActivityAt + 15 * 60 * 1000)).toBe(true);
+  });
+});
+
+describe('device-loss recovery runbook', () => {
+  it('requires core setup before device-loss recovery is operational', () => {
+    const runbook = buildDeviceLossRunbook({
+      knownDeviceCount: 0,
+      recoverySnapshotCount: 0,
+      syncFolderAutoExportEnabled: false,
+      syncFolderMonitorEnabled: false,
+      isDesktopRuntime: true,
+      hasOpenSyncPreview: false,
+    });
+
+    expect(runbook.level).toBe('setup-required');
+    expect(runbook.todoCount).toBe(5);
+    expect(runbook.steps.find((step) => step.id === 'sync-key')?.status).toBe('todo');
+    expect(runbook.steps.find((step) => step.id === 'device-verification')?.status).toBe('todo');
+  });
+
+  it('marks a fully prepared desktop sync setup as ready', () => {
+    const runbook = buildDeviceLossRunbook({
+      syncKeyId: 'sync-key-1',
+      deviceSigningFingerprint: 'ABCD-1234',
+      knownDeviceCount: 2,
+      recoverySnapshotCount: 1,
+      syncFolderPath: 'C:\\Users\\awake\\OneDrive\\Distill Sync',
+      syncFolderAutoExportEnabled: true,
+      syncFolderMonitorEnabled: true,
+      isDesktopRuntime: true,
+      hasOpenSyncPreview: true,
+    });
+
+    expect(runbook.level).toBe('ready');
+    expect(runbook.readyCount).toBe(runbook.totalSteps);
+    expect(runbook.todoCount).toBe(0);
+    expect(runbook.watchCount).toBe(0);
   });
 });
 

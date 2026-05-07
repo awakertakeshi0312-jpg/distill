@@ -19,6 +19,11 @@ import {
   resolveDeviceVerificationCodeFromPayload,
   type SyncPacketSignatureStatus,
 } from '../deviceSigning';
+import {
+  buildDeviceLossRunbook,
+  type DeviceLossRunbookStatus,
+  type DeviceLossRunbookStepId,
+} from '../deviceLossRunbook';
 import type { Project, RevokedSyncDevice, SyncDevice, ThoughtBlock } from '../model';
 import type { PwaInstallGuidance, PwaInstallKind } from '../pwaInstall';
 import type { RelatedBlock } from '../repository';
@@ -555,6 +560,118 @@ export function InspectorPanel({
     'checkpoint-risk': syncLabels.reviewCheckpointRisk,
     invalid: syncLabels.reviewInvalid,
   };
+  const deviceLossRunbookLabels =
+    ui.navInbox === 'Inbox'
+      ? {
+          title: 'Device-loss recovery runbook',
+          hint:
+            'Use this before trusting sync on real devices. It checks the minimum setup needed to recover from a lost laptop or phone.',
+          score: (ready: number, total: number, level: string) => `${ready}/${total} ready - ${level}`,
+          levels: {
+            ready: 'ready',
+            partial: 'usable with cautions',
+            'setup-required': 'setup required',
+          },
+          status: {
+            ready: 'Ready',
+            todo: 'Set up',
+            watch: 'Check',
+          } satisfies Record<DeviceLossRunbookStatus, string>,
+          steps: {
+            'sync-key': {
+              title: 'Dedicated sync key',
+              detail: 'Create the encrypted-vault sync key before relying on another device for recovery.',
+            },
+            'device-verification': {
+              title: 'Verification code / QR',
+              detail: 'Keep the local source-device code available for out-of-band comparison on a new device.',
+            },
+            'partner-device': {
+              title: 'Trusted partner device',
+              detail: 'A second known device proves that bootstrap and return sync packets work beyond this machine.',
+            },
+            'sync-folder': {
+              title: 'Sync folder transport',
+              detail: 'Use a desktop sync folder with monitor or auto-export enabled for repeatable packet exchange.',
+            },
+            'recovery-snapshot': {
+              title: 'Recovery snapshots',
+              detail: 'Apply sync only after Distill can save and preview encrypted pre-sync recovery snapshots.',
+            },
+            'dry-run-drills': {
+              title: 'Recovery drills',
+              detail: 'Run the recovery drill and A/B drill after key creation and before rotating the sync key.',
+            },
+            'rollback-drill': {
+              title: 'Rollback drill',
+              detail: 'Open a sync preview and run rollback drill before applying risky incoming packets.',
+            },
+          } satisfies Record<DeviceLossRunbookStepId, { title: string; detail: string }>,
+        }
+      : {
+          title: '\u7aef\u672b\u7d1b\u5931\u6642\u306e\u5fa9\u65e7\u30e9\u30f3\u30d6\u30c3\u30af',
+          hint:
+            '\u5b9f\u7aef\u672b\u3067\u540c\u671f\u3092\u4fe1\u983c\u3059\u308b\u524d\u306b\u4f7f\u3046\u78ba\u8a8d\u8868\u3067\u3059\u3002PC\u3084\u30b9\u30de\u30db\u3092\u5931\u3063\u305f\u5834\u5408\u306b\u5fa9\u65e7\u3067\u304d\u308b\u6700\u4f4e\u6761\u4ef6\u3092\u78ba\u8a8d\u3057\u307e\u3059\u3002',
+          score: (ready: number, total: number, level: string) => `${ready}/${total} \u6e96\u5099\u6e08\u307f - ${level}`,
+          levels: {
+            ready: '\u6e96\u5099\u5b8c\u4e86',
+            partial: '\u6ce8\u610f\u4ed8\u304d\u3067\u5229\u7528\u53ef',
+            'setup-required': '\u8a2d\u5b9a\u304c\u5fc5\u8981',
+          },
+          status: {
+            ready: '\u6e96\u5099\u6e08\u307f',
+            todo: '\u8a2d\u5b9a',
+            watch: '\u78ba\u8a8d',
+          } satisfies Record<DeviceLossRunbookStatus, string>,
+          steps: {
+            'sync-key': {
+              title: '\u5c02\u7528\u540c\u671f\u30ad\u30fc',
+              detail:
+                '\u5225\u7aef\u672b\u304b\u3089\u5fa9\u65e7\u3059\u308b\u524d\u306b\u3001\u6697\u53f7\u5316Vault\u5185\u306e\u5c02\u7528\u540c\u671f\u30ad\u30fc\u3092\u4f5c\u6210\u3057\u307e\u3059\u3002',
+            },
+            'device-verification': {
+              title: '\u78ba\u8a8d\u30b3\u30fc\u30c9 / QR',
+              detail:
+                '\u65b0\u3057\u3044\u7aef\u672b\u3067\u4fe1\u983c\u3059\u308b\u524d\u306b\u7167\u5408\u3067\u304d\u308b\u3088\u3046\u3001\u9001\u4fe1\u5143\u7aef\u672b\u306e\u30b3\u30fc\u30c9\u3092\u78ba\u8a8d\u3057\u307e\u3059\u3002',
+            },
+            'partner-device': {
+              title: '\u4fe1\u983c\u6e08\u307f\u306e\u76f8\u624b\u7aef\u672b',
+              detail:
+                '2\u53f0\u76ee\u306e\u65e2\u77e5\u7aef\u672b\u304c\u3042\u308b\u3068\u3001\u521d\u56de\u53d6\u308a\u8fbc\u307f\u3068\u623b\u308a\u30d1\u30b1\u30c3\u30c8\u3092\u5b9f\u969b\u306b\u78ba\u8a8d\u3067\u304d\u307e\u3059\u3002',
+            },
+            'sync-folder': {
+              title: '\u540c\u671f\u30d5\u30a9\u30eb\u30c0\u904b\u642c',
+              detail:
+                '\u30c7\u30b9\u30af\u30c8\u30c3\u30d7\u540c\u671f\u30d5\u30a9\u30eb\u30c0\u3067\u76e3\u8996\u307e\u305f\u306f\u81ea\u52d5\u66f8\u304d\u51fa\u3057\u3092\u4f7f\u3046\u3068\u3001\u30d1\u30b1\u30c3\u30c8\u4ea4\u63db\u3092\u518d\u73fe\u3057\u3084\u3059\u304f\u306a\u308a\u307e\u3059\u3002',
+            },
+            'recovery-snapshot': {
+              title: '\u5fa9\u65e7\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8',
+              detail:
+                '\u6697\u53f7\u5316\u3055\u308c\u305f\u540c\u671f\u524d\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u3092\u4fdd\u5b58\u30fb\u30d7\u30ec\u30d3\u30e5\u30fc\u3067\u304d\u308b\u72b6\u614b\u3067\u9069\u7528\u3057\u307e\u3059\u3002',
+            },
+            'dry-run-drills': {
+              title: '\u5fa9\u65e7\u30c9\u30ea\u30eb',
+              detail:
+                '\u30ad\u30fc\u4f5c\u6210\u5f8c\u3068\u30ed\u30fc\u30c6\u30fc\u30b7\u30e7\u30f3\u524d\u306b\u3001\u5fa9\u65e7\u30c9\u30ea\u30eb\u3068A/B\u30c9\u30ea\u30eb\u3092\u5b9f\u884c\u3057\u307e\u3059\u3002',
+            },
+            'rollback-drill': {
+              title: '\u30ed\u30fc\u30eb\u30d0\u30c3\u30af\u30c9\u30ea\u30eb',
+              detail:
+                '\u30ea\u30b9\u30af\u306e\u3042\u308b\u53d7\u4fe1\u30d1\u30b1\u30c3\u30c8\u3092\u9069\u7528\u3059\u308b\u524d\u306b\u3001\u540c\u671f\u30d7\u30ec\u30d3\u30e5\u30fc\u3092\u958b\u3044\u3066\u30c9\u30ea\u30eb\u3092\u5b9f\u884c\u3057\u307e\u3059\u3002',
+            },
+          } satisfies Record<DeviceLossRunbookStepId, { title: string; detail: string }>,
+        };
+  const deviceLossRunbook = buildDeviceLossRunbook({
+    syncKeyId,
+    deviceSigningFingerprint,
+    knownDeviceCount: syncDevices.length,
+    recoverySnapshotCount: syncRecoveryVaults.length,
+    syncFolderPath,
+    syncFolderAutoExportEnabled,
+    syncFolderMonitorEnabled,
+    isDesktopRuntime,
+    hasOpenSyncPreview: Boolean(syncPreview && !syncPreview.diff.replay),
+  });
 
   const restorePreviewLabels =
     ui.navInbox === 'Inbox'
@@ -1181,6 +1298,34 @@ export function InspectorPanel({
             </div>
             {syncKeyId ? <small>{syncLabels.syncKeyRecoveryDrillHint}</small> : null}
             {syncKeyId ? <small>{syncLabels.syncKeyRotateWarning}</small> : null}
+          </div>
+          <div className={`deviceVerificationCard deviceLossRunbookCard deviceLossRunbookCard-${deviceLossRunbook.level}`}>
+            <strong>{deviceLossRunbookLabels.title}</strong>
+            <span>
+              {deviceLossRunbookLabels.score(
+                deviceLossRunbook.readyCount,
+                deviceLossRunbook.totalSteps,
+                deviceLossRunbookLabels.levels[deviceLossRunbook.level],
+              )}
+            </span>
+            <small>{deviceLossRunbookLabels.hint}</small>
+            <div className="runbookChecklist" aria-label={deviceLossRunbookLabels.title}>
+              {deviceLossRunbook.steps.map((step) => {
+                const labels = deviceLossRunbookLabels.steps[step.id];
+
+                return (
+                  <span className={`runbookStep runbookStep-${step.status}`} key={step.id}>
+                    <b>
+                      <span className={`runbookStatus runbookStatus-${step.status}`}>
+                        {deviceLossRunbookLabels.status[step.status]}
+                      </span>
+                      {labels.title}
+                    </b>
+                    <small>{labels.detail}</small>
+                  </span>
+                );
+              })}
+            </div>
           </div>
           <span className="storagePath">{syncLabels.knownDevices}</span>
           {syncDevices.length > 0 ? (

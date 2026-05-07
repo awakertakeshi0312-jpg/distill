@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.41
+- Current version: 0.1.42
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, non-exportable WebCrypto vault session key persistence, packet-level non-exportable WebCrypto sync session key support, dedicated encrypted-vault sync key material with visible create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, and passphrase-wrapped bootstrap support, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, non-exportable WebCrypto vault session key persistence, packet-level non-exportable WebCrypto sync session key support, dedicated encrypted-vault sync key material with visible create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped bootstrap support, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -64,7 +64,7 @@ Implemented app features:
 - Stable local device identity for sync packet source tracking
 - Manual encrypted sync packet export/import using record-level encrypted records
 - Packet-level sync KDF metadata so all records in a new encrypted packet share one non-exportable WebCrypto sync session key, with legacy per-record packet fallback
-- Dedicated sync key material stored in encrypted sync metadata, Inspector create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, and passphrase-wrapped into new packets for first import/recovery
+- Dedicated sync key material stored in encrypted sync metadata, Inspector create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped into new packets for first import/recovery
 - Desktop sync-folder path for writing, scanning, safety-classifying, recommended preview, safe semi-automatic inbound preview, and manual previewing encrypted sync packet files
 - Monitor-only sync-folder review queue that refreshes safety scan results without auto-previewing or auto-applying
 - Outbound sync-folder auto-export that writes encrypted packets only when local sync content changes
@@ -109,7 +109,7 @@ Known remaining security limits:
 - passphrase remains in a volatile app-session ref while unlocked for recovery/bootstrap paths, but normal vault autosave and new sync packet encryption prefer non-exportable CryptoKey sessions derived from dedicated encrypted-vault sync key material
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - restore preview exists, but restore still replaces the full local store after user approval
-- no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, signed trusted-device verification, source-device verification code confirmation, unknown-device trust confirmation, rollback drill before apply, recovery snapshot gating before apply, and manual recovery preview after apply
+- no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, signed trusted-device verification, source-device verification code confirmation, unknown-device trust confirmation, device-loss recovery checklist, rollback drill before apply, recovery snapshot gating before apply, and manual recovery preview after apply
 - browser/PWA preview now prefers IndexedDB for the encrypted envelope, but it is still this-device-only; PWA installation is a local preview path, not hosted sync
 
 ## Technical Stack
