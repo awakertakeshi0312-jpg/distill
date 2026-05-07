@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.36.
+- Current version: 0.1.37.
 - Current phase: Non-exportable vault session key hardening and Trust Layer sync hardening.
-- Current completion estimate: 90% overall; this phase advanced +2pt in this pass.
-- Implemented in this pass: Encrypted sync packets now include packet-level sync KDF metadata. All records in a newly built sync packet are encrypted/decrypted with one non-exportable WebCrypto sync session key, while legacy per-record encrypted packets without packet-level metadata remain readable.
+- Current completion estimate: 92% overall; this phase advanced +2pt in this pass.
+- Implemented in this pass: Distill now creates dedicated cross-device sync key material inside the encrypted vault. New sync exports use that sync key when available, include a passphrase-wrapped bootstrap copy for first import/recovery, and preserve legacy passphrase-based packet compatibility.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
 - Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, record-level normal vault persistence, and production mobile sync transport.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.36.md`.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.37.md`.
 ## 役割
 
 思老E�E断牁E��捕まえ、タグ・リンク・検索・グラフ�Eレビューを通じて、判断めE��識に蒸留するローカルファースト�EチE��クトップアプリ、E

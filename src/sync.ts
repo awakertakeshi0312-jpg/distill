@@ -4,6 +4,7 @@ import {
   type DistillStore,
   type RevokedSyncDevice,
   type SyncDevice,
+  type SyncKeyMaterial,
   type ThoughtBlock,
 } from './model';
 import {
@@ -11,6 +12,7 @@ import {
   createDistillSyncSessionFromKdf,
   decryptDistillSyncRecord,
   decryptDistillSyncRecordWithSession,
+  encryptDistillSyncRecord,
   encryptDistillSyncRecordWithSession,
   type EncryptOptions,
   type VaultKdf,
@@ -69,8 +71,16 @@ export type EncryptedSyncRecord = Omit<SyncRecord, 'value'> & {
 
 export type DistillEncryptedSyncPacket = Omit<DistillSyncPacket, 'type' | 'records'> & {
   type: 'distill.encrypted-sync.packet';
+  syncKeyId?: string;
+  wrappedSyncKey?: WrappedSyncKey;
   syncKdf?: VaultKdf;
   records: EncryptedSyncRecord[];
+};
+
+export type WrappedSyncKey = {
+  type: 'distill.wrapped-sync-key';
+  keyId: string;
+  value: string;
 };
 
 type BuildSyncPacketOptions = {
@@ -83,9 +93,18 @@ type BuildSyncPacketOptions = {
 
 type BuildEncryptedSyncPacketOptions = BuildSyncPacketOptions &
   EncryptOptions & {
-    passphrase: string;
+    passphrase?: string;
+    syncKey?: SyncKeyMaterial | null;
     signPacket?: (packet: DistillSyncPacket) => Promise<SyncPacketSignature>;
   };
+
+export type DecryptEncryptedSyncPacketOptions =
+  | string
+  | {
+      passphrase?: string;
+      syncKey?: SyncKeyMaterial | null;
+      onDiscoveredSyncKey?: (syncKey: SyncKeyMaterial) => void;
+    };
 
 function sortObject(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -118,6 +137,31 @@ export function stableHash(value: unknown) {
   }
 
   return `fnv1a32:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function normalizeDecryptOptions(options: DecryptEncryptedSyncPacketOptions) {
+  return typeof options === 'string' ? { passphrase: options, syncKey: null } : options;
+}
+
+function assertSyncKeyMaterial(value: unknown): asserts value is SyncKeyMaterial {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Wrapped sync key is not a supported Distill sync key.');
+  }
+
+  const syncKey = value as SyncKeyMaterial;
+
+  if (
+    syncKey.type !== 'distill.sync-key' ||
+    syncKey.version !== 1 ||
+    syncKey.algorithm !== 'PBKDF2-AES-GCM-256' ||
+    typeof syncKey.id !== 'string' ||
+    syncKey.id.length === 0 ||
+    typeof syncKey.createdAt !== 'string' ||
+    typeof syncKey.secret !== 'string' ||
+    syncKey.secret.length < 32
+  ) {
+    throw new Error('Wrapped sync key is not a supported Distill sync key.');
+  }
 }
 
 export function createSyncAutoExportFingerprint(
@@ -344,6 +388,7 @@ export function revokeSyncDevice(store: DistillStore, deviceId: string, revokedA
           lastPacketHash: 'lastPacketHash' in device ? device.lastPacketHash : undefined,
         },
       ]),
+      syncKey: sync.syncKey,
     }),
   };
 }
@@ -357,6 +402,7 @@ export function forgetRevokedSyncDevice(store: DistillStore, deviceId: string): 
       tombstones: sync.tombstones,
       devices: sync.devices,
       revokedDevices: sync.revokedDevices.filter((item) => item.id !== deviceId),
+      syncKey: sync.syncKey,
     }),
   };
 }
@@ -370,6 +416,7 @@ export function forgetKnownSyncDevice(store: DistillStore, deviceId: string): Di
       tombstones: sync.tombstones,
       devices: sync.devices.filter((item) => item.id !== deviceId),
       revokedDevices: sync.revokedDevices,
+      syncKey: sync.syncKey,
     }),
   };
 }
@@ -475,6 +522,22 @@ function isSyncPacketKdf(value: unknown): value is VaultKdf {
     kdf.iterations > 0 &&
     typeof kdf.salt === 'string' &&
     kdf.salt.length > 0
+  );
+}
+
+function isWrappedSyncKey(value: unknown): value is WrappedSyncKey {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const wrapped = value as WrappedSyncKey;
+
+  return (
+    wrapped.type === 'distill.wrapped-sync-key' &&
+    typeof wrapped.keyId === 'string' &&
+    wrapped.keyId.length > 0 &&
+    typeof wrapped.value === 'string' &&
+    wrapped.value.length > 0
   );
 }
 
@@ -618,6 +681,8 @@ export function parseEncryptedSyncPacket(json: string): DistillEncryptedSyncPack
     (typeof parsed.previousPacketHash !== 'undefined' && typeof parsed.previousPacketHash !== 'string') ||
     (typeof parsed.packetHash !== 'undefined' && typeof parsed.packetHash !== 'string') ||
     (typeof parsed.signature !== 'undefined' && !isSyncPacketSignature(parsed.signature)) ||
+    (typeof parsed.syncKeyId !== 'undefined' && typeof parsed.syncKeyId !== 'string') ||
+    (typeof parsed.wrappedSyncKey !== 'undefined' && !isWrappedSyncKey(parsed.wrappedSyncKey)) ||
     (typeof parsed.syncKdf !== 'undefined' && !isSyncPacketKdf(parsed.syncKdf)) ||
     (typeof parsed.devices !== 'undefined' && (!Array.isArray(parsed.devices) || !parsed.devices.every(isSyncDevice))) ||
     (typeof parsed.revokedDevices !== 'undefined' &&
@@ -650,6 +715,12 @@ export async function buildEncryptedSyncPacket(
   store: DistillStore,
   options: BuildEncryptedSyncPacketOptions,
 ): Promise<DistillEncryptedSyncPacket> {
+  const syncSecret = options.syncKey?.secret ?? options.passphrase;
+
+  if (!syncSecret) {
+    throw new Error('A sync key or vault passphrase is required to build an encrypted sync packet.');
+  }
+
   const unsignedPacket = buildSyncPacket(store, options);
   const plainPacket = options.signPacket
     ? {
@@ -657,7 +728,17 @@ export async function buildEncryptedSyncPacket(
         signature: await options.signPacket(unsignedPacket),
       }
     : unsignedPacket;
-  const syncSession = await createDistillSyncSession(options.passphrase, { iterations: options.iterations });
+  const syncSession = await createDistillSyncSession(syncSecret, { iterations: options.iterations });
+  const wrappedSyncKey =
+    options.syncKey && options.passphrase
+      ? ({
+          type: 'distill.wrapped-sync-key',
+          keyId: options.syncKey.id,
+          value: await encryptDistillSyncRecord(stableStringify(options.syncKey), options.passphrase, {
+            iterations: options.iterations,
+          }),
+        } satisfies WrappedSyncKey)
+      : undefined;
   const records = await Promise.all(
     plainPacket.records.map(async (record): Promise<EncryptedSyncRecord> => ({
       kind: record.kind,
@@ -681,6 +762,8 @@ export async function buildEncryptedSyncPacket(
     previousPacketHash: plainPacket.previousPacketHash,
     packetHash: plainPacket.packetHash,
     signature: plainPacket.signature,
+    syncKeyId: options.syncKey?.id,
+    wrappedSyncKey,
     syncKdf: syncSession.kdf,
     devices: plainPacket.devices?.map(cloneDevice),
     revokedDevices: plainPacket.revokedDevices?.map(cloneRevokedDevice),
@@ -690,14 +773,49 @@ export async function buildEncryptedSyncPacket(
 
 export async function decryptEncryptedSyncPacket(
   packet: DistillEncryptedSyncPacket,
-  passphrase: string,
+  options: DecryptEncryptedSyncPacketOptions,
 ): Promise<DistillSyncPacket> {
-  const syncSession = packet.syncKdf ? await createDistillSyncSessionFromKdf(passphrase, packet.syncKdf) : null;
+  const decryptOptions = normalizeDecryptOptions(options);
+  let syncSecret =
+    packet.syncKeyId && decryptOptions.syncKey?.id === packet.syncKeyId ? decryptOptions.syncKey.secret : undefined;
+
+  if (!syncSecret && packet.syncKeyId && packet.wrappedSyncKey && decryptOptions.passphrase) {
+    if (packet.wrappedSyncKey.keyId !== packet.syncKeyId) {
+      throw new Error('Wrapped sync key metadata does not match the encrypted sync packet.');
+    }
+
+    const unwrapped = JSON.parse(
+      await decryptDistillSyncRecord(packet.wrappedSyncKey.value, decryptOptions.passphrase),
+    ) as SyncKeyMaterial;
+    assertSyncKeyMaterial(unwrapped);
+
+    if (unwrapped.id !== packet.syncKeyId) {
+      throw new Error('Wrapped sync key does not match the encrypted sync packet.');
+    }
+
+    syncSecret = unwrapped.secret;
+    decryptOptions.onDiscoveredSyncKey?.(unwrapped);
+  }
+
+  if (packet.syncKeyId && !syncSecret) {
+    throw new Error('A matching sync key or wrapped sync key passphrase is required for this encrypted sync packet.');
+  }
+
+  const fallbackSecret = decryptOptions.passphrase;
+  const syncSession =
+    packet.syncKdf && (syncSecret || fallbackSecret)
+      ? await createDistillSyncSessionFromKdf(syncSecret ?? fallbackSecret!, packet.syncKdf)
+      : null;
+
+  if (!syncSession && !fallbackSecret) {
+    throw new Error('A sync key or vault passphrase is required to decrypt this encrypted sync packet.');
+  }
+
   const records = await Promise.all(
     packet.records.map(async (record) => {
       const decryptedText = syncSession
         ? await decryptDistillSyncRecordWithSession(record.encrypted.value, syncSession)
-        : await decryptDistillSyncRecord(record.encrypted.value, passphrase);
+        : await decryptDistillSyncRecord(record.encrypted.value, fallbackSecret!);
       const decrypted = JSON.parse(decryptedText) as SyncRecord;
       assertRecordMetadataMatches(record, decrypted);
       return decrypted;
@@ -874,6 +992,7 @@ export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket):
       tombstones: Array.from(tombstonesById.values()),
       devices,
       revokedDevices,
+      syncKey: sync.syncKey,
     }),
   };
 }
@@ -894,7 +1013,7 @@ export function getSyncPacketSignaturePayload(packet: DistillSyncPacket) {
 export async function applyEncryptedSyncPacket(
   store: DistillStore,
   packet: DistillEncryptedSyncPacket,
-  passphrase: string,
+  options: DecryptEncryptedSyncPacketOptions,
 ) {
-  return applySyncPacket(store, await decryptEncryptedSyncPacket(packet, passphrase));
+  return applySyncPacket(store, await decryptEncryptedSyncPacket(packet, options));
 }

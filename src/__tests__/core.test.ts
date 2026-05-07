@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DistillStore, ThoughtBlock } from '../model';
+import { ensureSyncKeyMaterial, getSyncKeyMaterial, type DistillStore, type ThoughtBlock } from '../model';
 import { extractBlockSignals, searchBlocks } from '../model';
 import {
   assignProject,
@@ -1270,6 +1270,66 @@ describe('sync packets', () => {
 
     expect('syncKdf' in legacyPacket).toBe(false);
     expect(decrypted.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
+  });
+
+  it('encrypts new sync packets with dedicated sync key material and a wrapped key fallback', async () => {
+    const keyedStore = ensureSyncKeyMaterial(store, '2026-05-06T02:00:00.000Z');
+    const syncKey = getSyncKeyMaterial(keyedStore);
+
+    if (!syncKey) {
+      throw new Error('Expected test store to have sync key material');
+    }
+
+    const packet = await buildEncryptedSyncPacket(keyedStore, {
+      sourceDeviceId: 'windows-dev',
+      now: '2026-05-06T03:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      syncKey,
+      iterations: 1_000,
+    });
+    const serialized = serializeEncryptedSyncPacket(packet);
+
+    expect(packet.syncKeyId).toBe(syncKey.id);
+    expect(packet.wrappedSyncKey).toMatchObject({
+      type: 'distill.wrapped-sync-key',
+      keyId: syncKey.id,
+    });
+    expect(serialized).not.toContain(syncKey.secret);
+
+    const decryptedWithLocalKey = await decryptEncryptedSyncPacket(packet, { syncKey });
+    let discoveredSyncKey = null as typeof syncKey | null;
+    const decryptedWithWrappedKey = await decryptEncryptedSyncPacket(packet, {
+      passphrase: 'correct horse battery staple',
+      onDiscoveredSyncKey: (key) => {
+        discoveredSyncKey = key;
+      },
+    });
+
+    expect(decryptedWithLocalKey.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
+    expect(decryptedWithWrappedKey.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
+    expect(discoveredSyncKey?.id).toBe(syncKey.id);
+  });
+
+  it('preserves local sync key material while applying incoming sync packets', () => {
+    const keyedStore = ensureSyncKeyMaterial({ projects: [], blocks: [] }, '2026-05-06T02:00:00.000Z');
+    const incoming = buildSyncPacket(
+      {
+        projects: [],
+        blocks: [
+          block({
+            id: 'remote-with-key',
+            content: 'Remote block should not remove local sync key',
+            capturedAt: '2026-05-06T03:00:00.000Z',
+            updatedAt: '2026-05-06T04:00:00.000Z',
+          }),
+        ],
+      },
+      { sourceDeviceId: 'mobile-dev', now: '2026-05-06T05:00:00.000Z' },
+    );
+
+    const merged = applySyncPacket(keyedStore, incoming);
+
+    expect(getSyncKeyMaterial(merged)?.id).toBe(getSyncKeyMaterial(keyedStore)?.id);
   });
 
   it('signs encrypted sync packets and verifies trusted device signatures', async () => {

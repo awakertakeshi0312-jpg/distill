@@ -20,7 +20,17 @@ import {
   signSyncPacket,
 } from './deviceSigning';
 import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
-import { initialStore, normalizeSyncMetadata, type DistillStore, type Project, type SearchResult } from './model';
+import {
+  ensureSyncKeyMaterial,
+  getSyncKeyMaterial,
+  initialStore,
+  normalizeSyncMetadata,
+  withSyncKeyMaterial,
+  type DistillStore,
+  type Project,
+  type SearchResult,
+  type SyncKeyMaterial,
+} from './model';
 import {
   applySyncPacket,
   buildEncryptedSyncPacket,
@@ -292,6 +302,14 @@ function App() {
 
   function getVaultSession() {
     return vaultSessionRef.current;
+  }
+
+  function getSyncDecryptOptions(discoveredSyncKey?: (syncKey: SyncKeyMaterial) => void) {
+    return {
+      passphrase: getVaultPassphrase(),
+      syncKey: getSyncKeyMaterial(store),
+      onDiscoveredSyncKey: discoveredSyncKey,
+    };
   }
 
   function openVaultSession(passphrase: string, session: DistillVaultSession) {
@@ -1306,12 +1324,14 @@ function App() {
       signingKeyAlgorithm: signingKeyPair.algorithm,
       signingPublicKey: signingKeyPair.publicKey,
     };
-    const registeredStore = registerSyncDevice(store, signedIdentity);
+    const registeredStore = ensureSyncKeyMaterial(registerSyncDevice(store, signedIdentity));
+    const syncKey = getSyncKeyMaterial(registeredStore);
     const packet = await buildEncryptedSyncPacket(registeredStore, {
       sourceDeviceId: identity.id,
       sourceDeviceName: identity.name,
       sourceDeviceSigningPublicKey: signingKeyPair.publicKey,
       passphrase,
+      syncKey,
       signPacket: (plainPacket) => signSyncPacket(plainPacket, signingKeyPair),
     });
 
@@ -1399,7 +1419,7 @@ function App() {
     try {
       const packetText = await readEncryptedSyncPacketFile(packetFile.path);
       const encryptedPacket = parseEncryptedSyncPacket(packetText);
-      const packet = await decryptEncryptedSyncPacket(encryptedPacket, passphrase);
+      const packet = await decryptEncryptedSyncPacket(encryptedPacket, getSyncDecryptOptions());
       const sourceDevice = packet.sourceDeviceName || packet.sourceDeviceId;
       const baseReview = {
         ...packetFile,
@@ -1796,7 +1816,18 @@ function App() {
 
     try {
       const encryptedPacket = parseEncryptedSyncPacket(packetText);
-      const packet = await decryptEncryptedSyncPacket(encryptedPacket, passphrase);
+      let discoveredSyncKey: SyncKeyMaterial | null = null;
+      const packet = await decryptEncryptedSyncPacket(
+        encryptedPacket,
+        getSyncDecryptOptions((syncKey) => {
+          discoveredSyncKey = syncKey;
+        }),
+      );
+
+      if (discoveredSyncKey && !getSyncKeyMaterial(store)) {
+        const syncKey = discoveredSyncKey;
+        setStore((current) => withSyncKeyMaterial(current, syncKey));
+      }
 
       if (isSyncDeviceRevoked(store, packet.sourceDeviceId)) {
         setSyncStatus(labels.revokedSourceRejected(packet.sourceDeviceId));

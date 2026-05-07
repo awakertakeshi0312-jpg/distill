@@ -44,10 +44,20 @@ export type RevokedSyncDevice = {
   lastPacketHash?: string;
 };
 
+export type SyncKeyMaterial = {
+  type: 'distill.sync-key';
+  version: 1;
+  id: string;
+  createdAt: string;
+  algorithm: 'PBKDF2-AES-GCM-256';
+  secret: string;
+};
+
 export type SyncMetadata = {
   tombstones: DeletionTombstone[];
   devices: SyncDevice[];
   revokedDevices: RevokedSyncDevice[];
+  syncKey?: SyncKeyMaterial;
 };
 
 export type SearchResult = {
@@ -133,6 +143,53 @@ export const initialStore: DistillStore = {
   },
 };
 
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = '';
+
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+
+  return btoa(binary);
+}
+
+function createRandomSecret(bytes = 32) {
+  const secret = new Uint8Array(bytes);
+  globalThis.crypto.getRandomValues(secret);
+
+  return bytesToBase64(secret);
+}
+
+function isSyncKeyMaterial(value: unknown): value is SyncKeyMaterial {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const key = value as SyncKeyMaterial;
+
+  return (
+    key.type === 'distill.sync-key' &&
+    key.version === 1 &&
+    key.algorithm === 'PBKDF2-AES-GCM-256' &&
+    typeof key.id === 'string' &&
+    key.id.length > 0 &&
+    typeof key.createdAt === 'string' &&
+    typeof key.secret === 'string' &&
+    key.secret.length >= 32
+  );
+}
+
+export function createSyncKeyMaterial(timestamp = new Date().toISOString()): SyncKeyMaterial {
+  return {
+    type: 'distill.sync-key',
+    version: 1,
+    id: `sync-key-${crypto.randomUUID()}`,
+    createdAt: timestamp,
+    algorithm: 'PBKDF2-AES-GCM-256',
+    secret: createRandomSecret(),
+  };
+}
+
 export function createEmptySyncMetadata(): SyncMetadata {
   return {
     tombstones: [],
@@ -173,6 +230,7 @@ export function normalizeSyncMetadata(sync?: Partial<SyncMetadata> | null): Sync
           (typeof item.lastPacketHash === 'undefined' || typeof item.lastPacketHash === 'string'),
       )
     : [];
+  const syncKey = isSyncKeyMaterial(sync?.syncKey) ? sync.syncKey : undefined;
   const tombstonesById = new Map<string, DeletionTombstone>();
   const devicesById = new Map<string, SyncDevice>();
   const revokedDevicesById = new Map<string, RevokedSyncDevice>();
@@ -223,6 +281,7 @@ export function normalizeSyncMetadata(sync?: Partial<SyncMetadata> | null): Sync
     revokedDevices: Array.from(revokedDevicesById.values()).sort(
       (a, b) => b.revokedAt.localeCompare(a.revokedAt) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
     ),
+    syncKey,
   };
 }
 
@@ -231,6 +290,26 @@ export function normalizeDistillStore(store: DistillStore): DistillStore {
     ...store,
     sync: normalizeSyncMetadata(store.sync),
   };
+}
+
+export function getSyncKeyMaterial(store: DistillStore): SyncKeyMaterial | null {
+  return normalizeSyncMetadata(store.sync).syncKey ?? null;
+}
+
+export function withSyncKeyMaterial(store: DistillStore, syncKey: SyncKeyMaterial): DistillStore {
+  const sync = normalizeSyncMetadata(store.sync);
+
+  return {
+    ...store,
+    sync: {
+      ...sync,
+      syncKey,
+    },
+  };
+}
+
+export function ensureSyncKeyMaterial(store: DistillStore, timestamp = new Date().toISOString()): DistillStore {
+  return getSyncKeyMaterial(store) ? normalizeDistillStore(store) : withSyncKeyMaterial(store, createSyncKeyMaterial(timestamp));
 }
 
 export function extractBlockSignals(content: string) {

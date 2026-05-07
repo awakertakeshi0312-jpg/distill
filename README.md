@@ -24,6 +24,7 @@ Implemented:
 - Manual JSON backup and encrypted vault backup.
 - Manual encrypted sync packet export/import.
 - Packet-level encrypted sync session KDF metadata so records in one packet share one non-exportable WebCrypto sync session key while legacy per-record packets remain readable.
+- Dedicated sync key material stored inside the encrypted vault, with passphrase-wrapped bootstrap metadata for first import/recovery.
 - Desktop sync-folder packet exchange with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, quarantine, signed device checkpoints, source-device verification codes with QR display and scanner/paste import, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, risk acknowledgement before applying destructive packets, encrypted pre-sync recovery snapshots, and in-app recovery snapshot preview.
 - Stable local device identity for sync packet source tracking.
 - Sync deletion tombstones so old packets cannot resurrect permanently deleted archived blocks.
@@ -93,7 +94,7 @@ npm run check:all
 
 Current passing suite:
 
-- Frontend/domain tests: 65 passed.
+- Frontend/domain tests: 67 passed.
 - Rust/SQLite tests: 18 passed.
 - Browser E2E smoke tests: 11 passed.
 - Production frontend build: passing.
@@ -141,13 +142,13 @@ src-tauri/target/release/app.exe
 Current Windows installer output:
 
 ```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.36_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Distill_0.1.37_x64-setup.exe
 ```
 
 Installer SHA256:
 
 ```text
-FAF99C185CC8A9A5284A9A976DCFC18FBE0B2A1702DB4A8B27B7C66A136704F7
+834DD008E1DE7F64CAC9D430A072B58EC1A8E7F696E8F0050E13832F112BD2A7
 ```
 
 Signed auto-update flow:

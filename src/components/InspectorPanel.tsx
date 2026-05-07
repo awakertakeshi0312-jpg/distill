@@ -396,7 +396,8 @@ export function InspectorPanel({
     ui.navInbox === 'Inbox'
       ? {
           title: 'Encrypted sync packet',
-          hint: 'Manual device-to-device sync. Packet records are encrypted with the current vault passphrase before export.',
+          hint:
+            'Manual device-to-device sync. New packets use a dedicated sync key stored inside the encrypted vault, with a passphrase-wrapped bootstrap key for recovery and first import.',
           deviceName: 'Device name',
           deviceId: 'Device ID',
           deviceFingerprint: 'Device verification code',
