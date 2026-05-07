@@ -12,7 +12,7 @@ const VAULT_RECORD_LOG_KEY: &str = "distill.vaultRecordLog.v1";
 const MAX_SYNC_PACKET_BYTES: u64 = 5 * 1024 * 1024;
 const MAX_VAULT_RECORD_LOG_BYTES: u64 = 25 * 1024 * 1024;
 const APP_IDENTIFIER: &str = "app.distill.local";
-const WEBVIEW_CACHE_CLEANUP_MARKER: &str = "distill-webview-cache-cleanup-v2.done";
+const WEBVIEW_CACHE_CLEANUP_MARKER: &str = "distill-webview-cache-cleanup-v3.done";
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -261,7 +261,7 @@ fn clear_desktop_webview_cache_once(app: &AppHandle) -> Result<(), String> {
     }
   }
 
-  std::fs::write(marker, "distill webview cache cleanup v2\n").map_err(|error| error.to_string())
+  std::fs::write(marker, "distill webview cache cleanup v3\n").map_err(|error| error.to_string())
 }
 
 fn ai_org_kernel_root(app: &AppHandle) -> Result<PathBuf, String> {

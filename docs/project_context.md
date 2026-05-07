@@ -10,7 +10,7 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.46
+- Current version: 0.1.47
 - Desktop target: Windows x64
 - Current state: local MVP plus encrypted local vault, desktop blank-screen recovery hardening, encrypted vault record-log shadow persistence, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, non-exportable WebCrypto vault session key persistence, packet-level non-exportable WebCrypto sync session key support, dedicated encrypted-vault sync key material with visible create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped bootstrap support, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
@@ -56,7 +56,7 @@ Implemented app features:
 - Startup vault create/unlock screen
 - Normal encrypted local persistence after unlock
 - Encrypted vault record-log shadow persistence for replayable per-record projects, blocks, tombstones, devices, revoked devices, and sync-key material
-- Desktop white-screen prevention: Tauri desktop no longer registers the browser Service Worker, unregisters old desktop Service Workers when possible, and performs a one-time native cleanup of `LOCALAPPDATA\app.distill.local\EBWebView` before startup
+- Desktop white-screen prevention: Tauri desktop no longer registers the browser Service Worker, unregisters old desktop Service Workers when possible, and clears `LOCALAPPDATA\app.distill.local\EBWebView` in the NSIS preinstall hook before app startup
 - One-time migration from legacy plaintext local store
 - Explicit clearing of known plaintext legacy data
 - English/Japanese UI

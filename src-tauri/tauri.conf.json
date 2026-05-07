@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Distill",
-  "version": "0.1.46",
+  "version": "0.1.47",
   "identifier": "app.distill.local",
   "build": {
     "frontendDist": "../dist",
@@ -46,7 +46,12 @@
     "android": {
       "debugApplicationIdSuffix": ".debug"
     },
-    "createUpdaterArtifacts": false
+    "createUpdaterArtifacts": false,
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/nsis-hooks.nsh"
+      }
+    }
   },
   "plugins": {
     "updater": {
