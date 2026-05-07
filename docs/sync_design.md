@@ -86,7 +86,7 @@ Implemented:
 - packet-level sync KDF metadata
 - passphrase-wrapped sync key bootstrap metadata for new encrypted sync packets, so all records in one packet are encrypted and decrypted with one non-exportable WebCrypto sync session key.
 - legacy encrypted sync packet fallback for older packets without packet-level `syncKdf` metadata.
-- dedicated sync key material stored in encrypted sync metadata.
+- dedicated sync key material stored in encrypted sync metadata, with Inspector create/rotate lifecycle controls.
 - passphrase-wrapped sync key bootstrap in new encrypted packets so a receiving vault can recover the sync key during first import.
 - wrong-passphrase rejection for encrypted sync packets.
 - metadata tamper detection between encrypted wrappers and decrypted records.
@@ -186,7 +186,7 @@ This keeps the risky part small: the app can prove merge behavior before any pri
 }
 ```
 
-The outer wrapper contains only the fields required for sync routing, ordering, deterministic tie-breaking, and checkpoint validation. The decrypted record contains either the full `ThoughtBlock` payload or a deletion tombstone. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging. Packets produced by Distill 0.1.36 and later include `syncKdf`; Distill derives one non-exportable WebCrypto sync session key from that packet metadata and uses it for all records in the packet. Packets produced by Distill 0.1.37 and later can also include `syncKeyId` plus `wrappedSyncKey`; Distill prefers matching local sync key material stored inside the encrypted vault, or unwraps the sync key with the vault passphrase during first import/recovery. Older encrypted packets without `syncKdf` still decrypt through the per-record envelope KDF fallback.
+The outer wrapper contains only the fields required for sync routing, ordering, deterministic tie-breaking, and checkpoint validation. The decrypted record contains either the full `ThoughtBlock` payload or a deletion tombstone. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging. Packets produced by Distill 0.1.36 and later include `syncKdf`; Distill derives one non-exportable WebCrypto sync session key from that packet metadata and uses it for all records in the packet. Packets produced by Distill 0.1.37 and later can also include `syncKeyId` plus `wrappedSyncKey`; Distill prefers matching local sync key material stored inside the encrypted vault, or unwraps the sync key with the vault passphrase during first import/recovery. Distill 0.1.38 adds Inspector controls to create or rotate that dedicated sync key; rotation affects future packets only. Older encrypted packets without `syncKdf` still decrypt through the per-record envelope KDF fallback.
 
 `packetHash` is computed from the plain sync packet with `packetHash` omitted. `previousPacketHash` must match the known source device `lastPacketHash` when Distill already knows that device. This gives manual sync a local hash-chain guard before automatic folder or hosted sync exists.
 
@@ -313,7 +313,7 @@ Before enabling automatic sync:
 
 - wrong passphrase test
 - corrupted payload test
-- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, QR display, camera scanner, paste import, known-device forget/removal, packet-level sync session KDF metadata, dedicated sync key bootstrap, and safe semi-automatic inbound preview are implemented. Mobile-native pairing polish remains future work.
+- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, QR display, camera scanner, paste import, known-device forget/removal, packet-level sync session KDF metadata, dedicated sync key bootstrap, create/rotate lifecycle controls, and safe semi-automatic inbound preview are implemented. Mobile-native pairing polish remains future work.
 - device lifecycle story beyond local revoke/forget actions
 - backup recovery test. Current status: pre-sync encrypted recovery snapshots are saved before sync apply, and restore-from-recovery now has an in-app preview path.
 - local cache clear test

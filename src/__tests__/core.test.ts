@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ensureSyncKeyMaterial, getSyncKeyMaterial, type DistillStore, type ThoughtBlock } from '../model';
+import {
+  createSyncKeyMaterial,
+  ensureSyncKeyMaterial,
+  getSyncKeyMaterial,
+  withSyncKeyMaterial,
+  type DistillStore,
+  type ThoughtBlock,
+} from '../model';
 import { extractBlockSignals, searchBlocks } from '../model';
 import {
   assignProject,
@@ -1270,6 +1277,27 @@ describe('sync packets', () => {
 
     expect('syncKdf' in legacyPacket).toBe(false);
     expect(decrypted.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
+  });
+
+  it('creates and rotates dedicated sync key material inside sync metadata', () => {
+    const firstStore = ensureSyncKeyMaterial({ projects: [], blocks: [] }, '2026-05-06T02:00:00.000Z');
+    const firstKey = getSyncKeyMaterial(firstStore);
+
+    if (!firstKey) {
+      throw new Error('Expected sync key material to be created');
+    }
+
+    const unchangedStore = ensureSyncKeyMaterial(firstStore, '2026-05-06T03:00:00.000Z');
+    const rotatedStore = withSyncKeyMaterial(
+      firstStore,
+      createSyncKeyMaterial('2026-05-06T04:00:00.000Z'),
+    );
+    const rotatedKey = getSyncKeyMaterial(rotatedStore);
+
+    expect(getSyncKeyMaterial(unchangedStore)?.id).toBe(firstKey.id);
+    expect(rotatedKey?.id).not.toBe(firstKey.id);
+    expect(rotatedKey?.secret).not.toBe(firstKey.secret);
+    expect(rotatedKey?.createdAt).toBe('2026-05-06T04:00:00.000Z');
   });
 
   it('encrypts new sync packets with dedicated sync key material and a wrapped key fallback', async () => {

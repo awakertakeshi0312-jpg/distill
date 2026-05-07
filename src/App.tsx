@@ -21,6 +21,7 @@ import {
 } from './deviceSigning';
 import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
 import {
+  createSyncKeyMaterial,
   ensureSyncKeyMaterial,
   getSyncKeyMaterial,
   initialStore,
@@ -684,6 +685,7 @@ function App() {
   const relatedBlocks = useMemo(() => getRelatedBlocks(store, selectedBlockId), [store, selectedBlockId]);
   const selectedPeople = selectedBlock ? extractPeople(selectedBlock) : [];
   const peopleIndex = useMemo(() => getPeopleIndex(store), [store]);
+  const syncKeyMaterial = useMemo(() => getSyncKeyMaterial(store), [store]);
   const syncDevices = useMemo(() => normalizeSyncMetadata(store.sync).devices, [store.sync]);
   const revokedSyncDevices = useMemo(() => normalizeSyncMetadata(store.sync).revokedDevices, [store.sync]);
   const projectCounts = useMemo(() => getProjectCounts(store, activeBlocks), [store, activeBlocks]);
@@ -1105,6 +1107,10 @@ function App() {
             `Merged ${records} encrypted sync records from device ${deviceId}. Recovery snapshot saved at ${recoveryPath}.`,
           importInvalid: 'Could not import that encrypted sync packet. Check the file and vault passphrase.',
           deviceRenamed: 'Device name updated.',
+          syncKeyCreated: 'Dedicated sync key created inside the encrypted vault.',
+          syncKeyRotated: 'Dedicated sync key rotated. Future sync packets use the new key.',
+          syncKeyRotateConfirm:
+            'Rotate the dedicated sync key? Future packets will use the new key. Keep your vault passphrase for older packet recovery.',
           knownDevices: 'Known devices',
           noKnownDevices: 'No synced devices yet',
           revokedDevices: 'Revoked devices',
@@ -1197,6 +1203,10 @@ function App() {
             `端末 ${deviceId} からの暗号化同期レコード ${records} 件を統合しました。復元用スナップショットを ${recoveryPath} に保存しました。`,
           importInvalid: '暗号化同期パケットを取り込めませんでした。ファイルとVaultパスフレーズを確認してください。',
           deviceRenamed: '端末名を更新しました。',
+          syncKeyCreated: '暗号化Vault内に専用同期キーを作成しました。',
+          syncKeyRotated: '専用同期キーをローテーションしました。今後の同期パケットは新しいキーを使います。',
+          syncKeyRotateConfirm:
+            '専用同期キーをローテーションしますか？今後の同期パケットは新しいキーを使います。古いパケットの復旧用にVaultパスフレーズは保持してください。',
           knownDevices: '同期済み端末',
           noKnownDevices: '同期済み端末はまだありません',
           revokedDevices: '信頼解除済み端末',
@@ -1305,6 +1315,24 @@ function App() {
     setSyncStatus(syncLabels().deviceRenamed);
   }
 
+  function createDedicatedSyncKey() {
+    setStore((current) => ensureSyncKeyMaterial(current));
+    setSyncStatus(syncLabels().syncKeyCreated);
+  }
+
+  function rotateDedicatedSyncKey() {
+    const labels = syncLabels();
+
+    if (!window.confirm(labels.syncKeyRotateConfirm)) {
+      return;
+    }
+
+    setStore((current) => withSyncKeyMaterial(current, createSyncKeyMaterial()));
+    setSyncFolderAutoExportFingerprint('');
+    syncFolderAutoPreviewLastKey.current = '';
+    setSyncStatus(labels.syncKeyRotated);
+  }
+
   function createSyncPacketFileName() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     return `distill-sync-${timestamp}.distill-sync.json`;
@@ -1344,11 +1372,11 @@ function App() {
   }
 
   async function writeCurrentEncryptedSyncPacketToFolder() {
-    const { identity, packet, serializedPacket } = await createCurrentEncryptedSyncPacket();
+    const { identity, registeredStore, packet, serializedPacket } = await createCurrentEncryptedSyncPacket();
     const filePath = await writeEncryptedSyncPacketFile(syncFolderPath.trim(), createSyncPacketFileName(), serializedPacket);
 
     setDeviceIdentity(identity);
-    setStore((current) => registerSyncPacketCheckpoint(registerSyncDevice(current, identity), packet));
+    setStore(registerSyncPacketCheckpoint(registeredStore, packet));
     setSyncFolderPackets(await listEncryptedSyncPacketFiles(syncFolderPath.trim()));
     setSyncFolderPacketReviews([]);
 
@@ -1368,11 +1396,11 @@ function App() {
     }
 
     try {
-      const { identity, packet, serializedPacket } = await createCurrentEncryptedSyncPacket();
+      const { identity, registeredStore, packet, serializedPacket } = await createCurrentEncryptedSyncPacket();
 
       downloadTextFile(createSyncPacketFileName(), serializedPacket, 'application/json');
       setDeviceIdentity(identity);
-      setStore((current) => registerSyncPacketCheckpoint(registerSyncDevice(current, identity), packet));
+      setStore(registerSyncPacketCheckpoint(registeredStore, packet));
       setSyncStatus(labels.exportSuccess(packet.records.length, identity.name));
     } catch (error) {
       console.warn('Failed to export encrypted Distill sync packet.', error);
@@ -2621,6 +2649,8 @@ function App() {
             deviceName={deviceIdentity?.name ?? ''}
             deviceSigningFingerprint={deviceSigningFingerprint}
             deviceVerificationPayload={deviceVerificationPayload}
+            syncKeyId={syncKeyMaterial?.id ?? ''}
+            syncKeyCreatedAt={syncKeyMaterial?.createdAt ?? ''}
             syncDevices={syncDevices}
             revokedSyncDevices={revokedSyncDevices}
             vaultSecurityStatus={vaultSecurityStatus}
@@ -2655,6 +2685,8 @@ function App() {
             onDeviceNameChange={renameCurrentDevice}
             onExportEncryptedSyncPacket={() => void exportEncryptedSyncPacket()}
             onImportEncryptedSyncPacket={(file) => void importEncryptedSyncPacket(file)}
+            onCreateSyncKey={createDedicatedSyncKey}
+            onRotateSyncKey={rotateDedicatedSyncKey}
             onSyncFolderPathChange={(path) => {
               setSyncFolderPath(path);
               setSyncFolderPacketReviews([]);

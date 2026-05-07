@@ -81,6 +81,8 @@ type InspectorPanelProps = {
   deviceName: string;
   deviceSigningFingerprint: string;
   deviceVerificationPayload: string;
+  syncKeyId: string;
+  syncKeyCreatedAt: string;
   syncDevices: SyncDevice[];
   revokedSyncDevices: RevokedSyncDevice[];
   vaultSecurityStatus: string;
@@ -112,6 +114,8 @@ type InspectorPanelProps = {
   onDeviceNameChange: (name: string) => void;
   onExportEncryptedSyncPacket: () => void;
   onImportEncryptedSyncPacket: (file: File) => void;
+  onCreateSyncKey: () => void;
+  onRotateSyncKey: () => void;
   onSyncFolderPathChange: (path: string) => void;
   onSyncFolderMonitorToggle: (enabled: boolean) => void;
   onSyncFolderAutoPreviewToggle: (enabled: boolean) => void;
@@ -171,6 +175,8 @@ export function InspectorPanel({
   deviceName,
   deviceSigningFingerprint,
   deviceVerificationPayload,
+  syncKeyId,
+  syncKeyCreatedAt,
   syncDevices,
   revokedSyncDevices,
   vaultSecurityStatus,
@@ -202,6 +208,8 @@ export function InspectorPanel({
   onDeviceNameChange,
   onExportEncryptedSyncPacket,
   onImportEncryptedSyncPacket,
+  onCreateSyncKey,
+  onRotateSyncKey,
   onSyncFolderPathChange,
   onSyncFolderMonitorToggle,
   onSyncFolderAutoPreviewToggle,
@@ -405,6 +413,16 @@ export function InspectorPanel({
           deviceVerificationPayload: 'QR payload',
           deviceVerificationHint:
             'Show this QR or code on the source device and compare it before trusting a new sync source.',
+          syncKey: 'Sync key',
+          syncKeyActive: 'Active dedicated sync key',
+          syncKeyMissing: 'No dedicated sync key yet',
+          syncKeyCreated: 'Created',
+          syncKeyHint:
+            'Stored inside the encrypted vault. New packets wrap this key with the vault passphrase for first import and recovery.',
+          syncKeyCreate: 'Create sync key',
+          syncKeyRotate: 'Rotate sync key',
+          syncKeyRotateWarning:
+            'Rotation affects future packets only. Older packets remain readable with their wrapped key and vault passphrase.',
           rename: 'Save device name',
           export: 'Export sync packet',
           import: 'Import sync packet',
@@ -460,6 +478,16 @@ export function InspectorPanel({
           deviceVerificationPayload: 'QR用データ',
           deviceVerificationHint:
             '新しい同期元を信頼する前に、送信元端末のこのQRまたはコードと取り込み側プレビューのコードを見比べてください。',
+          syncKey: '同期キー',
+          syncKeyActive: '専用同期キーが有効です',
+          syncKeyMissing: '専用同期キーはまだありません',
+          syncKeyCreated: '作成日時',
+          syncKeyHint:
+            '暗号化Vault内に保存されます。新しいパケットは初回取り込み・復旧用に、このキーをVaultパスフレーズで包んで同梱します。',
+          syncKeyCreate: '同期キーを作成',
+          syncKeyRotate: '同期キーをローテーション',
+          syncKeyRotateWarning:
+            'ローテーションは今後のパケットにだけ影響します。古いパケットは同梱された復旧キーとVaultパスフレーズで読み込めます。',
           rename: '端末名を保存',
           export: '同期パケットを書き出す',
           import: '同期パケットを取り込む',
@@ -1100,6 +1128,31 @@ export function InspectorPanel({
               ) : null}
             </div>
           ) : null}
+          <div className="deviceVerificationCard syncKeyCard">
+            <strong>{syncLabels.syncKey}</strong>
+            <span>{syncKeyId ? syncLabels.syncKeyActive : syncLabels.syncKeyMissing}</span>
+            {syncKeyId ? <code>{syncKeyId}</code> : null}
+            {syncKeyCreatedAt ? (
+              <small>
+                {syncLabels.syncKeyCreated}: {syncKeyCreatedAt}
+              </small>
+            ) : null}
+            <small>{syncLabels.syncKeyHint}</small>
+            <div className="deviceActions">
+              {syncKeyId ? (
+                <button className="restoreButton inlineActionButton" type="button" onClick={onRotateSyncKey}>
+                  <RefreshCw size={14} />
+                  {syncLabels.syncKeyRotate}
+                </button>
+              ) : (
+                <button className="restoreButton inlineActionButton" type="button" onClick={onCreateSyncKey}>
+                  <ShieldCheck size={14} />
+                  {syncLabels.syncKeyCreate}
+                </button>
+              )}
+            </div>
+            {syncKeyId ? <small>{syncLabels.syncKeyRotateWarning}</small> : null}
+          </div>
           <span className="storagePath">{syncLabels.knownDevices}</span>
           {syncDevices.length > 0 ? (
             <div className="deviceList">
