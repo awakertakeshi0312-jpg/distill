@@ -502,6 +502,18 @@ describe('portable imports', () => {
     expect(parsed.projects.map((item) => item.id)).toEqual(['p-active', 'p-next']);
   });
 
+  it('accepts null project IDs from legacy SQLite JSON backups', () => {
+    const exported = JSON.parse(exportStoreAsJson(store)) as DistillStore;
+    const parsed = parseDistillImport(
+      JSON.stringify({
+        ...exported,
+        blocks: [{ ...exported.blocks[0], projectId: null }],
+      }),
+    );
+
+    expect(parsed.blocks[0].projectId).toBeUndefined();
+  });
+
   it('rejects JSON that does not match the Distill schema', () => {
     expect(() => parseDistillImport(JSON.stringify({ blocks: [{ id: 'bad' }], projects: [] }))).toThrow(
       /blocks do not match/,

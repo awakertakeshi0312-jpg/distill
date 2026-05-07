@@ -12,6 +12,10 @@ type ImportEnvelope = Partial<DistillStore> & {
   schemaVersion?: number;
 };
 
+type ImportedThoughtBlock = Omit<ThoughtBlock, 'projectId'> & {
+  projectId?: string | null;
+};
+
 const blockStates = new Set<BlockState>(['open', 'linked', 'processed', 'archived']);
 const projectStatuses = new Set<Project['status']>(['Active', 'Design', 'Next']);
 
@@ -33,23 +37,32 @@ function isProject(value: unknown): value is Project {
   );
 }
 
-function isThoughtBlock(value: unknown): value is ThoughtBlock {
+function isThoughtBlock(value: unknown): value is ImportedThoughtBlock {
   if (!value || typeof value !== 'object') {
     return false;
   }
 
-  const block = value as ThoughtBlock;
+  const block = value as ImportedThoughtBlock;
   return (
     typeof block.id === 'string' &&
     typeof block.content === 'string' &&
     typeof block.noteId === 'string' &&
-    (typeof block.projectId === 'undefined' || typeof block.projectId === 'string') &&
+    (typeof block.projectId === 'undefined' || block.projectId === null || typeof block.projectId === 'string') &&
     typeof block.capturedAt === 'string' &&
     typeof block.updatedAt === 'string' &&
     isStringArray(block.tags) &&
     isStringArray(block.links) &&
     blockStates.has(block.state)
   );
+}
+
+function normalizeImportedBlock(block: ImportedThoughtBlock): ThoughtBlock {
+  if (block.projectId === null) {
+    const { projectId: _projectId, ...rest } = block;
+    return rest;
+  }
+
+  return block as ThoughtBlock;
 }
 
 export function parseDistillImport(json: string): DistillStore {
@@ -67,10 +80,12 @@ export function parseDistillImport(json: string): DistillStore {
     throw new Error('One or more projects do not match the Distill store schema.');
   }
 
+  const blocks = parsed.blocks.map(normalizeImportedBlock);
+
   return {
-    blocks: parsed.blocks,
+    blocks,
     projects: parsed.projects,
-    sync: normalizeDistillStore(parsed as DistillStore).sync,
+    sync: normalizeDistillStore({ ...parsed, blocks } as DistillStore).sync,
   };
 }
 
