@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.34
+- Current version: 0.1.35
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, non-exportable WebCrypto vault session key persistence, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -104,7 +104,7 @@ Legacy plaintext handling:
 
 Known remaining security limits:
 
-- passphrase remains in a volatile app-session ref while unlocked, but is no longer stored in React state
+- passphrase remains in a volatile app-session ref while unlocked for sync packet decrypt/import, but normal vault autosave uses a non-exportable CryptoKey session and the passphrase is no longer stored in React state
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - restore preview exists, but restore still replaces the full local store after user approval
 - no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, signed trusted-device verification, source-device verification code confirmation, unknown-device trust confirmation, recovery snapshot gating before apply, and manual recovery preview after apply
@@ -165,7 +165,7 @@ npm run release:windows
 
 Latest verification after safe semi-automatic inbound preview update:
 
-- `npm test`: 62 passed
+- `npm test`: 64 passed
 - `npm run build`: passed
 - `npm run test:rust`: 18 passed
 - `npm run test:e2e`: 11 passed
@@ -200,7 +200,7 @@ Key frontend files:
 
 - `src/App.tsx`: app orchestration, vault lifecycle, autosave, imports/exports, updater flows
 - `src/components/VaultGate.tsx`: vault setup/unlock UI
-- `src/vaultCrypto.ts`: PBKDF2/AES-GCM vault encryption
+- `src/vaultCrypto.ts`: PBKDF2/AES-GCM vault encryption and non-exportable unlocked vault session keys
 - `src/sync.ts`: sync packet build/parse/merge, tombstones, device registry, and record-level encrypted sync packets
 - `src/syncPreview.ts`: sync packet diff calculation before applying encrypted sync imports
 - `src/device.ts`: stable local device identity

@@ -1,7 +1,14 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { exportStoreAsJson, exportStoreAsMarkdown, downloadTextFile } from './export';
 import { createMarkdownImport, parseDistillImport } from './import';
-import { decryptDistillVault, encryptDistillVault } from './vaultCrypto';
+import {
+  createDistillVaultSession,
+  decryptDistillVault,
+  encryptDistillVault,
+  encryptDistillVaultWithSession,
+  unlockDistillVaultSession,
+  type DistillVaultSession,
+} from './vaultCrypto';
 import { isVaultAutoLockExpired, normalizeVaultAutoLockMinutes } from './vaultSession';
 import { getOrCreateDeviceIdentity, renameDeviceIdentity, type DeviceIdentity } from './device';
 import {
@@ -150,6 +157,7 @@ function App() {
   const [vaultStatus, setVaultStatus] = useState<VaultStatus>('checking');
   const [legacyPlainStore, setLegacyPlainStore] = useState<DistillStore | null>(null);
   const vaultPassphraseRef = useRef('');
+  const vaultSessionRef = useRef<DistillVaultSession | null>(null);
   const [vaultSessionVersion, setVaultSessionVersion] = useState(0);
   const [vaultError, setVaultError] = useState('');
   const [vaultNotice, setVaultNotice] = useState('');
@@ -282,14 +290,20 @@ function App() {
     return vaultPassphraseRef.current;
   }
 
-  function openVaultSession(passphrase: string) {
+  function getVaultSession() {
+    return vaultSessionRef.current;
+  }
+
+  function openVaultSession(passphrase: string, session: DistillVaultSession) {
     vaultPassphraseRef.current = passphrase;
+    vaultSessionRef.current = session;
     lastVaultActivityAt.current = Date.now();
     setVaultSessionVersion((current) => current + 1);
   }
 
   function clearVaultSession() {
     vaultPassphraseRef.current = '';
+    vaultSessionRef.current = null;
     setVaultSessionVersion((current) => current + 1);
   }
 
@@ -387,7 +401,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (vaultStatus !== 'unlocked' || !hasLoadedStore || !getVaultPassphrase()) {
+    if (vaultStatus !== 'unlocked' || !hasLoadedStore || !getVaultSession()) {
       return;
     }
 
@@ -484,7 +498,7 @@ function App() {
   }, [syncPreview]);
 
   useEffect(() => {
-    if (vaultStatus !== 'unlocked' || autoLockMinutes <= 0 || !getVaultPassphrase()) {
+    if (vaultStatus !== 'unlocked' || autoLockMinutes <= 0 || !getVaultSession()) {
       return;
     }
 
@@ -875,13 +889,13 @@ function App() {
   }
 
   async function persistEncryptedStore(nextStore: DistillStore, serial?: number) {
-    const passphrase = getVaultPassphrase();
+    const session = getVaultSession();
 
-    if (!passphrase) {
+    if (!session) {
       throw new Error(runtimeVaultLabels().passphraseRequired);
     }
 
-    const encrypted = await encryptDistillVault(exportStoreAsJson(nextStore), passphrase);
+    const encrypted = await encryptDistillVaultWithSession(exportStoreAsJson(nextStore), session);
 
     if (serial !== undefined && serial !== vaultSaveSerial.current) {
       return;
@@ -903,12 +917,12 @@ function App() {
         return;
       }
 
-      const decrypted = await decryptDistillVault(encryptedVault, passphrase);
-      const loadedStore = parseDistillImport(decrypted);
+      const { plainJson, session } = await unlockDistillVaultSession(encryptedVault, passphrase);
+      const loadedStore = parseDistillImport(plainJson);
 
       setStore(loadedStore);
       setSelectedBlockId(loadedStore.blocks[0]?.id);
-      openVaultSession(passphrase);
+      openVaultSession(passphrase, session);
       setHasLoadedStore(true);
       setVaultStatus('unlocked');
     } catch (error) {
@@ -930,14 +944,15 @@ function App() {
 
     try {
       const nextStore = legacyPlainStore ?? initialStore;
-      const encrypted = await encryptDistillVault(exportStoreAsJson(nextStore), passphrase);
+      const session = await createDistillVaultSession(passphrase);
+      const encrypted = await encryptDistillVaultWithSession(exportStoreAsJson(nextStore), session);
 
       await saveEncryptedVault(encrypted);
       await clearLegacyPlainStore();
 
       setStore(nextStore);
       setSelectedBlockId(nextStore.blocks[0]?.id);
-      openVaultSession(passphrase);
+      openVaultSession(passphrase, session);
       setHasLoadedStore(true);
       setVaultStatus('unlocked');
       setLegacyPlainStore(null);
@@ -965,7 +980,7 @@ function App() {
     }
 
     try {
-      await decryptDistillVault(encryptedVault, currentPassphrase);
+      await unlockDistillVaultSession(encryptedVault, currentPassphrase);
     } catch (error) {
       console.warn('Failed to verify current Distill vault passphrase.', error);
       setVaultSecurityStatus(labels.currentPassphraseInvalid);
@@ -973,12 +988,13 @@ function App() {
     }
 
     try {
-      const encrypted = await encryptDistillVault(exportStoreAsJson(store), nextPassphrase);
+      const nextSession = await createDistillVaultSession(nextPassphrase);
+      const encrypted = await encryptDistillVaultWithSession(exportStoreAsJson(store), nextSession);
 
       // Cancel any pending autosave that may still be using the old passphrase.
       vaultSaveSerial.current += 1;
       await saveEncryptedVault(encrypted);
-      openVaultSession(nextPassphrase);
+      openVaultSession(nextPassphrase, nextSession);
       setVaultSecurityStatus(labels.passphraseChanged);
     } catch (error) {
       console.warn('Failed to change Distill vault passphrase.', error);
@@ -988,7 +1004,7 @@ function App() {
 
   async function lockVault(notice = '') {
     try {
-      if (hasLoadedStore && getVaultPassphrase()) {
+      if (hasLoadedStore && getVaultSession()) {
         await persistEncryptedStore(store);
       }
     } finally {
@@ -1900,13 +1916,13 @@ function App() {
   }
 
   async function savePreSyncRecoverySnapshot(preview: SyncPreview) {
-    const passphrase = getVaultPassphrase();
+    const session = getVaultSession();
 
-    if (!passphrase) {
+    if (!session) {
       throw new Error(syncLabels().passphraseRequired);
     }
 
-    const encrypted = await encryptDistillVault(exportStoreAsJson(store), passphrase);
+    const encrypted = await encryptDistillVaultWithSession(exportStoreAsJson(store), session);
     return await saveSyncRecoveryVault(encrypted, preview.packet.sourceDeviceId);
   }
 

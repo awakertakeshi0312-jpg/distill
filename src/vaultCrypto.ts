@@ -26,6 +26,14 @@ export type DistillVaultEnvelope = {
   payload: string;
 };
 
+export type DistillVaultSession = {
+  type: 'distill.vault-session';
+  schemaVersion: typeof VAULT_SCHEMA_VERSION;
+  createdAt: string;
+  kdf: VaultKdf;
+  key: CryptoKey;
+};
+
 export type EncryptOptions = {
   iterations?: number;
 };
@@ -104,6 +112,41 @@ async function deriveVaultKey(passphrase: string, salt: Uint8Array, iterations: 
   );
 }
 
+function createEnvelope(envelopeType: EnvelopeType, kdf: VaultKdf, iv: Uint8Array, encrypted: ArrayBuffer) {
+  const envelope: DistillVaultEnvelope = {
+    type: envelopeType,
+    schemaVersion: VAULT_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    kdf,
+    cipher: {
+      name: 'AES-GCM',
+      iv: bytesToBase64(iv),
+    },
+    payload: bytesToBase64(new Uint8Array(encrypted)),
+  };
+
+  return JSON.stringify(envelope, null, 2);
+}
+
+async function encryptJsonEnvelopeWithKey(
+  plainJson: string,
+  key: CryptoKey,
+  kdf: VaultKdf,
+  envelopeType: EnvelopeType,
+) {
+  const iv = randomBytes(IV_BYTES);
+  const encrypted = await getSubtleCrypto().encrypt(
+    {
+      name: 'AES-GCM',
+      iv: toCryptoBytes(iv),
+    },
+    key,
+    new TextEncoder().encode(plainJson),
+  );
+
+  return createEnvelope(envelopeType, kdf, iv, encrypted);
+}
+
 async function encryptJsonEnvelope(
   plainJson: string,
   passphrase: string,
@@ -114,35 +157,15 @@ async function encryptJsonEnvelope(
 
   const iterations = options.iterations ?? DEFAULT_PBKDF2_ITERATIONS;
   const salt = randomBytes(SALT_BYTES);
-  const iv = randomBytes(IV_BYTES);
   const key = await deriveVaultKey(passphrase, salt, iterations);
-  const encrypted = await getSubtleCrypto().encrypt(
-    {
-      name: 'AES-GCM',
-      iv: toCryptoBytes(iv),
-    },
-    key,
-    new TextEncoder().encode(plainJson),
-  );
-
-  const envelope: DistillVaultEnvelope = {
-    type: envelopeType,
-    schemaVersion: VAULT_SCHEMA_VERSION,
-    exportedAt: new Date().toISOString(),
-    kdf: {
-      name: 'PBKDF2',
-      hash: 'SHA-256',
-      iterations,
-      salt: bytesToBase64(salt),
-    },
-    cipher: {
-      name: 'AES-GCM',
-      iv: bytesToBase64(iv),
-    },
-    payload: bytesToBase64(new Uint8Array(encrypted)),
+  const kdf: VaultKdf = {
+    name: 'PBKDF2',
+    hash: 'SHA-256',
+    iterations,
+    salt: bytesToBase64(salt),
   };
 
-  return JSON.stringify(envelope, null, 2);
+  return encryptJsonEnvelopeWithKey(plainJson, key, kdf, envelopeType);
 }
 
 export async function encryptDistillVault(plainJson: string, passphrase: string, options: EncryptOptions = {}) {
@@ -173,14 +196,9 @@ function parseEncryptedEnvelope(value: string, envelopeType: EnvelopeType): Dist
   return parsed as DistillVaultEnvelope;
 }
 
-async function decryptJsonEnvelope(encryptedJson: string, passphrase: string, envelopeType: EnvelopeType) {
-  assertPassphrase(passphrase);
-
-  const envelope = parseEncryptedEnvelope(encryptedJson, envelopeType);
-  const salt = base64ToBytes(envelope.kdf.salt);
+async function decryptEnvelopeWithKey(envelope: DistillVaultEnvelope, key: CryptoKey) {
   const iv = base64ToBytes(envelope.cipher.iv);
   const payload = base64ToBytes(envelope.payload);
-  const key = await deriveVaultKey(passphrase, salt, envelope.kdf.iterations);
   const decrypted = await getSubtleCrypto().decrypt(
     {
       name: 'AES-GCM',
@@ -191,6 +209,67 @@ async function decryptJsonEnvelope(encryptedJson: string, passphrase: string, en
   );
 
   return new TextDecoder().decode(decrypted);
+}
+
+async function createVaultSessionFromKdf(passphrase: string, kdf: VaultKdf): Promise<DistillVaultSession> {
+  assertPassphrase(passphrase);
+
+  const salt = base64ToBytes(kdf.salt);
+  const key = await deriveVaultKey(passphrase, salt, kdf.iterations);
+
+  return {
+    type: 'distill.vault-session',
+    schemaVersion: VAULT_SCHEMA_VERSION,
+    createdAt: new Date().toISOString(),
+    kdf,
+    key,
+  };
+}
+
+async function decryptJsonEnvelope(encryptedJson: string, passphrase: string, envelopeType: EnvelopeType) {
+  const envelope = parseEncryptedEnvelope(encryptedJson, envelopeType);
+  const session = await createVaultSessionFromKdf(passphrase, envelope.kdf);
+
+  return decryptEnvelopeWithKey(envelope, session.key);
+}
+
+export async function createDistillVaultSession(
+  passphrase: string,
+  options: EncryptOptions = {},
+): Promise<DistillVaultSession> {
+  assertPassphrase(passphrase);
+
+  const salt = randomBytes(SALT_BYTES);
+  const kdf: VaultKdf = {
+    name: 'PBKDF2',
+    hash: 'SHA-256',
+    iterations: options.iterations ?? DEFAULT_PBKDF2_ITERATIONS,
+    salt: bytesToBase64(salt),
+  };
+  const key = await deriveVaultKey(passphrase, salt, kdf.iterations);
+
+  return {
+    type: 'distill.vault-session',
+    schemaVersion: VAULT_SCHEMA_VERSION,
+    createdAt: new Date().toISOString(),
+    kdf,
+    key,
+  };
+}
+
+export async function unlockDistillVaultSession(encryptedJson: string, passphrase: string) {
+  const envelope = parseEncryptedEnvelope(encryptedJson, 'distill.encrypted-vault');
+  const session = await createVaultSessionFromKdf(passphrase, envelope.kdf);
+  const plainJson = await decryptEnvelopeWithKey(envelope, session.key);
+
+  return {
+    plainJson,
+    session,
+  };
+}
+
+export async function encryptDistillVaultWithSession(plainJson: string, session: DistillVaultSession) {
+  return encryptJsonEnvelopeWithKey(plainJson, session.key, session.kdf, 'distill.encrypted-vault');
 }
 
 export async function decryptDistillVault(encryptedJson: string, passphrase: string) {

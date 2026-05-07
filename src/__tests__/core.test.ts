@@ -26,7 +26,13 @@ import { createMarkdownImport, parseDistillImport } from '../import';
 import { browserVaultPath, getBrowserVaultStorageInfo, isBrowserIndexedDbSupported } from '../browserVaultStore';
 import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { detectPwaPlatform, getPwaInstallGuidance } from '../pwaInstall';
-import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
+import {
+  createDistillVaultSession,
+  decryptDistillVault,
+  encryptDistillVault,
+  encryptDistillVaultWithSession,
+  unlockDistillVaultSession,
+} from '../vaultCrypto';
 import { isVaultAutoLockExpired, normalizeVaultAutoLockMinutes } from '../vaultSession';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
 import {
@@ -533,6 +539,35 @@ describe('encrypted vault backups', () => {
     await expect(decryptDistillVault(JSON.stringify(envelope), 'correct horse battery staple')).rejects.toThrow(
       /supported Distill encrypted payload/,
     );
+  });
+
+  it('uses a non-exportable session key for unlocked vault saves', async () => {
+    const exported = exportStoreAsJson(store);
+    const encrypted = await encryptDistillVault(exported, 'correct horse battery staple', { iterations: 1_000 });
+    const { plainJson, session } = await unlockDistillVaultSession(encrypted, 'correct horse battery staple');
+    const sessionEncrypted = await encryptDistillVaultWithSession(plainJson, session);
+
+    expect(session.key.extractable).toBe(false);
+    expect(JSON.parse(sessionEncrypted).kdf.salt).toBe(JSON.parse(encrypted).kdf.salt);
+    expect(sessionEncrypted).not.toContain('Discuss semantic trust');
+    expect(await decryptDistillVault(sessionEncrypted, 'correct horse battery staple')).toBe(exported);
+  });
+
+  it('creates new vault sessions without exposing the derived key', async () => {
+    const session = await createDistillVaultSession('correct horse battery staple', { iterations: 1_000 });
+    const encrypted = await encryptDistillVaultWithSession(exportStoreAsJson(store), session);
+
+    expect(session.key.extractable).toBe(false);
+    expect(JSON.parse(encrypted)).toMatchObject({
+      type: 'distill.encrypted-vault',
+      kdf: {
+        name: 'PBKDF2',
+        hash: 'SHA-256',
+        iterations: 1_000,
+      },
+    });
+    await expect(crypto.subtle.exportKey('raw', session.key)).rejects.toThrow();
+    await expect(decryptDistillVault(encrypted, 'correct horse battery staple')).resolves.toContain('b-1');
   });
 });
 

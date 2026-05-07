@@ -69,17 +69,18 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added PWA/mobile install guidance, app metadata, touch icon, update-safer service worker navigation strategy, and phone-width E2E smoke coverage.
 - Added IndexedDB-backed browser/PWA encrypted vault and sync recovery storage with migration from encrypted localStorage and localStorage fallback only when IndexedDB is unavailable.
 - Moved active vault passphrase handling out of React state and into a volatile in-memory session ref.
+- Added non-exportable WebCrypto CryptoKey sessions for normal vault autosave and encrypted pre-sync recovery snapshots.
 - Added test-covered auto-lock policy normalization and idle-expiry checks.
 
 ## Findings
 
 ### P1: Passphrase still lives in app memory while unlocked
 
-Distill now keeps the active passphrase out of React state and in a volatile app-session ref, but the passphrase is still available in app memory while unlocked so autosave and sync operations can persist encrypted data.
+Distill now keeps the active passphrase out of React state, and normal vault autosave uses a non-exportable WebCrypto CryptoKey session. The passphrase is still available in a volatile app-session ref while unlocked for cross-device sync packet decrypt/import/export until the sync-key model is upgraded.
 
 Recommended remediation:
 
-- Derive and hold a non-exportable CryptoKey where possible.
+- Replace passphrase-based sync packet decrypt/import with a dedicated cross-device sync key model.
 - Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
 - Keep lock-on-idle defaults conservative and add OS-native idle integration later.
 

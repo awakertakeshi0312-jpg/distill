@@ -2,7 +2,7 @@
 
 ## Current Implementation
 
-Distill 0.1.34 uses an encrypted local vault for normal app persistence.
+Distill 0.1.35 uses an encrypted local vault for normal app persistence.
 
 Implemented:
 
@@ -57,7 +57,7 @@ This is acceptable for the current local MVP, but it is not equivalent to a hard
 ## Important Limits
 
 - If the user forgets the passphrase, Distill cannot recover the vault.
-- The passphrase is held in a volatile app-session ref while unlocked so autosave and sync packet operations can persist encrypted data; it is no longer kept in React state.
+- Normal vault autosave uses a non-exportable WebCrypto CryptoKey derived from the passphrase and vault KDF metadata at unlock/create time. The passphrase still remains in a volatile app-session ref for sync packet decrypt/import/export until the cross-device sync-key design replaces passphrase-based packet encryption.
 - Normal vault persistence encrypts the whole store as one envelope, while manual sync packets encrypt individual records.
 - Automatic/background sync is not implemented yet; desktop sync-folder packet exchange is explicit and user-triggered.
 - Browser/PWA mode prefers IndexedDB and keeps localStorage only as a fallback/migration source, but browser profile compromise can still delete, replace, or copy encrypted data.

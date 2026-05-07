@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.34.
-- Current phase: Vault session hardening and Trust Layer sync hardening.
-- Current completion estimate: 86% overall; this phase advanced +2pt in this pass.
-- Implemented in this pass: Vault passphrase handling moved out of React state into a volatile in-memory session ref, auto-lock timing is normalized and test-covered, and sync/export code now reads the passphrase only from the active unlocked session.
+- Current version: 0.1.35.
+- Current phase: Non-exportable vault session key hardening and Trust Layer sync hardening.
+- Current completion estimate: 88% overall; this phase advanced +2pt in this pass.
+- Implemented in this pass: Normal vault persistence now uses a non-exportable WebCrypto CryptoKey session derived at vault unlock/create time. Autosave and pre-sync recovery snapshots re-encrypt with the active session key instead of reusing the passphrase directly, while sync packet import still keeps passphrase access until the cross-device sync-key model is upgraded.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
 - Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, record-level normal vault persistence, and production mobile sync transport.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.34.md`.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.35.md`.
 ## 役割
 
 思老E�E断牁E��捕まえ、タグ・リンク・検索・グラフ�Eレビューを通じて、判断めE��識に蒸留するローカルファースト�EチE��クトップアプリ、E

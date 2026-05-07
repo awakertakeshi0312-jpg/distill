@@ -283,7 +283,7 @@ Allowed:
 
 ## Mobile Implication
 
-PWA mode now has install guidance, app metadata, an offline shell cache, phone-width smoke coverage, and IndexedDB-backed encrypted vault storage. It should participate in real sync only after stronger session-key handling, recovery drills, and production E2EE transport are implemented. Native mobile can use stronger platform storage and local file APIs.
+PWA mode now has install guidance, app metadata, an offline shell cache, phone-width smoke coverage, and IndexedDB-backed encrypted vault storage. It should participate in real sync only after cross-device sync-key handling, recovery drills, and production E2EE transport are implemented. Native mobile can use stronger platform storage and local file APIs.
 
 ## First Implementable Sync Milestone
 
