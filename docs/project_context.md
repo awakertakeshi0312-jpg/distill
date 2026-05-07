@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.31
+- Current version: 0.1.32
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, mobile/PWA readiness diagnostics, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -58,7 +58,7 @@ Implemented app features:
 - One-time migration from legacy plaintext local store
 - Explicit clearing of known plaintext legacy data
 - English/Japanese UI
-- PWA/mobile preview path
+- PWA/mobile preview path with install guidance, mobile app metadata, update-safer service worker caching, and phone-width E2E smoke coverage
 - Signed Tauri updater check/install flow
 - Manual update launcher fallback for newer Distill setup packages
 - Stable local device identity for sync packet source tracking
@@ -108,7 +108,7 @@ Known remaining security limits:
 - normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records
 - restore preview exists, but restore still replaces the full local store after user approval
 - no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, signed trusted-device verification, source-device verification code confirmation, unknown-device trust confirmation, recovery snapshot gating before apply, and manual recovery preview after apply
-- browser preview still depends on localStorage for the encrypted envelope
+- browser/PWA preview still depends on localStorage for the encrypted envelope; PWA installation is a local preview path, not hosted sync
 
 ## Technical Stack
 

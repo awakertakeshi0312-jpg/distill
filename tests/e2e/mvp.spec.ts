@@ -198,6 +198,19 @@ test('Update section validates installer launch boundary in browser fallback', a
   await expect(page.getByText('Installer launch is available only in the desktop app.')).toBeVisible();
 });
 
+test('Mobile PWA readiness panel is available on a phone-sized viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openUnlockedVault(page);
+  await page.getByRole('button', { name: 'English' }).click();
+
+  await expect(page.locator('.navList')).toBeVisible();
+  await page.getByText('Mobile / PWA').scrollIntoViewIfNeeded();
+  await expect(page.getByText('Mobile / PWA')).toBeVisible();
+  const pwaPanel = page.locator('.restoreBox').filter({ hasText: 'Mobile / PWA' });
+  await expect(pwaPanel.getByText('Offline shell')).toBeVisible();
+  await expect(pwaPanel.getByText('Network')).toBeVisible();
+});
+
 test('People index and graph neighbors respond to captured context', async ({ page }) => {
   await openUnlockedVault(page);
   await page.getByRole('button', { name: 'English' }).click();

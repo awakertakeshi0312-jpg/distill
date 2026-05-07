@@ -24,6 +24,7 @@ import { buildKnowledgeGraph, filterKnowledgeGraph, getGraphNeighbors, layoutKno
 import { exportStoreAsJson } from '../export';
 import { createMarkdownImport, parseDistillImport } from '../import';
 import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
+import { detectPwaPlatform, getPwaInstallGuidance } from '../pwaInstall';
 import { decryptDistillVault, encryptDistillVault } from '../vaultCrypto';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
 import {
@@ -112,6 +113,62 @@ const store: DistillStore = {
     }),
   ],
 };
+
+describe('PWA install guidance', () => {
+  it('detects mobile platforms from user agents', () => {
+    expect(detectPwaPlatform('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)')).toBe('ios');
+    expect(detectPwaPlatform('Mozilla/5.0 (Linux; Android 15; Pixel 8)')).toBe('android');
+    expect(detectPwaPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')).toBe('desktop');
+  });
+
+  it('prefers desktop and standalone states before browser install prompts', () => {
+    expect(
+      getPwaInstallGuidance({
+        isDesktopRuntime: true,
+        canPrompt: true,
+        isStandalone: false,
+        hasServiceWorker: true,
+        isOnline: true,
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      }).kind,
+    ).toBe('desktop-app');
+
+    expect(
+      getPwaInstallGuidance({
+        isDesktopRuntime: false,
+        canPrompt: true,
+        isStandalone: true,
+        hasServiceWorker: true,
+        isOnline: true,
+        userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 8)',
+      }).kind,
+    ).toBe('standalone');
+  });
+
+  it('shows prompt-ready or manual mobile install guidance', () => {
+    expect(
+      getPwaInstallGuidance({
+        isDesktopRuntime: false,
+        canPrompt: true,
+        isStandalone: false,
+        hasServiceWorker: true,
+        isOnline: true,
+        userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 8)',
+      }).kind,
+    ).toBe('prompt-ready');
+
+    expect(
+      getPwaInstallGuidance({
+        isDesktopRuntime: false,
+        canPrompt: false,
+        isStandalone: false,
+        hasServiceWorker: true,
+        isOnline: true,
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
+      }).kind,
+    ).toBe('ios-manual');
+  });
+});
 
 describe('model', () => {
   it('extracts unicode hashtags and wiki links from captures', () => {

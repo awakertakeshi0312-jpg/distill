@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.31.
-- Current phase: Trust Layer / Phase 6 Sync hardening.
-- Current completion estimate: 78% overall; this phase advanced +3pt in this pass.
-- Implemented in this pass: safe semi-automatic inbound sync preview. Distill can now monitor the sync folder and automatically open exactly one unambiguous known-device ready packet as a preview, while still requiring manual apply.
+- Current version: 0.1.32.
+- Current phase: Mobile/PWA readiness and Trust Layer sync hardening.
+- Current completion estimate: 81% overall; this phase advanced +3pt in this pass.
+- Implemented in this pass: mobile/PWA readiness hardening. Distill now exposes install guidance in the Inspector, reports PWA/offline-shell status, includes mobile install metadata/icons, and uses an update-safer service worker strategy so mobile browsers prefer fresh navigation HTML while keeping an offline shell fallback.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
-- Still not implemented: automatic inbound sync/apply, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate, polished mobile-native pairing flow, and richer multi-device lifecycle management beyond local revoke/forget and production mobile sync transport.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.31.md`.
+- Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, IndexedDB-backed PWA vault persistence, and production mobile sync transport.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.32.md`.
 ## 役割
 
 思老E�E断牁E��捕まえ、タグ・リンク・検索・グラフ�Eレビューを通じて、判断めE��識に蒸留するローカルファースト�EチE��クトップアプリ、E

@@ -20,6 +20,7 @@ import {
   type SyncPacketSignatureStatus,
 } from '../deviceSigning';
 import type { Project, RevokedSyncDevice, SyncDevice, ThoughtBlock } from '../model';
+import type { PwaInstallGuidance, PwaInstallKind } from '../pwaInstall';
 import type { RelatedBlock } from '../repository';
 import type { RestorePreview } from '../restorePreview';
 import type { SyncFolderPacketFile, SyncRecoveryVaultFile } from '../storage';
@@ -88,6 +89,8 @@ type InspectorPanelProps = {
   updateStatus: string;
   autoUpdateStatus: string;
   isAutoUpdateAvailable: boolean;
+  pwaInstallGuidance: PwaInstallGuidance;
+  pwaInstallStatus: string;
   appVersion: string;
   updateFeedUrl: string;
   latestReleaseUrl: string;
@@ -134,6 +137,7 @@ type InspectorPanelProps = {
   onStartUpdate: () => void;
   onCheckForUpdates: () => void;
   onInstallAutoUpdate: () => void;
+  onInstallPwa: () => void;
 };
 
 export function InspectorPanel({
@@ -175,6 +179,8 @@ export function InspectorPanel({
   updateStatus,
   autoUpdateStatus,
   isAutoUpdateAvailable,
+  pwaInstallGuidance,
+  pwaInstallStatus,
   appVersion,
   updateFeedUrl,
   latestReleaseUrl,
@@ -221,6 +227,7 @@ export function InspectorPanel({
   onStartUpdate,
   onCheckForUpdates,
   onInstallAutoUpdate,
+  onInstallPwa,
 }: InspectorPanelProps) {
   const [currentVaultPassphrase, setCurrentVaultPassphrase] = useState('');
   const [nextVaultPassphrase, setNextVaultPassphrase] = useState('');
@@ -256,6 +263,76 @@ export function InspectorPanel({
           browser: 'ブラウザプレビュー',
           feed: '更新フィード',
           latestRelease: '最新リリースページ',
+        };
+  const pwaLabels =
+    ui.navInbox === 'Inbox'
+      ? {
+          title: 'Mobile / PWA',
+          hint: 'Use Distill from a phone browser or install it to the home screen. The vault stays encrypted locally.',
+          install: 'Install to device',
+          platform: 'Platform',
+          serviceWorker: 'Offline shell',
+          network: 'Network',
+          supported: 'Supported',
+          unsupported: 'Unsupported',
+          online: 'Online',
+          offline: 'Offline',
+          states: {
+            'desktop-app': {
+              title: 'Desktop app active',
+              hint: 'You are running the installed Windows app. Mobile/PWA install is used from a browser.',
+            },
+            standalone: {
+              title: 'Installed app mode',
+              hint: 'Distill is already running from an installed home-screen or standalone app window.',
+            },
+            'prompt-ready': {
+              title: 'Ready to install',
+              hint: 'This browser can install Distill directly. Use the button below.',
+            },
+            'ios-manual': {
+              title: 'iPhone/iPad install',
+              hint: 'Open the browser share menu, then choose Add to Home Screen.',
+            },
+            'browser-manual': {
+              title: 'Browser install',
+              hint: 'Use the browser menu to install the app or add it to the home screen.',
+            },
+          } satisfies Record<PwaInstallKind, { title: string; hint: string }>,
+        }
+      : {
+          title: 'スマホ / PWA',
+          hint: 'スマホのブラウザで開く、またはホーム画面に追加して使えます。Vaultは端末内で暗号化されたままです。',
+          install: 'この端末にインストール',
+          platform: '端末',
+          serviceWorker: 'オフライン土台',
+          network: '通信状態',
+          supported: '対応',
+          unsupported: '未対応',
+          online: 'オンライン',
+          offline: 'オフライン',
+          states: {
+            'desktop-app': {
+              title: 'デスクトップアプリで実行中',
+              hint: '現在はWindows版アプリです。スマホ/PWAのインストールはブラウザ側で使います。',
+            },
+            standalone: {
+              title: 'インストール済みモード',
+              hint: 'Distillはホーム画面追加済み、またはスタンドアロンアプリとして起動しています。',
+            },
+            'prompt-ready': {
+              title: 'インストール可能',
+              hint: 'このブラウザはDistillを直接インストールできます。下のボタンを使ってください。',
+            },
+            'ios-manual': {
+              title: 'iPhone/iPadで追加',
+              hint: 'ブラウザの共有メニューを開き、「ホーム画面に追加」を選んでください。',
+            },
+            'browser-manual': {
+              title: 'ブラウザから追加',
+              hint: 'ブラウザのメニューから、アプリをインストールまたはホーム画面に追加してください。',
+            },
+          } satisfies Record<PwaInstallKind, { title: string; hint: string }>,
         };
   const vaultLabels =
     ui.navInbox === 'Inbox'
@@ -1422,6 +1499,39 @@ export function InspectorPanel({
             Send reviewed summaries
           </button>
           {personalKmHandoffStatus ? <span className="restoreStatus">{personalKmHandoffStatus}</span> : null}
+        </div>
+
+        <div className="restoreBox">
+          <strong>{pwaLabels.title}</strong>
+          <span>{pwaLabels.hint}</span>
+          <div className="updateDiagnostics" aria-label={pwaLabels.title}>
+            <span className="diagnosticRow">
+              <b>{pwaLabels.states[pwaInstallGuidance.kind].title}</b>
+              {pwaLabels.states[pwaInstallGuidance.kind].hint}
+            </span>
+            <span className="diagnosticRow">
+              <b>{pwaLabels.platform}</b>
+              {pwaInstallGuidance.platform}
+            </span>
+            <span className="diagnosticRow">
+              <b>{pwaLabels.serviceWorker}</b>
+              {pwaInstallGuidance.hasServiceWorker ? pwaLabels.supported : pwaLabels.unsupported}
+            </span>
+            <span className="diagnosticRow">
+              <b>{pwaLabels.network}</b>
+              {pwaInstallGuidance.isOnline ? pwaLabels.online : pwaLabels.offline}
+            </span>
+          </div>
+          <button
+            className="restoreButton"
+            type="button"
+            disabled={!pwaInstallGuidance.canUsePrompt}
+            onClick={onInstallPwa}
+          >
+            <Download size={16} />
+            {pwaLabels.install}
+          </button>
+          {pwaInstallStatus ? <span className="restoreStatus">{pwaInstallStatus}</span> : null}
         </div>
 
         <div className="restoreBox">

@@ -94,6 +94,11 @@ import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
 import { buildSyncPreview, type SyncPreview } from './syncPreview';
 import {
+  getPwaInstallGuidance,
+  isPwaStandaloneDisplay,
+  type PwaBeforeInstallPromptEvent,
+} from './pwaInstall';
+import {
   chooseAutoSyncFolderPreview,
   chooseAssistedSyncFolderPreview,
   countSyncFolderPacketReviews,
@@ -231,6 +236,16 @@ function App() {
   const [updateStatus, setUpdateStatus] = useState('');
   const [autoUpdateStatus, setAutoUpdateStatus] = useState('');
   const [isAutoUpdateAvailable, setIsAutoUpdateAvailable] = useState(false);
+  const [pwaInstallPrompt, setPwaInstallPrompt] = useState<PwaBeforeInstallPromptEvent | null>(null);
+  const [isPwaStandalone, setIsPwaStandalone] = useState(() => isPwaStandaloneDisplay());
+  const [pwaInstallStatus, setPwaInstallStatus] = useState('');
+  const [isOnline, setIsOnline] = useState(() => {
+    if (typeof navigator === 'undefined') {
+      return true;
+    }
+
+    return navigator.onLine;
+  });
   const [vaultSecurityStatus, setVaultSecurityStatus] = useState('');
   const [autoLockMinutes, setAutoLockMinutes] = useState(() => {
     if (typeof window === 'undefined') {
@@ -248,6 +263,65 @@ function App() {
     return localStorage.getItem(ONBOARDING_KEY) !== 'true';
   });
   const ui = copy[locale];
+  const pwaInstallGuidance = useMemo(
+    () =>
+      getPwaInstallGuidance({
+        isDesktopRuntime: isDesktopRuntime(),
+        canPrompt: Boolean(pwaInstallPrompt),
+        isStandalone: isPwaStandalone,
+        hasServiceWorker: typeof navigator !== 'undefined' && 'serviceWorker' in navigator,
+        isOnline,
+        userAgent: typeof navigator === 'undefined' ? '' : navigator.userAgent,
+      }),
+    [isOnline, isPwaStandalone, pwaInstallPrompt],
+  );
+
+  useEffect(() => {
+    function handleBeforeInstallPrompt(event: Event) {
+      event.preventDefault();
+      setPwaInstallPrompt(event as PwaBeforeInstallPromptEvent);
+      setPwaInstallStatus(
+        locale === 'en'
+          ? 'Distill can be installed to this device.'
+          : 'Distillをこの端末にインストールできます。',
+      );
+    }
+
+    function handleInstalled() {
+      setPwaInstallPrompt(null);
+      setIsPwaStandalone(true);
+      setPwaInstallStatus(locale === 'en' ? 'Distill is installed.' : 'Distillをインストールしました。');
+    }
+
+    function handleDisplayModeChange() {
+      setIsPwaStandalone(isPwaStandaloneDisplay());
+    }
+
+    function handleOnline() {
+      setIsOnline(true);
+    }
+
+    function handleOffline() {
+      setIsOnline(false);
+    }
+
+    const displayModeQuery =
+      typeof window === 'undefined' ? null : window.matchMedia('(display-mode: standalone)');
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleInstalled);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    displayModeQuery?.addEventListener('change', handleDisplayModeChange);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleInstalled);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      displayModeQuery?.removeEventListener('change', handleDisplayModeChange);
+    };
+  }, [locale]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2218,6 +2292,39 @@ function App() {
     }
   }
 
+  async function installPwa() {
+    if (!pwaInstallPrompt) {
+      setPwaInstallStatus(
+        locale === 'en'
+          ? 'Use your browser menu to add Distill to the home screen.'
+          : 'ブラウザのメニューからDistillをホーム画面に追加してください。',
+      );
+      return;
+    }
+
+    try {
+      await pwaInstallPrompt.prompt();
+      const choice = await pwaInstallPrompt.userChoice;
+      setPwaInstallPrompt(null);
+      setPwaInstallStatus(
+        choice.outcome === 'accepted'
+          ? locale === 'en'
+            ? 'Distill is being installed to this device.'
+            : 'Distillをこの端末にインストールしています。'
+          : locale === 'en'
+            ? 'Install was dismissed. You can try again from this panel later.'
+            : 'インストールはキャンセルされました。あとでこのパネルから再実行できます。',
+      );
+    } catch (error) {
+      console.warn('Failed to install Distill as a PWA.', error);
+      setPwaInstallStatus(
+        locale === 'en'
+          ? 'Could not start browser install. Use the browser menu instead.'
+          : 'ブラウザインストールを開始できませんでした。ブラウザのメニューを使ってください。',
+      );
+    }
+  }
+
   function createProjectFromText(text: string) {
     const name = text.trim();
     if (!name) {
@@ -2432,6 +2539,8 @@ function App() {
             updateStatus={updateStatus}
             autoUpdateStatus={autoUpdateStatus}
             isAutoUpdateAvailable={isAutoUpdateAvailable}
+            pwaInstallGuidance={pwaInstallGuidance}
+            pwaInstallStatus={pwaInstallStatus}
             appVersion={APP_VERSION}
             updateFeedUrl={UPDATE_FEED_URL}
             latestReleaseUrl={LATEST_RELEASE_URL}
@@ -2487,6 +2596,7 @@ function App() {
             onStartUpdate={startUpdate}
             onCheckForUpdates={checkForUpdates}
             onInstallAutoUpdate={installAutoUpdate}
+            onInstallPwa={() => void installPwa()}
           />
 
           <SearchPanel

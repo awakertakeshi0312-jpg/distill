@@ -8,7 +8,7 @@ This assessment covers the current local-first Distill MVP:
 - React/Vite frontend
 - encrypted local vault persistence
 - legacy plaintext migration path
-- browser/PWA preview
+- browser/PWA preview with install guidance and update-safer offline shell cache
 - signed Windows updater
 - GitHub Releases updater feed
 - manual encrypted sync packet export/import with apply preview
@@ -66,6 +66,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added in-app listing and Restore preview for saved encrypted pre-sync recovery snapshots.
 - Added monitor-only sync-folder review refresh that updates safety classifications without auto-preview or auto-apply.
 - Added outbound sync-folder auto-export for encrypted packets only; inbound preview/apply remains manual.
+- Added PWA/mobile install guidance, app metadata, touch icon, update-safer service worker navigation strategy, and phone-width E2E smoke coverage.
 
 ## Findings
 
@@ -97,7 +98,7 @@ The browser preview stores the encrypted envelope in localStorage. Content is en
 
 Recommended remediation:
 
-- Treat PWA mode as a preview until IndexedDB + better key/session handling is implemented.
+- Treat PWA mode as a preview until IndexedDB + better key/session handling is implemented. The app now labels PWA/mobile status and keeps navigation network-first to reduce stale shell risk.
 - Add backup/export prompts on mobile.
 - Consider native mobile for stronger platform storage.
 

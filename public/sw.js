@@ -1,5 +1,19 @@
-const CACHE_NAME = 'distill-shell-v1';
-const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './distill-icon.svg'];
+const CACHE_NAME = 'distill-shell-v2';
+const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './distill-icon.svg', './distill-touch-icon.png'];
+
+function isSameOriginGet(request) {
+  return request.method === 'GET' && new URL(request.url).origin === self.location.origin;
+}
+
+function cacheResponse(request, response) {
+  if (!response || !response.ok) {
+    return response;
+  }
+
+  const copy = response.clone();
+  caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+  return response;
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -16,29 +30,23 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) {
+  if (!isSameOriginGet(event.request)) {
+    return;
+  }
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => cacheResponse(event.request, response))
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./'))),
+    );
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) {
-        return cached;
-      }
-
-      return fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => {
-          if (event.request.mode === 'navigate') {
-            return caches.match('./');
-          }
-
-          throw new Error('Distill offline cache miss.');
-        });
+      const network = fetch(event.request).then((response) => cacheResponse(event.request, response));
+      return cached || network;
     }),
   );
 });
