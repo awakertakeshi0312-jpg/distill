@@ -1,4 +1,4 @@
-const CACHE_NAME = 'distill-shell-v2';
+const CACHE_NAME = 'distill-shell-v3';
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './distill-icon.svg', './distill-touch-icon.png'];
 
 function isSameOriginGet(request) {
@@ -13,6 +13,11 @@ function cacheResponse(request, response) {
   const copy = response.clone();
   caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
   return response;
+}
+
+function shouldPreferNetwork(request) {
+  const url = new URL(request.url);
+  return request.destination === 'script' || request.destination === 'style' || url.pathname.includes('/assets/');
 }
 
 self.addEventListener('install', (event) => {
@@ -39,6 +44,15 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then((response) => cacheResponse(event.request, response))
         .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./'))),
+    );
+    return;
+  }
+
+  if (shouldPreferNetwork(event.request)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => cacheResponse(event.request, response))
+        .catch(() => caches.match(event.request)),
     );
     return;
   }

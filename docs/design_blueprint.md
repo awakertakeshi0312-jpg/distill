@@ -282,9 +282,9 @@ Trust limitations:
 
 Current passing suite:
 
-- Frontend/domain tests: 19 passed.
-- Rust tests: 10 passed.
-- Browser E2E smoke tests: 9 passed.
+- Frontend/domain tests: 78 passed.
+- Rust tests: 20 passed.
+- Browser E2E smoke tests: 11 passed.
 - Production frontend build: passing.
 
 ## Roadmap

@@ -11,6 +11,7 @@ const VAULT_KEY: &str = "distill.vault.v1";
 const VAULT_RECORD_LOG_KEY: &str = "distill.vaultRecordLog.v1";
 const MAX_SYNC_PACKET_BYTES: u64 = 5 * 1024 * 1024;
 const MAX_VAULT_RECORD_LOG_BYTES: u64 = 25 * 1024 * 1024;
+const WEBVIEW_CACHE_CLEANUP_MARKER: &str = "distill-webview-cache-cleanup-v1.done";
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -214,6 +215,43 @@ fn encrypted_vault_backup_path(app: &AppHandle) -> Result<std::path::PathBuf, St
 fn sync_recovery_vault_backup_folder(app: &AppHandle) -> Result<std::path::PathBuf, String> {
   let data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
   Ok(data_dir.join("backups").join("sync-recovery"))
+}
+
+#[cfg(desktop)]
+fn desktop_webview_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
+  let local_data_dir = app.path().app_local_data_dir().map_err(|error| error.to_string())?;
+  Ok(local_data_dir.join("EBWebView"))
+}
+
+#[cfg(desktop)]
+fn is_distill_webview_cache_dir(path: &Path) -> bool {
+  path.file_name().and_then(|value| value.to_str()) == Some("EBWebView")
+    && path.parent().and_then(|parent| parent.file_name()).and_then(|value| value.to_str()) == Some("app.distill.local")
+}
+
+#[cfg(desktop)]
+fn clear_desktop_webview_cache_once(app: &AppHandle) -> Result<(), String> {
+  let data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+  std::fs::create_dir_all(&data_dir).map_err(|error| error.to_string())?;
+
+  let marker = data_dir.join(WEBVIEW_CACHE_CLEANUP_MARKER);
+  if marker.exists() {
+    return Ok(());
+  }
+
+  let cache_dir = desktop_webview_cache_dir(app)?;
+  if !is_distill_webview_cache_dir(&cache_dir) {
+    return Err("Refusing to clear unexpected WebView cache path.".to_string());
+  }
+
+  if cache_dir.exists() {
+    if let Err(error) = std::fs::remove_dir_all(&cache_dir) {
+      eprintln!("Distill WebView cache cleanup could not remove {:?}: {error}", cache_dir);
+      return Ok(());
+    }
+  }
+
+  std::fs::write(marker, "distill webview cache cleanup v1\n").map_err(|error| error.to_string())
 }
 
 fn ai_org_kernel_root(app: &AppHandle) -> Result<PathBuf, String> {
@@ -1664,6 +1702,20 @@ mod tests {
     }
   }
 
+  #[cfg(desktop)]
+  #[test]
+  fn accepts_only_distill_webview_cache_cleanup_target() {
+    assert!(is_distill_webview_cache_dir(
+      &PathBuf::from("app.distill.local").join("EBWebView")
+    ));
+    assert!(!is_distill_webview_cache_dir(
+      &PathBuf::from("app.distill.local").join("distill.sqlite3")
+    ));
+    assert!(!is_distill_webview_cache_dir(
+      &PathBuf::from("other.app").join("EBWebView")
+    ));
+  }
+
   #[test]
   fn saves_and_loads_normalized_store_with_edges() {
     let mut connection = test_connection();
@@ -2044,6 +2096,11 @@ mod tests {
 pub fn run() {
   tauri::Builder::default()
     .setup(|app| {
+      #[cfg(desktop)]
+      if let Err(error) = clear_desktop_webview_cache_once(app.handle()) {
+        eprintln!("Distill WebView cache cleanup failed: {error}");
+      }
+
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()

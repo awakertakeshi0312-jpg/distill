@@ -4,6 +4,8 @@
 
 If the installed desktop app opens to a blank white window, first assume the encrypted vault is important and avoid deleting app data directly.
 
+Distill 0.1.45 and later include an automatic desktop fix for the most common cause: stale WebView Service Worker/cache state after an update. The app clears only the local WebView `EBWebView` cache once before startup and does not touch the encrypted vault database or backups.
+
 Safe recovery order:
 
 1. Close Distill completely.
@@ -46,6 +48,8 @@ Distill desktop uses Tauri plus Microsoft WebView2. A blank screen can be caused
 - an interrupted installer/update
 
 Distill now includes a React render error boundary. If React can catch the failure, the app should show recovery instructions instead of a blank screen. If the WebView itself fails before React starts, use the cache rename procedure above.
+
+In Tauri desktop builds, Distill no longer registers the browser Service Worker. The Service Worker remains available for the browser/PWA path, but its JS/CSS asset fetches now prefer network responses so stale bundles are less likely to survive across updates.
 
 ## Verification Commands
 

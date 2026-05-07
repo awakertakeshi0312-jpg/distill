@@ -37,6 +37,7 @@ Implemented:
 - English/Japanese UI switching.
 - Tauri capability exposure limited to encrypted vault read/write, legacy migration read, plaintext clear, storage info, and update launch.
 - React render error boundary so runtime UI failures show recovery steps instead of a blank screen.
+- Desktop blank-screen recovery hardening: Tauri desktop disables browser Service Worker registration and clears stale WebView cache once before startup.
 
 Not included in this MVP:
 
@@ -95,8 +96,8 @@ npm run check:all
 
 Current passing suite:
 
-- Frontend/domain tests: 76 passed.
-- Rust/SQLite tests: 19 passed.
+- Frontend/domain tests: 78 passed.
+- Rust/SQLite tests: 20 passed.
 - Browser E2E smoke tests: 11 passed.
 - Production frontend build: passing.
 
@@ -143,19 +144,19 @@ src-tauri/target/release/app.exe
 Current Windows installer output:
 
 ```text
-src-tauri/target/release/bundle/nsis/Distill_0.1.42_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Distill_0.1.45_x64-setup.exe
 ```
 
 Installer SHA256:
 
 ```text
-71EA0DBC3F647289DDC3B5D020D47C83E40039E9100261E6D1846AB1D790B73E
+73981F6CC722BD756E6A256EFD95D333C44A0D736162ED30F13E59132F59A608
 ```
 
 Signed auto-update flow:
 
 1. Build a signed release with `npm run release:windows`.
-2. Upload `release/Distill_0.1.42_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
+2. Upload `release/Distill_0.1.45_x64-setup.exe`, `.sig`, and `latest.json` to the configured release endpoint.
 3. Open the installed Distill desktop app.
 4. Click `Check for updates` in the Inspector update section.
 5. Click `Install update` when a newer signed version is available.

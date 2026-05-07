@@ -33,6 +33,7 @@ import { createMarkdownImport, parseDistillImport } from '../import';
 import { browserVaultPath, getBrowserVaultStorageInfo, isBrowserIndexedDbSupported } from '../browserVaultStore';
 import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { detectPwaPlatform, getPwaInstallGuidance } from '../pwaInstall';
+import { isDistillShellCache, shouldRegisterServiceWorker } from '../serviceWorkerPolicy';
 import {
   createDistillVaultSession,
   decryptDistillVaultRecord,
@@ -196,6 +197,32 @@ describe('PWA install guidance', () => {
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
       }).kind,
     ).toBe('ios-manual');
+  });
+});
+
+describe('service worker policy', () => {
+  it('keeps desktop Tauri builds off browser service workers', () => {
+    expect(
+      shouldRegisterServiceWorker({
+        hasServiceWorker: true,
+        isProduction: true,
+        isTauriRuntime: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldRegisterServiceWorker({
+        hasServiceWorker: true,
+        isProduction: true,
+        isTauriRuntime: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('targets only Distill shell caches for desktop cleanup', () => {
+    expect(isDistillShellCache('distill-shell-v2')).toBe(true);
+    expect(isDistillShellCache('distill-shell-v3')).toBe(true);
+    expect(isDistillShellCache('workbox-precache')).toBe(false);
   });
 });
 
