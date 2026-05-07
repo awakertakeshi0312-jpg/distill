@@ -1097,14 +1097,27 @@ function App() {
         return;
       }
 
-      const { plainJson, session } = await unlockDistillVaultSession(encryptedVault, passphrase);
-      const loadedStore = parseDistillImport(plainJson);
+      const candidatePassphrases =
+        passphrase.trim() !== passphrase && passphrase.trim().length > 0 ? [passphrase, passphrase.trim()] : [passphrase];
+      let lastError: unknown;
 
-      setStore(loadedStore);
-      setSelectedBlockId(loadedStore.blocks[0]?.id);
-      openVaultSession(passphrase, session);
-      setHasLoadedStore(true);
-      setVaultStatus('unlocked');
+      for (const candidatePassphrase of candidatePassphrases) {
+        try {
+          const { plainJson, session } = await unlockDistillVaultSession(encryptedVault, candidatePassphrase);
+          const loadedStore = parseDistillImport(plainJson);
+
+          setStore(loadedStore);
+          setSelectedBlockId(loadedStore.blocks[0]?.id);
+          openVaultSession(candidatePassphrase, session);
+          setHasLoadedStore(true);
+          setVaultStatus('unlocked');
+          return;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw lastError;
     } catch (error) {
       console.warn('Failed to unlock encrypted Distill vault.', error);
       setVaultError(runtimeVaultLabels().unlockInvalid);

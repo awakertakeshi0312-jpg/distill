@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0 -or -not $passphraseSuffix) {
 $passphrase = "Distill-$timestamp-$passphraseSuffix"
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($passphrasePath, $passphrase + [Environment]::NewLine, $utf8NoBom)
+[System.IO.File]::WriteAllText($passphrasePath, $passphrase, $utf8NoBom)
 
 $nodeScript = @'
 const fs = require('fs');

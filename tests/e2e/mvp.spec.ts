@@ -379,6 +379,23 @@ test('Existing vault unlock does not block short legacy passphrases at the form 
   await expect(passphrase).not.toHaveAttribute('minlength');
 });
 
+test('Locked vault unlock accepts passphrase copied with outer whitespace', async ({ page }) => {
+  await openUnlockedVault(page);
+  await page.getByRole('button', { name: 'English' }).click();
+  await page.locator('.vaultLockButton').click();
+
+  const passphrase = page.locator('input[aria-label="Vault passphrase"]');
+  await expect(passphrase).toBeVisible();
+  await passphrase.evaluate((element, value) => {
+    const input = element as HTMLInputElement;
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, `\n${VAULT_PASSPHRASE}\n`);
+  await page.getByRole('button', { name: 'Unlock vault' }).click();
+
+  await expect(page.locator('.shell')).toBeVisible();
+});
+
 test('Locked vault can be reset into a new passphrase setup flow', async ({ page }) => {
   const nextPassphrase = 'fresh reset vault passphrase';
   await openUnlockedVault(page);
