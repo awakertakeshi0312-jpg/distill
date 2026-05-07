@@ -197,12 +197,42 @@ button:disabled {
   background: #fffef7;
 }
 
+.vaultPasswordField {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.vaultPasswordField button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  background: #f7f8f0;
+  color: var(--ink);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .vaultForm button {
   min-height: 46px;
   border: 1px solid #1c2520;
   background: #1c2520;
   color: #f7f5e8;
   font-weight: 800;
+}
+
+.vaultPassphraseMeta {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.vaultPassphraseMeta b {
+  color: var(--red);
 }
 
 .vaultResetPanel {
