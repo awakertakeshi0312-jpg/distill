@@ -4,7 +4,7 @@
 
 If the installed desktop app opens to a blank white window, first assume the encrypted vault is important and avoid deleting app data directly.
 
-Distill 0.1.45 and later include an automatic desktop fix for the most common cause: stale WebView Service Worker/cache state after an update. The app clears only the local WebView `EBWebView` cache once before startup and does not touch the encrypted vault database or backups.
+Distill 0.1.46 and later include an automatic desktop fix for the most common cause: stale WebView Service Worker/cache state after an update. The app clears only the local WebView `LOCALAPPDATA\app.distill.local\EBWebView` cache once before startup and does not touch the encrypted vault database or backups.
 
 Safe recovery order:
 

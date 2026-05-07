@@ -11,7 +11,8 @@ const VAULT_KEY: &str = "distill.vault.v1";
 const VAULT_RECORD_LOG_KEY: &str = "distill.vaultRecordLog.v1";
 const MAX_SYNC_PACKET_BYTES: u64 = 5 * 1024 * 1024;
 const MAX_VAULT_RECORD_LOG_BYTES: u64 = 25 * 1024 * 1024;
-const WEBVIEW_CACHE_CLEANUP_MARKER: &str = "distill-webview-cache-cleanup-v1.done";
+const APP_IDENTIFIER: &str = "app.distill.local";
+const WEBVIEW_CACHE_CLEANUP_MARKER: &str = "distill-webview-cache-cleanup-v2.done";
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -217,16 +218,25 @@ fn sync_recovery_vault_backup_folder(app: &AppHandle) -> Result<std::path::PathB
   Ok(data_dir.join("backups").join("sync-recovery"))
 }
 
-#[cfg(desktop)]
+#[cfg(all(desktop, target_os = "windows"))]
+fn desktop_webview_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
+  let _ = app;
+  let local_app_data = std::env::var_os("LOCALAPPDATA")
+    .map(PathBuf::from)
+    .ok_or_else(|| "LOCALAPPDATA is not available.".to_string())?;
+  Ok(local_app_data.join(APP_IDENTIFIER).join("EBWebView"))
+}
+
+#[cfg(all(desktop, not(target_os = "windows")))]
 fn desktop_webview_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
   let local_data_dir = app.path().app_local_data_dir().map_err(|error| error.to_string())?;
-  Ok(local_data_dir.join("EBWebView"))
+  Ok(local_data_dir.join(APP_IDENTIFIER).join("EBWebView"))
 }
 
 #[cfg(desktop)]
 fn is_distill_webview_cache_dir(path: &Path) -> bool {
   path.file_name().and_then(|value| value.to_str()) == Some("EBWebView")
-    && path.parent().and_then(|parent| parent.file_name()).and_then(|value| value.to_str()) == Some("app.distill.local")
+    && path.parent().and_then(|parent| parent.file_name()).and_then(|value| value.to_str()) == Some(APP_IDENTIFIER)
 }
 
 #[cfg(desktop)]
@@ -251,7 +261,7 @@ fn clear_desktop_webview_cache_once(app: &AppHandle) -> Result<(), String> {
     }
   }
 
-  std::fs::write(marker, "distill webview cache cleanup v1\n").map_err(|error| error.to_string())
+  std::fs::write(marker, "distill webview cache cleanup v2\n").map_err(|error| error.to_string())
 }
 
 fn ai_org_kernel_root(app: &AppHandle) -> Result<PathBuf, String> {
