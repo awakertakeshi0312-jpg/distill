@@ -35,7 +35,7 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Sync packet imports show an apply preview before changing the vault.
 - Known sync devices now keep `lastPacketHash`, newer packets must continue the known checkpoint chain, and first-seen signed devices require a public-key verification-code match before apply, with QR display, camera scan, and payload paste import available for out-of-band comparison.
 
-### Changes Applied Through 0.1.38
+### Changes Applied Through 0.1.39
 
 - Added startup vault gate for create/unlock.
 - Added normal encrypted local persistence under `distill.vault.v1`.
@@ -73,17 +73,18 @@ It does not certify the app for regulated data, medical data, legal privilege, o
 - Added packet-level sync KDF metadata so each new encrypted sync packet uses one non-exportable WebCrypto sync session key for all contained records, with legacy per-record packet compatibility.
 - Added dedicated sync key material stored inside the encrypted vault and passphrase-wrapped sync key bootstrap metadata for first import/recovery.
 - Added Inspector create/rotate lifecycle controls for the dedicated sync key and fixed first-export sync key persistence back into the vault.
+- Added in-app sync-key recovery drill that checks local sync-key decrypt, passphrase-wrapped recovery decrypt, and no plaintext sync-key leakage in serialized packets.
 - Added test-covered auto-lock policy normalization and idle-expiry checks.
 
 ## Findings
 
 ### P1: Passphrase still lives in app memory while unlocked
 
-Distill now keeps the active passphrase out of React state, and normal vault autosave uses a non-exportable WebCrypto CryptoKey session. The passphrase is still available in a volatile app-session ref while unlocked for bootstrap/recovery paths. New encrypted packets prefer dedicated sync key material stored inside the encrypted vault and can carry a passphrase-wrapped bootstrap key; the remaining work is transport around device loss and multi-device recovery drills.
+Distill now keeps the active passphrase out of React state, and normal vault autosave uses a non-exportable WebCrypto CryptoKey session. The passphrase is still available in a volatile app-session ref while unlocked for bootstrap/recovery paths. New encrypted packets prefer dedicated sync key material stored inside the encrypted vault and can carry a passphrase-wrapped bootstrap key; the remaining work is repeated multi-device recovery drills, device-loss runbooks, and production transport.
 
 Recommended remediation:
 
-- Continue hardening dedicated sync key recovery and device-loss drills before enabling automatic transport.
+- Continue hardening dedicated sync key recovery with repeated multi-device and device-loss drills before enabling automatic transport.
 - Evaluate Tauri Stronghold or platform keyring for optional convenience unlock.
 - Keep lock-on-idle defaults conservative and add OS-native idle integration later.
 
@@ -187,6 +188,6 @@ Before distributing a new public build:
 
 1. Continue device lifecycle hardening beyond local revoke/forget actions and validate mobile-safe sync transport.
 2. Add OS-native idle/sleep integration and optional keyring convenience unlock.
-3. Add automatic inbound encrypted folder sync only after recovery drills, signed-device assurance, and rollback drills are documented and exercised.
+3. Add automatic inbound encrypted folder sync only after repeated recovery drills, signed-device assurance, and rollback drills are documented and exercised.
 4. Add QR/fingerprint comparison for new-device public-key verification. Signed checkpoint verification is implemented, but first trust still needs a better out-of-band verification UX.
 5. Add user-selectable vault location and backup rotation.

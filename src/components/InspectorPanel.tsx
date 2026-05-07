@@ -116,6 +116,7 @@ type InspectorPanelProps = {
   onImportEncryptedSyncPacket: (file: File) => void;
   onCreateSyncKey: () => void;
   onRotateSyncKey: () => void;
+  onRunSyncKeyRecoveryDrill: () => void;
   onSyncFolderPathChange: (path: string) => void;
   onSyncFolderMonitorToggle: (enabled: boolean) => void;
   onSyncFolderAutoPreviewToggle: (enabled: boolean) => void;
@@ -210,6 +211,7 @@ export function InspectorPanel({
   onImportEncryptedSyncPacket,
   onCreateSyncKey,
   onRotateSyncKey,
+  onRunSyncKeyRecoveryDrill,
   onSyncFolderPathChange,
   onSyncFolderMonitorToggle,
   onSyncFolderAutoPreviewToggle,
@@ -421,6 +423,9 @@ export function InspectorPanel({
             'Stored inside the encrypted vault. New packets wrap this key with the vault passphrase for first import and recovery.',
           syncKeyCreate: 'Create sync key',
           syncKeyRotate: 'Rotate sync key',
+          syncKeyRecoveryDrill: 'Run recovery drill',
+          syncKeyRecoveryDrillHint:
+            'Checks that a test outbound packet can be decrypted with both the local sync key and the passphrase-wrapped recovery key.',
           syncKeyRotateWarning:
             'Rotation affects future packets only. Older packets remain readable with their wrapped key and vault passphrase.',
           rename: 'Save device name',
@@ -486,6 +491,9 @@ export function InspectorPanel({
             '暗号化Vault内に保存されます。新しいパケットは初回取り込み・復旧用に、このキーをVaultパスフレーズで包んで同梱します。',
           syncKeyCreate: '同期キーを作成',
           syncKeyRotate: '同期キーをローテーション',
+          syncKeyRecoveryDrill: '復旧ドリルを実行',
+          syncKeyRecoveryDrillHint:
+            'テスト用送信パケットを、ローカル同期キーとパスフレーズで包まれた復旧キーの両方で復号できるか確認します。',
           syncKeyRotateWarning:
             'ローテーションは今後のパケットにだけ影響します。古いパケットは同梱された復旧キーとVaultパスフレーズで読み込めます。',
           rename: '端末名を保存',
@@ -1150,7 +1158,14 @@ export function InspectorPanel({
                   {syncLabels.syncKeyCreate}
                 </button>
               )}
+              {syncKeyId ? (
+                <button className="restoreButton inlineActionButton" type="button" onClick={onRunSyncKeyRecoveryDrill}>
+                  <ShieldCheck size={14} />
+                  {syncLabels.syncKeyRecoveryDrill}
+                </button>
+              ) : null}
             </div>
+            {syncKeyId ? <small>{syncLabels.syncKeyRecoveryDrillHint}</small> : null}
             {syncKeyId ? <small>{syncLabels.syncKeyRotateWarning}</small> : null}
           </div>
           <span className="storagePath">{syncLabels.knownDevices}</span>

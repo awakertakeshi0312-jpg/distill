@@ -61,6 +61,7 @@ import {
   createSyncFolderPacketReviewKey,
   type SyncFolderPacketReview,
 } from '../syncFolderReview';
+import { runSyncRecoveryDrill } from '../syncRecoveryDrill';
 import {
   applyEncryptedSyncPacket,
   applySyncPacket,
@@ -1336,6 +1337,32 @@ describe('sync packets', () => {
     expect(decryptedWithLocalKey.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
     expect(decryptedWithWrappedKey.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
     expect(discoveredSyncKey?.id).toBe(syncKey.id);
+  });
+
+  it('runs a sync recovery drill through local key and wrapped-key fallback', async () => {
+    const keyedStore = ensureSyncKeyMaterial(store, '2026-05-06T02:00:00.000Z');
+    const syncKey = getSyncKeyMaterial(keyedStore);
+
+    if (!syncKey) {
+      throw new Error('Expected test store to have sync key material');
+    }
+
+    const result = await runSyncRecoveryDrill(keyedStore, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      now: '2026-05-06T03:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      syncKey,
+      iterations: 1_000,
+    });
+
+    expect(result).toMatchObject({
+      syncKeyId: syncKey.id,
+      discoveredSyncKeyId: syncKey.id,
+      records: 3,
+      packetCreatedAt: '2026-05-06T03:00:00.000Z',
+      sourceDeviceId: 'windows-dev',
+    });
   });
 
   it('preserves local sync key material while applying incoming sync packets', () => {

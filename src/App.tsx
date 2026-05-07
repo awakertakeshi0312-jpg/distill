@@ -112,6 +112,7 @@ import { emitCaptureSaved, emitExportArtifact, emitReviewDecision } from './aiOr
 import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
 import { buildSyncPreview, type SyncPreview } from './syncPreview';
+import { runSyncRecoveryDrill } from './syncRecoveryDrill';
 import {
   getPwaInstallGuidance,
   isPwaStandaloneDisplay,
@@ -1111,6 +1112,10 @@ function App() {
           syncKeyRotated: 'Dedicated sync key rotated. Future sync packets use the new key.',
           syncKeyRotateConfirm:
             'Rotate the dedicated sync key? Future packets will use the new key. Keep your vault passphrase for older packet recovery.',
+          syncKeyRecoveryDrillSuccess: (records: number, syncKeyId: string) =>
+            `Recovery drill passed for ${records} records. Local sync key and passphrase-wrapped recovery both decrypted ${syncKeyId}.`,
+          syncKeyRecoveryDrillFailed:
+            'Sync key recovery drill failed. Check the vault passphrase, sync key status, and current backups before rotating again.',
           knownDevices: 'Known devices',
           noKnownDevices: 'No synced devices yet',
           revokedDevices: 'Revoked devices',
@@ -1207,6 +1212,10 @@ function App() {
           syncKeyRotated: '専用同期キーをローテーションしました。今後の同期パケットは新しいキーを使います。',
           syncKeyRotateConfirm:
             '専用同期キーをローテーションしますか？今後の同期パケットは新しいキーを使います。古いパケットの復旧用にVaultパスフレーズは保持してください。',
+          syncKeyRecoveryDrillSuccess: (records: number, syncKeyId: string) =>
+            `復旧ドリルに成功しました。${records}件を、ローカル同期キーとパスフレーズ復旧経路の両方で復号できました（${syncKeyId}）。`,
+          syncKeyRecoveryDrillFailed:
+            '同期キー復旧ドリルに失敗しました。再ローテーション前にVaultパスフレーズ、同期キー状態、現在のバックアップを確認してください。',
           knownDevices: '同期済み端末',
           noKnownDevices: '同期済み端末はまだありません',
           revokedDevices: '信頼解除済み端末',
@@ -1331,6 +1340,48 @@ function App() {
     setSyncFolderAutoExportFingerprint('');
     syncFolderAutoPreviewLastKey.current = '';
     setSyncStatus(labels.syncKeyRotated);
+  }
+
+  async function runDedicatedSyncKeyRecoveryDrill() {
+    const labels = syncLabels();
+    const passphrase = getVaultPassphrase();
+
+    if (!passphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    try {
+      const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
+      const signingKeyPair = await getOrCreateDeviceSigningKeyPair();
+      const signedIdentity = {
+        ...identity,
+        signingKeyAlgorithm: signingKeyPair.algorithm,
+        signingPublicKey: signingKeyPair.publicKey,
+      };
+      const registeredStore = ensureSyncKeyMaterial(registerSyncDevice(store, signedIdentity));
+      const syncKey = getSyncKeyMaterial(registeredStore);
+
+      if (!syncKey) {
+        throw new Error(labels.syncKeyRecoveryDrillFailed);
+      }
+
+      const result = await runSyncRecoveryDrill(registeredStore, {
+        sourceDeviceId: identity.id,
+        sourceDeviceName: identity.name,
+        sourceDeviceSigningPublicKey: signingKeyPair.publicKey,
+        passphrase,
+        syncKey,
+        signPacket: (plainPacket) => signSyncPacket(plainPacket, signingKeyPair),
+      });
+
+      setDeviceIdentity(identity);
+      setStore(registeredStore);
+      setSyncStatus(labels.syncKeyRecoveryDrillSuccess(result.records, result.syncKeyId));
+    } catch (error) {
+      console.warn('Failed to run Distill sync key recovery drill.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.syncKeyRecoveryDrillFailed);
+    }
   }
 
   function createSyncPacketFileName() {
@@ -2687,6 +2738,7 @@ function App() {
             onImportEncryptedSyncPacket={(file) => void importEncryptedSyncPacket(file)}
             onCreateSyncKey={createDedicatedSyncKey}
             onRotateSyncKey={rotateDedicatedSyncKey}
+            onRunSyncKeyRecoveryDrill={() => void runDedicatedSyncKeyRecoveryDrill()}
             onSyncFolderPathChange={(path) => {
               setSyncFolderPath(path);
               setSyncFolderPacketReviews([]);

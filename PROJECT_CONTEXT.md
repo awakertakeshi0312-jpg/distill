@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.38.
-- Current phase: Sync-key lifecycle UX and Trust Layer sync hardening.
-- Current completion estimate: 94% overall; this phase advanced +2pt in this pass.
-- Implemented in this pass: Distill now exposes dedicated sync-key lifecycle UX in the Inspector, lets the user create or rotate the sync key, persists first-export generated sync keys back into the encrypted vault, and keeps passphrase-wrapped bootstrap compatibility for first import/recovery.
+- Current version: 0.1.39.
+- Current phase: Sync-key recovery drill and Trust Layer sync hardening.
+- Current completion estimate: 95% overall; this phase advanced +1pt in this pass.
+- Implemented in this pass: Distill now exposes an in-app sync-key recovery drill that verifies a dry-run encrypted packet can be decrypted by both the local dedicated sync key and the passphrase-wrapped recovery copy, while checking that plaintext sync-key material is not serialized.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
 - Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, record-level normal vault persistence, and production mobile sync transport.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.38.md`.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.39.md`.
 ## 役割
 
 思老E�E断牁E��捕まえ、タグ・リンク・検索・グラフ�Eレビューを通じて、判断めE��識に蒸留するローカルファースト�EチE��クトップアプリ、E
