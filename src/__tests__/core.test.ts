@@ -61,7 +61,7 @@ import {
   createSyncFolderPacketReviewKey,
   type SyncFolderPacketReview,
 } from '../syncFolderReview';
-import { runSyncRecoveryDrill } from '../syncRecoveryDrill';
+import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from '../syncRecoveryDrill';
 import {
   applyEncryptedSyncPacket,
   applySyncPacket,
@@ -1362,6 +1362,38 @@ describe('sync packets', () => {
       records: 3,
       packetCreatedAt: '2026-05-06T03:00:00.000Z',
       sourceDeviceId: 'windows-dev',
+    });
+  });
+
+  it('runs a multi-device sync recovery drill through wrapped bootstrap and return packet', async () => {
+    const keyedStore = ensureSyncKeyMaterial(store, '2026-05-06T02:00:00.000Z');
+    const syncKey = getSyncKeyMaterial(keyedStore);
+
+    if (!syncKey) {
+      throw new Error('Expected test store to have sync key material');
+    }
+
+    const result = await runMultiDeviceSyncRecoveryDrill(keyedStore, {
+      sourceDeviceId: 'windows-dev',
+      sourceDeviceName: 'Windows desk',
+      recoveredDeviceId: 'phone-dev',
+      recoveredDeviceName: 'Phone recovery drill',
+      now: '2026-05-06T03:00:00.000Z',
+      returnNow: '2026-05-06T04:00:00.000Z',
+      passphrase: 'correct horse battery staple',
+      syncKey,
+      iterations: 1_000,
+    });
+
+    expect(result).toMatchObject({
+      syncKeyId: syncKey.id,
+      recoveredSyncKeyId: syncKey.id,
+      sourceDeviceId: 'windows-dev',
+      recoveredDeviceId: 'phone-dev',
+      bootstrapRecords: 3,
+      returnRecords: 3,
+      bootstrapPacketCreatedAt: '2026-05-06T03:00:00.000Z',
+      returnPacketCreatedAt: '2026-05-06T04:00:00.000Z',
     });
   });
 

@@ -112,7 +112,7 @@ import { emitCaptureSaved, emitExportArtifact, emitReviewDecision } from './aiOr
 import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
 import { buildSyncPreview, type SyncPreview } from './syncPreview';
-import { runSyncRecoveryDrill } from './syncRecoveryDrill';
+import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from './syncRecoveryDrill';
 import {
   getPwaInstallGuidance,
   isPwaStandaloneDisplay,
@@ -1114,6 +1114,8 @@ function App() {
             'Rotate the dedicated sync key? Future packets will use the new key. Keep your vault passphrase for older packet recovery.',
           syncKeyRecoveryDrillSuccess: (records: number, syncKeyId: string) =>
             `Recovery drill passed for ${records} records. Local sync key and passphrase-wrapped recovery both decrypted ${syncKeyId}.`,
+          syncKeyMultiDeviceDrillSuccess: (records: number, sourceDeviceId: string, recoveredDeviceId: string) =>
+            `Multi-device drill passed for ${records} records: ${sourceDeviceId} -> ${recoveredDeviceId} -> ${sourceDeviceId}.`,
           syncKeyRecoveryDrillFailed:
             'Sync key recovery drill failed. Check the vault passphrase, sync key status, and current backups before rotating again.',
           knownDevices: 'Known devices',
@@ -1214,6 +1216,8 @@ function App() {
             '専用同期キーをローテーションしますか？今後の同期パケットは新しいキーを使います。古いパケットの復旧用にVaultパスフレーズは保持してください。',
           syncKeyRecoveryDrillSuccess: (records: number, syncKeyId: string) =>
             `復旧ドリルに成功しました。${records}件を、ローカル同期キーとパスフレーズ復旧経路の両方で復号できました（${syncKeyId}）。`,
+          syncKeyMultiDeviceDrillSuccess: (records: number, sourceDeviceId: string, recoveredDeviceId: string) =>
+            `複数端末ドリルに成功しました。${records}件を ${sourceDeviceId} -> ${recoveredDeviceId} -> ${sourceDeviceId} の往復で復号できました。`,
           syncKeyRecoveryDrillFailed:
             '同期キー復旧ドリルに失敗しました。再ローテーション前にVaultパスフレーズ、同期キー状態、現在のバックアップを確認してください。',
           knownDevices: '同期済み端末',
@@ -1380,6 +1384,56 @@ function App() {
       setSyncStatus(labels.syncKeyRecoveryDrillSuccess(result.records, result.syncKeyId));
     } catch (error) {
       console.warn('Failed to run Distill sync key recovery drill.', error);
+      setSyncStatus(error instanceof Error ? error.message : labels.syncKeyRecoveryDrillFailed);
+    }
+  }
+
+  async function runMultiDeviceSyncKeyRecoveryDrill() {
+    const labels = syncLabels();
+    const passphrase = getVaultPassphrase();
+
+    if (!passphrase) {
+      setSyncStatus(labels.passphraseRequired);
+      return;
+    }
+
+    try {
+      const identity = deviceIdentity ?? getOrCreateDeviceIdentity();
+      const signingKeyPair = await getOrCreateDeviceSigningKeyPair();
+      const signedIdentity = {
+        ...identity,
+        signingKeyAlgorithm: signingKeyPair.algorithm,
+        signingPublicKey: signingKeyPair.publicKey,
+      };
+      const registeredStore = ensureSyncKeyMaterial(registerSyncDevice(store, signedIdentity));
+      const syncKey = getSyncKeyMaterial(registeredStore);
+
+      if (!syncKey) {
+        throw new Error(labels.syncKeyRecoveryDrillFailed);
+      }
+
+      const result = await runMultiDeviceSyncRecoveryDrill(registeredStore, {
+        sourceDeviceId: identity.id,
+        sourceDeviceName: identity.name,
+        sourceDeviceSigningPublicKey: signingKeyPair.publicKey,
+        recoveredDeviceId: `${identity.id}-recovery-drill`,
+        recoveredDeviceName: `${identity.name} recovery drill`,
+        passphrase,
+        syncKey,
+        signPacket: (plainPacket) => signSyncPacket(plainPacket, signingKeyPair),
+      });
+
+      setDeviceIdentity(identity);
+      setStore(registeredStore);
+      setSyncStatus(
+        labels.syncKeyMultiDeviceDrillSuccess(
+          result.returnRecords,
+          result.sourceDeviceId,
+          result.recoveredDeviceId,
+        ),
+      );
+    } catch (error) {
+      console.warn('Failed to run Distill multi-device sync key recovery drill.', error);
       setSyncStatus(error instanceof Error ? error.message : labels.syncKeyRecoveryDrillFailed);
     }
   }
@@ -2739,6 +2793,7 @@ function App() {
             onCreateSyncKey={createDedicatedSyncKey}
             onRotateSyncKey={rotateDedicatedSyncKey}
             onRunSyncKeyRecoveryDrill={() => void runDedicatedSyncKeyRecoveryDrill()}
+            onRunMultiDeviceSyncKeyRecoveryDrill={() => void runMultiDeviceSyncKeyRecoveryDrill()}
             onSyncFolderPathChange={(path) => {
               setSyncFolderPath(path);
               setSyncFolderPacketReviews([]);

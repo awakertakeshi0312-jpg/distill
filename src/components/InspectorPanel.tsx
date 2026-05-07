@@ -117,6 +117,7 @@ type InspectorPanelProps = {
   onCreateSyncKey: () => void;
   onRotateSyncKey: () => void;
   onRunSyncKeyRecoveryDrill: () => void;
+  onRunMultiDeviceSyncKeyRecoveryDrill: () => void;
   onSyncFolderPathChange: (path: string) => void;
   onSyncFolderMonitorToggle: (enabled: boolean) => void;
   onSyncFolderAutoPreviewToggle: (enabled: boolean) => void;
@@ -212,6 +213,7 @@ export function InspectorPanel({
   onCreateSyncKey,
   onRotateSyncKey,
   onRunSyncKeyRecoveryDrill,
+  onRunMultiDeviceSyncKeyRecoveryDrill,
   onSyncFolderPathChange,
   onSyncFolderMonitorToggle,
   onSyncFolderAutoPreviewToggle,
@@ -424,8 +426,9 @@ export function InspectorPanel({
           syncKeyCreate: 'Create sync key',
           syncKeyRotate: 'Rotate sync key',
           syncKeyRecoveryDrill: 'Run recovery drill',
+          syncKeyMultiDeviceDrill: 'Run A/B drill',
           syncKeyRecoveryDrillHint:
-            'Checks that a test outbound packet can be decrypted with both the local sync key and the passphrase-wrapped recovery key.',
+            'Checks local recovery, then simulates device A -> recovery device B -> device A without applying remote changes.',
           syncKeyRotateWarning:
             'Rotation affects future packets only. Older packets remain readable with their wrapped key and vault passphrase.',
           rename: 'Save device name',
@@ -492,8 +495,9 @@ export function InspectorPanel({
           syncKeyCreate: '同期キーを作成',
           syncKeyRotate: '同期キーをローテーション',
           syncKeyRecoveryDrill: '復旧ドリルを実行',
+          syncKeyMultiDeviceDrill: 'A/Bドリルを実行',
           syncKeyRecoveryDrillHint:
-            'テスト用送信パケットを、ローカル同期キーとパスフレーズで包まれた復旧キーの両方で復号できるか確認します。',
+            'ローカル復旧に加えて、端末A -> 復旧端末B -> 端末A の往復を、リモート変更の適用なしで確認します。',
           syncKeyRotateWarning:
             'ローテーションは今後のパケットにだけ影響します。古いパケットは同梱された復旧キーとVaultパスフレーズで読み込めます。',
           rename: '端末名を保存',
@@ -1162,6 +1166,12 @@ export function InspectorPanel({
                 <button className="restoreButton inlineActionButton" type="button" onClick={onRunSyncKeyRecoveryDrill}>
                   <ShieldCheck size={14} />
                   {syncLabels.syncKeyRecoveryDrill}
+                </button>
+              ) : null}
+              {syncKeyId ? (
+                <button className="restoreButton inlineActionButton" type="button" onClick={onRunMultiDeviceSyncKeyRecoveryDrill}>
+                  <Network size={14} />
+                  {syncLabels.syncKeyMultiDeviceDrill}
                 </button>
               ) : null}
             </div>
