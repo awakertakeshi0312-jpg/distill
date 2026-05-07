@@ -31,7 +31,9 @@ import {
   createDeviceSigningKeyPair,
   deviceFingerprintMatches,
   formatDevicePublicKeyFingerprint,
+  parseDeviceVerificationPayload,
   reviewSyncPacketSignature,
+  resolveDeviceVerificationCodeFromPayload,
   signSyncPacket,
 } from '../deviceSigning';
 import { buildRestorePreview } from '../restorePreview';
@@ -1150,6 +1152,34 @@ describe('sync packets', () => {
       fingerprint,
       publicKey: signingKeyPair.publicKey,
     });
+  });
+
+  it('resolves scanned device verification payloads only when they match the incoming source', async () => {
+    const signingKeyPair = await createDeviceSigningKeyPair();
+    const fingerprint = await formatDevicePublicKeyFingerprint(signingKeyPair.publicKey);
+    const payload = buildDeviceVerificationPayload({
+      deviceId: 'windows-dev',
+      deviceName: 'Windows desk',
+      publicKey: signingKeyPair.publicKey,
+      fingerprint,
+    });
+
+    expect(parseDeviceVerificationPayload(payload)?.fingerprint).toBe(fingerprint);
+    expect(
+      resolveDeviceVerificationCodeFromPayload(payload, {
+        deviceId: 'windows-dev',
+        publicKey: signingKeyPair.publicKey,
+        fingerprint,
+      }),
+    ).toBe(fingerprint);
+    expect(
+      resolveDeviceVerificationCodeFromPayload(payload, {
+        deviceId: 'phone-dev',
+        publicKey: signingKeyPair.publicKey,
+        fingerprint,
+      }),
+    ).toBeNull();
+    expect(resolveDeviceVerificationCodeFromPayload(fingerprint.toLowerCase(), { fingerprint })).toBe(fingerprint);
   });
 
   it('blocks signed packets that do not match the trusted source-device key', async () => {

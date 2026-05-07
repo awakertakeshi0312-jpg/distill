@@ -14,7 +14,11 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { UiCopy } from '../i18n';
-import { deviceFingerprintMatches, type SyncPacketSignatureStatus } from '../deviceSigning';
+import {
+  deviceFingerprintMatches,
+  resolveDeviceVerificationCodeFromPayload,
+  type SyncPacketSignatureStatus,
+} from '../deviceSigning';
 import type { Project, RevokedSyncDevice, SyncDevice, ThoughtBlock } from '../model';
 import type { RelatedBlock } from '../repository';
 import type { RestorePreview } from '../restorePreview';
@@ -23,6 +27,7 @@ import type { SyncPreview } from '../syncPreview';
 import { isBlockedSyncFolderPacketReview, type SyncFolderPacketReview } from '../syncFolderReview';
 import { HelpNote } from './HelpNote';
 import { VerificationQrCode } from './VerificationQrCode';
+import { VerificationQrScanner } from './VerificationQrScanner';
 
 function syncPreviewRequiresRiskAcknowledgement(preview: SyncPreview | null) {
   return Boolean(
@@ -215,10 +220,17 @@ export function InspectorPanel({
   const [nextVaultPassphrase, setNextVaultPassphrase] = useState('');
   const [confirmVaultPassphrase, setConfirmVaultPassphrase] = useState('');
   const [draftDeviceName, setDraftDeviceName] = useState(deviceName);
+  const [deviceVerificationPayloadDraft, setDeviceVerificationPayloadDraft] = useState('');
+  const [deviceVerificationImportStatus, setDeviceVerificationImportStatus] = useState('');
 
   useEffect(() => {
     setDraftDeviceName(deviceName);
   }, [deviceName]);
+
+  useEffect(() => {
+    setDeviceVerificationPayloadDraft('');
+    setDeviceVerificationImportStatus('');
+  }, [syncPreview?.packet.sourceDeviceId, syncPreview?.signatureReview?.fingerprint]);
   const updateLabels =
     ui.navInbox === 'Inbox'
       ? {
@@ -500,6 +512,19 @@ export function InspectorPanel({
           fingerprintInput: 'Verification code from source device',
           fingerprintPlaceholder: 'ABCD-1234-...',
           fingerprintAccepted: 'Verification code matches this signed source device',
+          scanTitle: 'Scan or paste source-device QR',
+          scanCopy:
+            'Use the camera to scan the QR shown on the source device, or paste the QR payload. Distill fills the verification code only when device ID, public key, and fingerprint match this packet.',
+          scanStart: 'Start camera scan',
+          scanStop: 'Stop scan',
+          scanReady: 'Camera scanner is ready.',
+          scanScanning: 'Scanning for a Distill device QR...',
+          scanCameraError: 'Camera scan is unavailable. Paste the QR payload instead.',
+          scanPasteLabel: 'Pasted QR payload',
+          scanPastePlaceholder: 'Paste distill-device-verification JSON payload',
+          scanApply: 'Use pasted QR payload',
+          scanMatched: 'Source-device QR matched this sync packet.',
+          scanMismatch: 'That QR payload does not match this sync packet source.',
           warning: 'This packet is stale or already imported. Applying will not change the vault.',
           apply: 'Apply sync',
           dismiss: 'Dismiss packet',
@@ -550,6 +575,19 @@ export function InspectorPanel({
           fingerprintInput: '送信元端末の確認コード',
           fingerprintPlaceholder: 'ABCD-1234-...',
           fingerprintAccepted: '確認コードがこの署名済み送信元端末と一致しています',
+          scanTitle: '送信元端末のQRをスキャンまたは貼り付け',
+          scanCopy:
+            '送信元端末に表示されたQRをカメラで読み取るか、QR用データを貼り付けます。端末ID、公開鍵、確認コードがこのパケットと一致した場合だけ自動入力します。',
+          scanStart: 'カメラスキャン開始',
+          scanStop: 'スキャン停止',
+          scanReady: 'カメラスキャナは待機中です。',
+          scanScanning: 'Distill端末QRを読み取っています...',
+          scanCameraError: 'カメラスキャンを利用できません。QR用データを貼り付けてください。',
+          scanPasteLabel: '貼り付けたQR用データ',
+          scanPastePlaceholder: 'distill-device-verification JSON payloadを貼り付け',
+          scanApply: '貼り付けたQR用データを使う',
+          scanMatched: '送信元端末QRがこの同期パケットと一致しました。',
+          scanMismatch: 'このQR用データは、この同期パケットの送信元と一致しません。',
           warning: 'このパケットは古い、または取り込み済みです。適用してもVaultは変更されません。',
           apply: '同期を適用',
           dismiss: 'パケットを閉じる',
@@ -573,6 +611,23 @@ export function InspectorPanel({
     };
 
     return labels[status];
+  }
+
+  function useDeviceVerificationPayload(payload: string) {
+    const verificationCode = resolveDeviceVerificationCodeFromPayload(payload, {
+      fingerprint: syncPreview?.signatureReview?.fingerprint,
+      publicKey: syncPreview?.signatureReview?.publicKey,
+      deviceId: syncPreview?.packet.sourceDeviceId,
+    });
+
+    if (!verificationCode) {
+      setDeviceVerificationImportStatus(syncPreviewLabels.scanMismatch);
+      return;
+    }
+
+    onSyncDeviceVerificationCodeChange(verificationCode);
+    setDeviceVerificationPayloadDraft(payload);
+    setDeviceVerificationImportStatus(syncPreviewLabels.scanMatched);
   }
 
   function submitPassphraseChange() {
@@ -1239,7 +1294,7 @@ export function InspectorPanel({
                 </span>
               ) : null}
               {syncPreviewRequiresFingerprintVerification(syncPreview) ? (
-                <label className="riskGate trustGate fingerprintGate">
+                <div className="riskGate trustGate fingerprintGate">
                   <span>
                     <strong>{syncPreviewLabels.fingerprintTitle}</strong>
                     {syncPreviewLabels.fingerprintCopy}
@@ -1253,7 +1308,36 @@ export function InspectorPanel({
                   {deviceFingerprintMatches(syncPreview.signatureReview?.fingerprint, syncDeviceVerificationCode) ? (
                     <b>{syncPreviewLabels.fingerprintAccepted}</b>
                   ) : null}
-                </label>
+                  <div className="verificationImportPanel">
+                    <strong>{syncPreviewLabels.scanTitle}</strong>
+                    <small>{syncPreviewLabels.scanCopy}</small>
+                    <VerificationQrScanner
+                      startLabel={syncPreviewLabels.scanStart}
+                      stopLabel={syncPreviewLabels.scanStop}
+                      readyLabel={syncPreviewLabels.scanReady}
+                      scanningLabel={syncPreviewLabels.scanScanning}
+                      cameraErrorLabel={syncPreviewLabels.scanCameraError}
+                      onScan={useDeviceVerificationPayload}
+                    />
+                    <label>
+                      {syncPreviewLabels.scanPasteLabel}
+                      <textarea
+                        value={deviceVerificationPayloadDraft}
+                        placeholder={syncPreviewLabels.scanPastePlaceholder}
+                        onChange={(event) => setDeviceVerificationPayloadDraft(event.target.value)}
+                      />
+                    </label>
+                    <button
+                      className="restoreButton inlineActionButton"
+                      type="button"
+                      disabled={!deviceVerificationPayloadDraft.trim()}
+                      onClick={() => useDeviceVerificationPayload(deviceVerificationPayloadDraft)}
+                    >
+                      {syncPreviewLabels.scanApply}
+                    </button>
+                    {deviceVerificationImportStatus ? <small>{deviceVerificationImportStatus}</small> : null}
+                  </div>
+                </div>
               ) : syncPreviewRequiresDeviceTrust(syncPreview) ? (
                 <label className="riskGate trustGate">
                   <span>

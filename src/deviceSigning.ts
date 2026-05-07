@@ -147,6 +147,53 @@ export function buildDeviceVerificationPayload(input: {
   } satisfies DeviceVerificationPayload);
 }
 
+export function parseDeviceVerificationPayload(value: string): DeviceVerificationPayload | null {
+  try {
+    const parsed = JSON.parse(value.trim()) as DeviceVerificationPayload;
+
+    if (
+      parsed?.type !== 'distill-device-verification' ||
+      parsed.version !== 1 ||
+      parsed.algorithm !== SYNC_SIGNATURE_ALGORITHM ||
+      typeof parsed.deviceId !== 'string' ||
+      typeof parsed.deviceName !== 'string' ||
+      typeof parsed.fingerprint !== 'string' ||
+      typeof parsed.publicKey !== 'string'
+    ) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveDeviceVerificationCodeFromPayload(
+  value: string,
+  expected: {
+    fingerprint?: string;
+    publicKey?: string;
+    deviceId?: string;
+  },
+) {
+  const parsed = parseDeviceVerificationPayload(value);
+
+  if (!parsed) {
+    return deviceFingerprintMatches(expected.fingerprint, value) ? expected.fingerprint : null;
+  }
+
+  if (expected.deviceId && parsed.deviceId !== expected.deviceId) {
+    return null;
+  }
+
+  if (expected.publicKey && parsed.publicKey !== expected.publicKey) {
+    return null;
+  }
+
+  return deviceFingerprintMatches(expected.fingerprint, parsed.fingerprint) ? parsed.fingerprint : null;
+}
+
 function isDeviceSigningKeyPair(value: unknown): value is DeviceSigningKeyPair {
   if (!value || typeof value !== 'object') {
     return false;

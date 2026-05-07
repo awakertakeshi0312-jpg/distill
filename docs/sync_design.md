@@ -90,7 +90,7 @@ Implemented:
 - desktop sync-folder path for writing encrypted packet files, scanning packet candidates, safety-scanning candidates, auto-opening exactly one unambiguous known-device safe candidate, and loading a selected packet into the existing preview flow.
 - monitor-only sync-folder review queue that refreshes safety scan results on an interval without starting preview or apply.
 - outbound sync-folder auto-export that writes encrypted packets only when local block/tombstone/revocation content changes, while ignoring source-device checkpoint metadata to avoid export loops.
-- signed device checkpoints: outbound packets are signed with a local per-device ECDSA P-256 key, trusted-device packets must verify against the stored public key, key mismatch/tampered signatures are blocked, the local device verification payload is rendered as a QR code, and first-seen signed source devices require a human-checkable verification-code match before apply.
+- signed device checkpoints: outbound packets are signed with a local per-device ECDSA P-256 key, trusted-device packets must verify against the stored public key, key mismatch/tampered signatures are blocked, the local device verification payload is rendered as a QR code, the receiving device can scan or paste that QR payload, and first-seen signed source devices require a verified code match before apply.
 - unknown-device trust confirmation: first-seen source devices are classified as risk review and cannot be applied until the user explicitly trusts the source device.
 - desktop sync-folder quarantine for suspicious or unwanted packet files.
 - import preview before applying encrypted sync packets, with add/update/skip/delete counts.
@@ -116,7 +116,7 @@ Implemented:
 Not implemented yet:
 
 - project record sync.
-- QR scanner/camera import for source-device pairing. QR rendering and text fingerprint verification are implemented.
+- mobile-native pairing polish. QR rendering, camera scan, paste import, and text fingerprint verification are implemented.
 - automatic inbound apply, background network sync, or cloud sync.
 
 This keeps the risky part small: the app can prove merge behavior before any private data is sent to a network or cloud provider.
@@ -196,12 +196,12 @@ The current UI supports local manual sync only:
 11. If the recovery snapshot succeeds, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
 12. Distill skips older or already imported packets from a known device to prevent rollback/replay imports.
 13. Distill rejects newer packets from a known device if they do not continue that device's checkpoint chain.
-14. Distill verifies signed packets from trusted devices against the stored public key and blocks key mismatch, missing trusted signatures, unsupported signatures, and tampered signed payloads. First-seen signed devices must also pass verification-code entry based on the source public-key fingerprint before apply, and each device exposes its verification payload as a QR code for easier out-of-band comparison.
+14. Distill verifies signed packets from trusted devices against the stored public key and blocks key mismatch, missing trusted signatures, unsupported signatures, and tampered signed payloads. First-seen signed devices must also pass verification-code entry based on the source public-key fingerprint before apply, and each device exposes its verification payload as a QR code for easier out-of-band comparison, and the receiving preview can scan or paste that payload to fill the verification code only when it matches the packet source.
 15. Distill rejects packets from devices the user has revoked.
 16. In desktop mode, the user can enter a sync-folder path, export encrypted packets into that folder, scan the folder, safety-classify candidates, and load a selected packet into the same preview/apply flow.
 17. The user can run a safety scan that classifies folder packets as ready, risk review, stale, blocked, checkpoint risk, or invalid before previewing them.
 18. The user can ask Distill to open a recommended preview only when exactly one safe packet is available and no risky/blocked/invalid packet is present.
-19. Unknown source devices are classified as risk review. Applying a first-seen signed source-device packet requires typing the source-device verification code shown on the other device or comparing the displayed QR payload; legacy unsigned packets still require explicit trust confirmation.
+19. Unknown source devices are classified as risk review. Applying a first-seen signed source-device packet requires typing the source-device verification code shown on the other device, scanning its QR payload, or pasting that payload; legacy unsigned packets still require explicit trust confirmation.
 20. The user can turn on monitor-only review queue refresh. This periodically scans and classifies folder packets, but never opens a preview or applies a packet automatically.
 21. The user can turn on outbound auto-export. Distill writes an encrypted packet to the sync folder only when local block/tombstone/revocation content changes, and records a content fingerprint to avoid exporting the same payload repeatedly.
 22. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
@@ -301,7 +301,7 @@ Before enabling automatic sync:
 
 - wrong passphrase test
 - corrupted payload test
-- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, and QR display are implemented. QR scanner/camera pairing remains future work.
+- rollback/replay policy. Source-device `lastPacketAt` guard, local chained checkpoint validation, signed device checkpoints, text fingerprint verification, QR display, camera scanner, and paste import are implemented. Mobile-native pairing polish remains future work.
 - device removal story beyond local trust revocation
 - backup recovery test. Current status: pre-sync encrypted recovery snapshots are saved before sync apply, and restore-from-recovery now has an in-app preview path.
 - local cache clear test

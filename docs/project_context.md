@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.28
+- Current version: 0.1.29
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display for first trust, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, and paste import for first trust, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -76,6 +76,7 @@ Implemented app features:
 - Signed device checkpoints on outbound sync packets
 - Source-device verification codes derived from signing public keys for first trust
 - Local device verification payload QR display in the sync panel
+- Receiving-device QR scanner and payload paste import for source-device verification
 - Trusted-device signature verification before sync apply
 - Unknown-device trust confirmation before sync apply
 - Sync device trust revocation and revoked-device packet rejection
@@ -162,9 +163,9 @@ npm run release:windows
 
 ## Current Test Status
 
-Latest verification after source-device QR display update:
+Latest verification after source-device QR scanner update:
 
-- `npm test`: 52 passed
+- `npm test`: 53 passed
 - `npm run build`: passed
 - `npm run test:rust`: 18 passed
 - `npm run test:e2e`: 10 passed
@@ -205,6 +206,7 @@ Key frontend files:
 - `src/device.ts`: stable local device identity
 - `src/deviceSigning.ts`: per-device signing keys, signature verification, and public-key verification fingerprints
 - `src/components/VerificationQrCode.tsx`: QR rendering for device verification payloads
+- `src/components/VerificationQrScanner.tsx`: lazy-loaded camera scanner for source-device QR payloads
 - `src/storage.ts`: encrypted vault, legacy migration, updater, desktop sync-folder adapter, and sync recovery snapshot list/read adapter
 - `src/model.ts`: core types, extraction, local search
 - `src/repository.ts`: immutable mutations
@@ -270,7 +272,7 @@ Current status: manual encrypted sync packets, signed device checkpoints, apply 
 
 1. Add device removal UI beyond trust revocation.
 2. Add guarded inbound folder sync prototype after signed-device assurance.
-3. Add QR scanner/camera import for mobile pairing. QR rendering and fingerprint comparison are implemented.
+3. Polish mobile-native pairing. QR rendering, camera scan, paste import, and fingerprint comparison are implemented.
 4. Add user-selectable vault location.
 5. Add OS-native idle/sleep integration.
 
@@ -291,4 +293,4 @@ Current status: manual encrypted sync packets, signed device checkpoints, apply 
 
 ## Handoff Summary
 
-Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, signed device checkpoints, source-device verification codes with QR display, sync-folder safety scans, monitor-only review queues, outbound auto-export, recommended previews, unknown-device trust confirmation, apply previews, encrypted pre-sync recovery snapshots with restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation. The next major architecture decision is automatic sync transport and automatic sync transport, QR scanner pairing, and mobile storage UX, not more plaintext SQLite indexing.
+Distill is usable as a private local MVP with encrypted-at-rest local persistence, manual encrypted sync packets, signed device checkpoints, source-device verification codes with QR display/scanner import, sync-folder safety scans, monitor-only review queues, outbound auto-export, recommended previews, unknown-device trust confirmation, apply previews, encrypted pre-sync recovery snapshots with restore preview, device registry, deletion tombstones, device trust revocation, and chained checkpoint validation. The next major architecture decision is automatic sync transport and automatic sync transport, mobile-native pairing polish, and mobile storage UX, not more plaintext SQLite indexing.

@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.28.
+- Current version: 0.1.29.
 - Current phase: Trust Layer / Phase 6 Sync hardening.
-- Current completion estimate: 70% overall; this phase advanced +2pt in this pass.
-- Implemented in this pass: QR display for source-device verification. Distill now renders the local device verification payload as a QR code in the sync panel, keeps the text fingerprint visible, and preserves the first-seen signed source-device code gate before sync apply.
+- Current completion estimate: 73% overall; this phase advanced +3pt in this pass.
+- Implemented in this pass: QR scanner and payload paste import for source-device verification. Distill now lets the receiving device scan or paste the source-device verification QR payload, verifies device ID, public key, and fingerprint against the sync packet, and fills the verification code only on a match.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
-- Still not implemented: automatic inbound sync/apply, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate, QR scanner/camera import for mobile pairing, and device removal beyond revocation.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.28.md`.
+- Still not implemented: automatic inbound sync/apply, mobile-native app, hosted E2EE sync, real vector search, Windows code-signing certificate, polished mobile-native pairing flow, and device removal beyond revocation.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/release_notes_0.1.29.md`.
 ## 役割
 
 思考の断片を捕まえ、タグ・リンク・検索・グラフ・レビューを通じて、判断や知識に蒸留するローカルファーストのデスクトップアプリ。
