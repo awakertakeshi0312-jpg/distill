@@ -105,7 +105,7 @@ export function VaultGate({
                 aria-label="Vault passphrase"
                 autoComplete="current-password"
                 autoFocus
-                minLength={12}
+                minLength={isSetup ? 12 : undefined}
                 type="password"
                 value={passphrase}
                 onChange={(event) => setPassphrase(event.target.value)}

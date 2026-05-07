@@ -359,3 +359,13 @@ test('Vault passphrase can be changed and old passphrase stops unlocking', async
   await page.getByRole('button', { name: 'Unlock vault' }).click();
   await expect(page.locator('.shell')).toBeVisible();
 });
+
+test('Existing vault unlock does not block short legacy passphrases at the form layer', async ({ page }) => {
+  await openUnlockedVault(page);
+  await page.getByRole('button', { name: 'English' }).click();
+  await page.getByRole('button', { name: 'Lock vault' }).click();
+
+  const passphrase = page.locator('input[aria-label="Vault passphrase"]');
+  await expect(passphrase).toBeVisible();
+  await expect(passphrase).not.toHaveAttribute('minlength');
+});
