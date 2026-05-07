@@ -396,10 +396,18 @@ export function InspectorPanel({
       ? {
           title: 'Vault security',
           hint: 'Change the passphrase used for local encrypted storage and choose when Distill locks itself.',
+          runbookTitle: 'Before changing the passphrase',
+          runbookSteps: [
+            'Back up the encrypted vault first.',
+            'Save the new passphrase in a password manager or offline note before clicking Change.',
+            'Lock and unlock once after changing it.',
+          ],
           current: 'Current vault passphrase',
           next: 'New vault passphrase',
           confirm: 'Confirm new vault passphrase',
           change: 'Change passphrase',
+          tooShort: 'Use at least 12 characters for the new passphrase.',
+          mismatch: 'The new passphrases do not match exactly.',
           autoLock: 'Auto-lock',
           options: [
             { value: 0, label: 'Off' },
@@ -412,10 +420,18 @@ export function InspectorPanel({
       : {
           title: 'Vaultセキュリティ',
           hint: 'ローカル暗号化保存のパスフレーズ変更と、自動ロック時間を設定します。',
+          runbookTitle: 'パスフレーズ変更前に確認',
+          runbookSteps: [
+            '先に暗号化Vaultバックアップを書き出す。',
+            '新しいパスフレーズをパスワード管理アプリ、またはオフラインメモに保存してから変更する。',
+            '変更後に一度ロックして、解除テストをする。',
+          ],
           current: '現在のVaultパスフレーズ',
           next: '新しいVaultパスフレーズ',
           confirm: '新しいVaultパスフレーズ確認',
           change: 'パスフレーズを変更',
+          tooShort: '新しいパスフレーズは12文字以上にしてください。',
+          mismatch: '新しいパスフレーズが完全には一致していません。',
           autoLock: '自動ロック',
           options: [
             { value: 0, label: 'オフ' },
@@ -424,8 +440,7 @@ export function InspectorPanel({
             { value: 30, label: '30分' },
             { value: 60, label: '60分' },
           ],
-        };
-  const syncLabels =
+        };  const syncLabels =
     ui.navInbox === 'Inbox'
       ? {
           title: 'Encrypted sync packet',
@@ -908,6 +923,15 @@ export function InspectorPanel({
     onDeviceNameChange(draftDeviceName);
   }
 
+  const nextVaultPassphraseTooShort = nextVaultPassphrase.length > 0 && nextVaultPassphrase.length < 12;
+  const nextVaultPassphraseMismatch =
+    confirmVaultPassphrase.length > 0 && nextVaultPassphrase !== confirmVaultPassphrase;
+  const canSubmitPassphraseChange =
+    Boolean(currentVaultPassphrase) &&
+    nextVaultPassphrase.length >= 12 &&
+    confirmVaultPassphrase.length >= 12 &&
+    nextVaultPassphrase === confirmVaultPassphrase;
+
   return (
     <aside className={`panel contextPanel ${mode === 'full' ? 'settingsPanel' : 'compactContextPanel'}`} aria-label="Context inspector">
       <div className="panelHeader compact">
@@ -1209,6 +1233,14 @@ export function InspectorPanel({
         <div className="restoreBox vaultSecurityBox">
           <strong>{vaultSecurityLabels.title}</strong>
           <span>{vaultSecurityLabels.hint}</span>
+          <div className="passphraseRunbook">
+            <strong>{vaultSecurityLabels.runbookTitle}</strong>
+            <ol>
+              {vaultSecurityLabels.runbookSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </div>
           <label>
             {vaultSecurityLabels.autoLock}
             <select value={autoLockMinutes} onChange={(event) => onAutoLockMinutesChange(Number(event.target.value))}>
@@ -1232,6 +1264,7 @@ export function InspectorPanel({
             {vaultSecurityLabels.next}
             <input
               autoComplete="new-password"
+              minLength={12}
               type="password"
               value={nextVaultPassphrase}
               onChange={(event) => setNextVaultPassphrase(event.target.value)}
@@ -1241,15 +1274,18 @@ export function InspectorPanel({
             {vaultSecurityLabels.confirm}
             <input
               autoComplete="new-password"
+              minLength={12}
               type="password"
               value={confirmVaultPassphrase}
               onChange={(event) => setConfirmVaultPassphrase(event.target.value)}
             />
           </label>
+          {nextVaultPassphraseTooShort ? <span className="restoreWarning">{vaultSecurityLabels.tooShort}</span> : null}
+          {nextVaultPassphraseMismatch ? <span className="restoreWarning">{vaultSecurityLabels.mismatch}</span> : null}
           <button
             className="restoreButton"
             type="button"
-            disabled={!currentVaultPassphrase || !nextVaultPassphrase || !confirmVaultPassphrase}
+            disabled={!canSubmitPassphraseChange}
             onClick={submitPassphraseChange}
           >
             <RefreshCw size={16} />

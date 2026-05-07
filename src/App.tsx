@@ -938,7 +938,7 @@ function App() {
     return locale === 'en'
       ? {
           mismatch: 'Vault passphrases did not match.',
-          unlockInvalid: 'Could not unlock the vault. Check the passphrase.',
+          unlockInvalid: 'Could not unlock the vault. Check the passphrase. Open the recovery checklist on this screen before resetting.',
           missingVault: 'No encrypted vault was found. Create a new vault first.',
           createSuccess: 'Encrypted vault created. Active storage is now encrypted at rest.',
           migrationSuccess: 'Existing plaintext store was encrypted and the old plaintext copy was cleared.',
@@ -953,7 +953,7 @@ function App() {
       : {
           mismatch: 'Vault\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u304c\u4e00\u81f4\u3057\u307e\u305b\u3093\u3002',
           unlockInvalid:
-            'Vault\u3092\u958b\u3051\u307e\u305b\u3093\u3067\u3057\u305f\u3002\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002',
+            'Vault\u3092\u958b\u3051\u307e\u305b\u3093\u3067\u3057\u305f\u3002\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u3092\u78ba\u8a8d\u3057\u3001\u30ea\u30bb\u30c3\u30c8\u524d\u306b\u3053\u306e\u753b\u9762\u306e\u5fa9\u65e7\u30c1\u30a7\u30c3\u30af\u30ea\u30b9\u30c8\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002',
           missingVault:
             '\u6697\u53f7\u5316Vault\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3002\u5148\u306bVault\u3092\u4f5c\u6210\u3057\u3066\u304f\u3060\u3055\u3044\u3002',
           createSuccess:

@@ -177,6 +177,39 @@ button:disabled {
   line-height: 1.65;
 }
 
+.vaultGuidanceBox {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(47, 102, 78, 0.22);
+  background: rgba(237, 242, 236, 0.72);
+}
+
+.vaultGuidanceBox summary {
+  cursor: pointer;
+  color: var(--green);
+  font-weight: 800;
+}
+
+.vaultGuidanceBox strong,
+.vaultResetWarning strong {
+  color: var(--ink);
+}
+
+.vaultGuidanceBox p,
+.vaultGuidanceBox ol,
+.vaultResetWarning ol {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.vaultGuidanceBox ol,
+.vaultResetWarning ol {
+  padding-left: 20px;
+}
+
 .vaultForm {
   display: grid;
   gap: 12px;
@@ -235,6 +268,15 @@ button:disabled {
   color: var(--red);
 }
 
+.vaultInlineAction {
+  justify-self: start;
+  min-height: 32px !important;
+  padding: 0 10px;
+  border-color: rgba(145, 50, 39, 0.35) !important;
+  background: rgba(145, 50, 39, 0.08) !important;
+  color: var(--red) !important;
+}
+
 .vaultResetPanel {
   display: grid;
   gap: 10px;
@@ -261,6 +303,14 @@ button:disabled {
   display: grid;
   gap: 6px;
   font-weight: 800;
+}
+
+.vaultResetWarning {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(145, 50, 39, 0.22);
+  background: rgba(255, 254, 247, 0.66);
 }
 
 .vaultResetPanel input {
@@ -1137,6 +1187,22 @@ button:disabled {
 
 .restoreWarning {
   color: #8a4b0f !important;
+}
+
+.passphraseRunbook {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(47, 102, 78, 0.2);
+  background: rgba(237, 242, 236, 0.72);
+}
+
+.passphraseRunbook ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .riskGate {

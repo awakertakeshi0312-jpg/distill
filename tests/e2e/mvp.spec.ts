@@ -348,6 +348,7 @@ test('Vault passphrase can be changed and old passphrase stops unlocking', async
   await page.locator('a[href="#settings"]').click();
 
   await page.locator('.vaultSecurityBox').scrollIntoViewIfNeeded();
+  await expect(page.getByText('Before changing the passphrase')).toBeVisible();
   await page.getByLabel('Current vault passphrase').fill(VAULT_PASSPHRASE);
   await page.getByLabel('New vault passphrase', { exact: true }).fill(nextPassphrase);
   await page.getByLabel('Confirm new vault passphrase', { exact: true }).fill(nextPassphrase);
@@ -360,6 +361,8 @@ test('Vault passphrase can be changed and old passphrase stops unlocking', async
   await page.locator('input[aria-label="Vault passphrase"]').fill(VAULT_PASSPHRASE);
   await page.getByRole('button', { name: 'Unlock vault' }).click();
   await expect(page.getByText('Could not unlock the vault. Check the passphrase.')).toBeVisible();
+  await expect(page.getByText('Unlock failed recovery checklist')).toBeVisible();
+  await expect(page.getByText('NEW_VAULT_PASSPHRASE.txt')).toBeVisible();
 
   await page.locator('input[aria-label="Vault passphrase"]').fill(nextPassphrase);
   await page.getByRole('button', { name: 'Unlock vault' }).click();
@@ -388,6 +391,7 @@ test('Locked vault can be reset into a new passphrase setup flow', async ({ page
 
   await expect(page.getByRole('heading', { name: 'Create your encrypted vault' })).toBeVisible();
   await expect(page.getByText('Previous encrypted vault was backed up to')).toBeVisible();
+  await expect(page.getByText('Save the passphrase before continuing')).toBeVisible();
 
   await page.getByLabel('Vault passphrase', { exact: true }).fill(nextPassphrase);
   await page.getByLabel('Confirm vault passphrase', { exact: true }).fill(nextPassphrase);
