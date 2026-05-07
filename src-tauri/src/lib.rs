@@ -8,7 +8,9 @@ use tauri::{AppHandle, Manager};
 
 const STORE_KEY: &str = "distill.store.v1";
 const VAULT_KEY: &str = "distill.vault.v1";
+const VAULT_RECORD_LOG_KEY: &str = "distill.vaultRecordLog.v1";
 const MAX_SYNC_PACKET_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_VAULT_RECORD_LOG_BYTES: u64 = 25 * 1024 * 1024;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -83,6 +85,7 @@ struct StorageInfo {
   mode: String,
   path: String,
   backup_path: String,
+  record_log_path: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -300,6 +303,66 @@ fn validate_encrypted_vault_json(value: &str) -> Result<(), String> {
 
   if parsed.get("type").and_then(|field| field.as_str()) != Some("distill.encrypted-vault") {
     return Err("Value is not a Distill encrypted vault.".to_string());
+  }
+
+  Ok(())
+}
+
+fn validate_encrypted_vault_record_log_json(value: &str) -> Result<(), String> {
+  if value.len() as u64 > MAX_VAULT_RECORD_LOG_BYTES {
+    return Err("Vault record log is too large.".to_string());
+  }
+
+  let parsed = serde_json::from_str::<serde_json::Value>(value).map_err(|error| error.to_string())?;
+
+  if parsed.get("type").and_then(|field| field.as_str()) != Some("distill.encrypted-vault-record-log") {
+    return Err("Value is not a Distill encrypted vault record log.".to_string());
+  }
+
+  if parsed.get("schemaVersion").and_then(|field| field.as_i64()) != Some(1) {
+    return Err("Unsupported Distill encrypted vault record log schema.".to_string());
+  }
+
+  if parsed.get("sourceStoreHash").and_then(|field| field.as_str()).is_none() {
+    return Err("Vault record log is missing its source store hash.".to_string());
+  }
+
+  let entries = parsed
+    .get("entries")
+    .and_then(|field| field.as_array())
+    .ok_or_else(|| "Vault record log entries are missing.".to_string())?;
+
+  for entry in entries {
+    let kind = entry.get("kind").and_then(|field| field.as_str()).unwrap_or("");
+    if !matches!(
+      kind,
+      "project"
+        | "thought-block"
+        | "thought-block-deletion"
+        | "sync-device"
+        | "revoked-sync-device"
+        | "sync-key"
+    ) {
+      return Err("Vault record log contains an unsupported entry kind.".to_string());
+    }
+
+    if entry.get("sequence").and_then(|field| field.as_i64()).filter(|value| *value > 0).is_none()
+      || entry.get("id").and_then(|field| field.as_str()).is_none()
+      || entry.get("revision").and_then(|field| field.as_str()).is_none()
+      || entry.get("hash").and_then(|field| field.as_str()).is_none()
+    {
+      return Err("Vault record log entry metadata is invalid.".to_string());
+    }
+
+    let encrypted = entry
+      .get("encrypted")
+      .ok_or_else(|| "Vault record log entry encryption metadata is missing.".to_string())?;
+
+    if encrypted.get("type").and_then(|field| field.as_str()) != Some("distill.encrypted-vault-record")
+      || encrypted.get("value").and_then(|field| field.as_str()).is_none()
+    {
+      return Err("Vault record log entry is not a Distill encrypted vault record.".to_string());
+    }
   }
 
   Ok(())
@@ -1101,6 +1164,39 @@ fn save_vault_json(app: AppHandle, value: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn load_vault_record_log_json(app: AppHandle) -> Result<Option<String>, String> {
+  let connection = open_database(&app)?;
+
+  connection
+    .query_row(
+      "SELECT value FROM app_store WHERE key = ?1",
+      params![VAULT_RECORD_LOG_KEY],
+      |row| row.get(0),
+    )
+    .optional()
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn save_vault_record_log_json(app: AppHandle, value: String) -> Result<(), String> {
+  let connection = open_database(&app)?;
+  validate_encrypted_vault_record_log_json(&value)?;
+
+  connection
+    .execute(
+      "INSERT INTO app_store (key, value, updated_at)
+       VALUES (?1, ?2, CURRENT_TIMESTAMP)
+       ON CONFLICT(key) DO UPDATE SET
+         value = excluded.value,
+         updated_at = CURRENT_TIMESTAMP",
+      params![VAULT_RECORD_LOG_KEY, value],
+    )
+    .map_err(|error| error.to_string())?;
+
+  Ok(())
+}
+
+#[tauri::command]
 fn save_sync_recovery_vault_json(app: AppHandle, value: String, label: String) -> Result<String, String> {
   validate_encrypted_vault_json(&value)?;
   Ok(write_sync_recovery_vault_backup(&app, &value, &label)?.display().to_string())
@@ -1411,6 +1507,7 @@ fn load_storage_info_json(app: AppHandle) -> Result<String, String> {
     mode: "encrypted-vault".to_string(),
     path: database_path(&app)?.display().to_string(),
     backup_path: encrypted_vault_backup_path(&app)?.display().to_string(),
+    record_log_path: format!("{}:{}", database_path(&app)?.display(), VAULT_RECORD_LOG_KEY),
   };
 
   serde_json::to_string(&info).map_err(|error| error.to_string())
@@ -1807,6 +1904,33 @@ mod tests {
   }
 
   #[test]
+  fn validates_encrypted_vault_record_log_json_shape() {
+    let log = json!({
+      "type": "distill.encrypted-vault-record-log",
+      "schemaVersion": 1,
+      "createdAt": "2026-05-07T10:00:00.000Z",
+      "sourceStoreHash": "fnv1a32:test",
+      "entries": [
+        {
+          "sequence": 1,
+          "kind": "thought-block",
+          "id": "b-1",
+          "revision": "2026-05-07T10:00:00.000Z",
+          "hash": "fnv1a32:record",
+          "encrypted": {
+            "type": "distill.encrypted-vault-record",
+            "value": "{\"type\":\"distill.encrypted-vault-record\"}"
+          }
+        }
+      ]
+    })
+    .to_string();
+
+    assert!(validate_encrypted_vault_record_log_json(&log).is_ok());
+    assert!(validate_encrypted_vault_record_log_json("{\"type\":\"distill.encrypted-vault\"}").is_err());
+  }
+
+  #[test]
   fn sanitizes_sync_recovery_file_labels() {
     assert_eq!(safe_sync_recovery_label("phone-dev_1"), "phone-dev_1");
     assert_eq!(safe_sync_recovery_label("../phone dev!!"), "phone-dev");
@@ -1936,6 +2060,8 @@ pub fn run() {
       load_store_json,
       load_vault_json,
       save_vault_json,
+      load_vault_record_log_json,
+      save_vault_record_log_json,
       save_sync_recovery_vault_json,
       list_sync_recovery_vault_files,
       read_sync_recovery_vault_file,

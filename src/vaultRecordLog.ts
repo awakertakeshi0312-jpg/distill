@@ -104,7 +104,7 @@ function makeEntry<TPayload>(
   };
 }
 
-function computeSourceStoreHash(store: DistillStore) {
+export function computeVaultRecordLogSourceHash(store: DistillStore) {
   const normalized = normalizeDistillStore(store);
 
   return stableHash({
@@ -212,7 +212,7 @@ export async function buildEncryptedVaultRecordLog(
     type: VAULT_RECORD_LOG_TYPE,
     schemaVersion: VAULT_RECORD_LOG_SCHEMA_VERSION,
     createdAt: options.createdAt ?? new Date().toISOString(),
-    sourceStoreHash: computeSourceStoreHash(store),
+    sourceStoreHash: computeVaultRecordLogSourceHash(store),
     entries: encryptedEntries,
   };
 }

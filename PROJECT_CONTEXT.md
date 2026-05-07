@@ -2,13 +2,13 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.43.
-- Current phase: Encrypted vault record-log foundation and Trust Layer sync hardening.
+- Current version: 0.1.44.
+- Current phase: Encrypted vault record-log shadow persistence and Trust Layer sync hardening.
 - Current completion estimate: 98% overall; this phase advanced +1pt in this pass.
-- Implemented in this pass: Distill now has a tested encrypted vault record-log foundation. Vault data can be split into per-record encrypted payloads, serialized without plaintext payload leakage, and replayed back into a normalized store with sync metadata, tombstones, revoked devices, and sync-key material preserved.
+- Implemented in this pass: Distill now writes an encrypted record-log shadow save beside the stable whole-vault save, using the active non-exportable Vault session key. Inspector can verify that the sidecar decrypts, replays, and matches the current vault.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
-- Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, making record-level logs the active normal persistence path, and production mobile sync transport.
-- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/storage_boundary.md`, `docs/release_notes_0.1.43.md`.
+- Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, promoting the shadow record log to the primary normal persistence path, and production mobile sync transport.
+- Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/storage_boundary.md`, `docs/release_notes_0.1.44.md`.
 ## 役割
 
 思老E�E断牁E��捕まえ、タグ・リンク・検索・グラフ�Eレビューを通じて、判断めE��識に蒸留するローカルファースト�EチE��クトップアプリ、E

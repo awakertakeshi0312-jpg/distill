@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.43
+- Current version: 0.1.44
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, encrypted vault record-log foundation, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, non-exportable WebCrypto vault session key persistence, packet-level non-exportable WebCrypto sync session key support, dedicated encrypted-vault sync key material with visible create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped bootstrap support, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, encrypted vault record-log shadow persistence, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, non-exportable WebCrypto vault session key persistence, packet-level non-exportable WebCrypto sync session key support, dedicated encrypted-vault sync key material with visible create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped bootstrap support, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -55,7 +55,7 @@ Implemented app features:
 - Encrypted vault backup/restore
 - Startup vault create/unlock screen
 - Normal encrypted local persistence after unlock
-- Encrypted vault record-log foundation for replayable per-record projects, blocks, tombstones, devices, revoked devices, and sync-key material
+- Encrypted vault record-log shadow persistence for replayable per-record projects, blocks, tombstones, devices, revoked devices, and sync-key material
 - One-time migration from legacy plaintext local store
 - Explicit clearing of known plaintext legacy data
 - English/Japanese UI
@@ -108,7 +108,7 @@ Legacy plaintext handling:
 Known remaining security limits:
 
 - passphrase remains in a volatile app-session ref while unlocked for recovery/bootstrap paths, but normal vault autosave and new sync packet encryption prefer non-exportable CryptoKey sessions derived from dedicated encrypted-vault sync key material
-- normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records, and a replayable vault record-log foundation exists but is not the active normal save path yet
+- normal vault persistence is whole-store encrypted; sync packets use record-level encrypted records, and a replayable vault record-log shadow save exists but is not the primary normal save path yet
 - restore preview exists, but restore still replaces the full local store after user approval
 - no automatic inbound apply or cloud sync yet; current sync-folder flow supports outbound auto-export plus local safety classification, monitor-only review refresh, recommended preview, signed trusted-device verification, source-device verification code confirmation, unknown-device trust confirmation, device-loss recovery checklist, rollback drill before apply, recovery snapshot gating before apply, and manual recovery preview after apply
 - browser/PWA preview now prefers IndexedDB for the encrypted envelope, but it is still this-device-only; PWA installation is a local preview path, not hosted sync

@@ -13,6 +13,7 @@ import { DistillStore, SearchResult, searchBlocks } from './model';
 const STORE_KEY = 'distill.store.v1';
 const AUTO_BACKUP_KEY = 'distill.backup.latest.v1';
 const VAULT_KEY = 'distill.vault.v1';
+const VAULT_RECORD_LOG_KEY = 'distill.vaultRecordLog.v1';
 const SYNC_RECOVERY_KEY = 'distill.syncRecovery.latest.v1';
 
 type TauriWindow = Window & {
@@ -23,6 +24,7 @@ export type StorageInfo = {
   mode: 'encrypted-vault' | 'browser';
   path: string;
   backupPath?: string;
+  recordLogPath?: string;
   browserBackend?: BrowserVaultBackend;
 };
 
@@ -82,6 +84,23 @@ export async function saveEncryptedVault(value: string): Promise<void> {
   }
 
   await saveBrowserEncryptedValue(VAULT_KEY, value);
+}
+
+export async function loadEncryptedVaultRecordLog(): Promise<string | null> {
+  if (isTauriRuntime()) {
+    return await invoke<string | null>('load_vault_record_log_json');
+  }
+
+  return loadBrowserEncryptedValue(VAULT_RECORD_LOG_KEY);
+}
+
+export async function saveEncryptedVaultRecordLog(value: string): Promise<void> {
+  if (isTauriRuntime()) {
+    await invoke('save_vault_record_log_json', { value });
+    return;
+  }
+
+  await saveBrowserEncryptedValue(VAULT_RECORD_LOG_KEY, value);
 }
 
 export async function saveSyncRecoveryVault(value: string, label: string): Promise<string> {
@@ -191,6 +210,7 @@ export async function loadStorageInfo(): Promise<StorageInfo> {
     mode: 'browser',
     path: browserInfo.path,
     backupPath: browserInfo.backupPath,
+    recordLogPath: browserVaultPath(VAULT_RECORD_LOG_KEY, browserInfo.backend),
     browserBackend: browserInfo.backend,
   };
 }

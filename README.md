@@ -25,7 +25,7 @@ Implemented:
 - Manual encrypted sync packet export/import.
 - Packet-level encrypted sync session KDF metadata so records in one packet share one non-exportable WebCrypto sync session key while legacy per-record packets remain readable.
 - Dedicated sync key material stored inside the encrypted vault, with visible create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped bootstrap metadata for first import/recovery.
-- Encrypted vault record-log foundation that can split projects, blocks, tombstones, device records, revoked devices, and sync-key material into encrypted replayable records.
+- Encrypted vault record-log shadow persistence that writes replayable encrypted per-record sidecars beside the stable whole-vault save, with Inspector replay verification.
 - Desktop sync-folder packet exchange with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, quarantine, signed device checkpoints, source-device verification codes with QR display and scanner/paste import, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device-loss recovery checklist, rollback drill before apply, risk acknowledgement before applying destructive packets, encrypted pre-sync recovery snapshots, and in-app recovery snapshot preview.
 - Stable local device identity for sync packet source tracking.
 - Sync deletion tombstones so old packets cannot resurrect permanently deleted archived blocks.
@@ -95,8 +95,8 @@ npm run check:all
 
 Current passing suite:
 
-- Frontend/domain tests: 75 passed.
-- Rust/SQLite tests: 18 passed.
+- Frontend/domain tests: 76 passed.
+- Rust/SQLite tests: 19 passed.
 - Browser E2E smoke tests: 11 passed.
 - Production frontend build: passing.
 

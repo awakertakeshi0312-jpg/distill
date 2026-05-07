@@ -91,6 +91,7 @@ type InspectorPanelProps = {
   syncDevices: SyncDevice[];
   revokedSyncDevices: RevokedSyncDevice[];
   vaultSecurityStatus: string;
+  vaultRecordLogStatus: string;
   autoLockMinutes: number;
   updateInstallerPath: string;
   updateStatus: string;
@@ -144,6 +145,7 @@ type InspectorPanelProps = {
   onForgetRevokedSyncDevice: (deviceId: string) => void;
   onHandoffToPersonalKm: () => void;
   onChangeVaultPassphrase: (currentPassphrase: string, nextPassphrase: string, confirmation: string) => void;
+  onVerifyVaultRecordLog: () => void;
   onAutoLockMinutesChange: (minutes: number) => void;
   onUpdateInstallerPathChange: (path: string) => void;
   onStartUpdate: () => void;
@@ -188,6 +190,7 @@ export function InspectorPanel({
   syncDevices,
   revokedSyncDevices,
   vaultSecurityStatus,
+  vaultRecordLogStatus,
   autoLockMinutes,
   updateInstallerPath,
   updateStatus,
@@ -241,6 +244,7 @@ export function InspectorPanel({
   onForgetRevokedSyncDevice,
   onHandoffToPersonalKm,
   onChangeVaultPassphrase,
+  onVerifyVaultRecordLog,
   onAutoLockMinutesChange,
   onUpdateInstallerPathChange,
   onStartUpdate,
@@ -362,7 +366,8 @@ export function InspectorPanel({
           restore: 'Restore encrypted vault',
           recordLogTitle: 'Record-level vault log',
           recordLogHint:
-            'Foundation ready: vault data can be split into encrypted records and replayed. Active saves still use the stable whole-vault path.',
+            'Shadow save active: Distill writes a replayable encrypted record log beside the stable whole-vault save.',
+          recordLogVerify: 'Verify record log replay',
           recoveryTitle: 'Sync recovery snapshots',
           recoveryHint: 'These encrypted snapshots are saved before sync apply. Preview one before replacing the current vault.',
           recoveryRefresh: 'Refresh snapshots',
@@ -376,7 +381,8 @@ export function InspectorPanel({
           restore: '\u6697\u53f7\u5316Vault\u3092\u5fa9\u5143',
           recordLogTitle: '\u30ec\u30b3\u30fc\u30c9\u5358\u4f4dVault\u30ed\u30b0',
           recordLogHint:
-            '\u57fa\u76e4\u306f\u6e96\u5099\u6e08\u307f\u3067\u3059\u3002Vault\u30c7\u30fc\u30bf\u3092\u6697\u53f7\u5316\u30ec\u30b3\u30fc\u30c9\u306b\u5206\u3051\u3066\u5fa9\u5143\u3067\u304d\u307e\u3059\u3002\u901a\u5e38\u4fdd\u5b58\u306f\u5b89\u5b9a\u7248\u306e\u4e38\u3054\u3068Vault\u4fdd\u5b58\u3092\u7d99\u7d9a\u3057\u307e\u3059\u3002',
+            '\u30b7\u30e3\u30c9\u30fc\u4fdd\u5b58\u304c\u6709\u52b9\u3067\u3059\u3002\u5b89\u5b9a\u7248\u306e\u4e38\u3054\u3068Vault\u4fdd\u5b58\u3068\u4e26\u884c\u3057\u3066\u3001\u5fa9\u5143\u53ef\u80fd\u306a\u6697\u53f7\u5316\u30ec\u30b3\u30fc\u30c9\u30ed\u30b0\u3092\u66f8\u304d\u8fbc\u307f\u307e\u3059\u3002',
+          recordLogVerify: '\u30ec\u30b3\u30fc\u30c9\u30ed\u30b0\u5fa9\u5143\u3092\u691c\u8a3c',
           recoveryTitle: '\u540c\u671f\u30ea\u30ab\u30d0\u30ea\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8',
           recoveryHint: '\u540c\u671f\u9069\u7528\u524d\u306b\u4fdd\u5b58\u3055\u308c\u305f\u6697\u53f7\u5316\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u3067\u3059\u3002\u73fe\u5728\u306eVault\u3092\u7f6e\u304d\u63db\u3048\u308b\u524d\u306b\u5fc5\u305a\u30d7\u30ec\u30d3\u30e5\u30fc\u3057\u307e\u3059\u3002',
           recoveryRefresh: '\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u66f4\u65b0',
@@ -1156,6 +1162,11 @@ export function InspectorPanel({
               <span>{vaultLabels.recordLogHint}</span>
             </span>
           </div>
+          <button className="restoreButton" type="button" onClick={onVerifyVaultRecordLog}>
+            <ShieldCheck size={16} />
+            {vaultLabels.recordLogVerify}
+          </button>
+          {vaultRecordLogStatus ? <span className="restoreStatus">{vaultRecordLogStatus}</span> : null}
           <span className="storagePath">{vaultLabels.recoveryTitle}</span>
           <span>{vaultLabels.recoveryHint}</span>
           <button className="restoreButton" type="button" onClick={onRefreshSyncRecoveryVaults}>

@@ -3,8 +3,10 @@ import { exportStoreAsJson, exportStoreAsMarkdown, downloadTextFile } from './ex
 import { createMarkdownImport, parseDistillImport } from './import';
 import {
   createDistillVaultSession,
+  decryptDistillVaultRecordWithSession,
   decryptDistillVault,
   encryptDistillVault,
+  encryptDistillVaultRecordWithSession,
   encryptDistillVaultWithSession,
   unlockDistillVaultSession,
   type DistillVaultSession,
@@ -70,12 +72,14 @@ import {
   listSyncRecoveryVaults,
   loadGraph,
   loadEncryptedVault,
+  loadEncryptedVaultRecordLog,
   loadLegacyPlainStore,
   loadStorageInfo,
   quarantineEncryptedSyncPacketFile,
   readEncryptedSyncPacketFile,
   readSyncRecoveryVault,
   saveEncryptedVault,
+  saveEncryptedVaultRecordLog,
   saveSyncRecoveryVault,
   searchStore,
   startUpdateInstaller,
@@ -114,6 +118,13 @@ import { buildRestorePreview, type RestorePreview } from './restorePreview';
 import { buildSyncPreview, type SyncPreview } from './syncPreview';
 import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from './syncRecoveryDrill';
 import { runSyncRollbackDrill } from './syncRollbackDrill';
+import {
+  buildEncryptedVaultRecordLog,
+  computeVaultRecordLogSourceHash,
+  decryptVaultRecordLog,
+  parseEncryptedVaultRecordLog,
+  serializeEncryptedVaultRecordLog,
+} from './vaultRecordLog';
 import {
   getPwaInstallGuidance,
   isPwaStandaloneDisplay,
@@ -270,6 +281,7 @@ function App() {
     return navigator.onLine;
   });
   const [vaultSecurityStatus, setVaultSecurityStatus] = useState('');
+  const [vaultRecordLogStatus, setVaultRecordLogStatus] = useState('');
   const [autoLockMinutes, setAutoLockMinutesState] = useState(() => {
     if (typeof window === 'undefined') {
       return 15;
@@ -910,6 +922,99 @@ function App() {
         };
   }
 
+  function vaultRecordLogLabels() {
+    return locale === 'en'
+      ? {
+          savingFailed:
+            'Record-log shadow save failed, but the main encrypted vault save is still active.',
+          saved: (entries: number) => `Record-log shadow save wrote ${entries} encrypted records.`,
+          verifying: 'Verifying the encrypted record-log replay...',
+          missing: 'No encrypted record-log shadow save was found yet. Save one change first.',
+          verified: (entries: number) => `Record-log replay verified ${entries} encrypted records against the active vault.`,
+          stale:
+            'Record-log replay succeeded, but it does not match the current vault. Save once more to refresh it.',
+          invalid: 'Record-log replay could not be verified.',
+        }
+      : {
+          savingFailed:
+            '\u30ec\u30b3\u30fc\u30c9\u30ed\u30b0\u306e\u30b7\u30e3\u30c9\u30fc\u4fdd\u5b58\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002\u4e3b\u306e\u6697\u53f7\u5316Vault\u4fdd\u5b58\u306f\u7d99\u7d9a\u3055\u308c\u3066\u3044\u307e\u3059\u3002',
+          saved: (entries: number) =>
+            `\u30ec\u30b3\u30fc\u30c9\u30ed\u30b0\u306e\u30b7\u30e3\u30c9\u30fc\u4fdd\u5b58\u3067 ${entries} \u4ef6\u306e\u6697\u53f7\u5316\u30ec\u30b3\u30fc\u30c9\u3092\u66f8\u304d\u8fbc\u307f\u307e\u3057\u305f\u3002`,
+          verifying:
+            '\u6697\u53f7\u5316\u30ec\u30b3\u30fc\u30c9\u30ed\u30b0\u306e\u5fa9\u5143\u30ea\u30d7\u30ec\u30a4\u3092\u691c\u8a3c\u3057\u3066\u3044\u307e\u3059...',
+          missing:
+            '\u6697\u53f7\u5316\u30ec\u30b3\u30fc\u30c9\u30ed\u30b0\u306e\u30b7\u30e3\u30c9\u30fc\u4fdd\u5b58\u306f\u307e\u3060\u3042\u308a\u307e\u305b\u3093\u30021\u5ea6\u5909\u66f4\u3092\u4fdd\u5b58\u3057\u3066\u304f\u3060\u3055\u3044\u3002',
+          verified: (entries: number) =>
+            `\u30ec\u30b3\u30fc\u30c9\u30ed\u30b0\u306e\u5fa9\u5143\u3067 ${entries} \u4ef6\u306e\u6697\u53f7\u5316\u30ec\u30b3\u30fc\u30c9\u304c\u73fe\u5728\u306eVault\u3068\u4e00\u81f4\u3057\u307e\u3057\u305f\u3002`,
+          stale:
+            '\u30ec\u30b3\u30fc\u30c9\u30ed\u30b0\u306e\u5fa9\u5143\u306f\u6210\u529f\u3057\u307e\u3057\u305f\u304c\u3001\u73fe\u5728\u306eVault\u3068\u4e00\u81f4\u3057\u307e\u305b\u3093\u3002\u3082\u30461\u5ea6\u4fdd\u5b58\u3057\u3066\u66f4\u65b0\u3057\u3066\u304f\u3060\u3055\u3044\u3002',
+          invalid:
+            '\u30ec\u30b3\u30fc\u30c9\u30ed\u30b0\u306e\u5fa9\u5143\u691c\u8a3c\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002',
+        };
+  }
+
+  async function persistVaultRecordLogShadow(nextStore: DistillStore, session: DistillVaultSession, serial?: number) {
+    const labels = vaultRecordLogLabels();
+
+    try {
+      const log = await buildEncryptedVaultRecordLog(nextStore, (plainJson) =>
+        encryptDistillVaultRecordWithSession(plainJson, session),
+      );
+
+      if (serial !== undefined && serial !== vaultSaveSerial.current) {
+        return;
+      }
+
+      await saveEncryptedVaultRecordLog(serializeEncryptedVaultRecordLog(log));
+      setVaultRecordLogStatus(labels.saved(log.entries.length));
+    } catch (error) {
+      console.warn('Failed to write Distill vault record-log shadow save.', error);
+      setVaultRecordLogStatus(labels.savingFailed);
+    }
+  }
+
+  async function verifyVaultRecordLogShadow() {
+    const labels = vaultRecordLogLabels();
+    const session = getVaultSession();
+
+    if (!session) {
+      setVaultRecordLogStatus(runtimeVaultLabels().passphraseRequired);
+      return;
+    }
+
+    setVaultRecordLogStatus(labels.verifying);
+
+    try {
+      const serialized = await loadEncryptedVaultRecordLog();
+
+      if (!serialized) {
+        setVaultRecordLogStatus(labels.missing);
+        return;
+      }
+
+      const log = parseEncryptedVaultRecordLog(serialized);
+      const replayed = await decryptVaultRecordLog(log, (encryptedJson) =>
+        decryptDistillVaultRecordWithSession(encryptedJson, session),
+      );
+      const replayedHash = computeVaultRecordLogSourceHash(replayed);
+      const activeHash = computeVaultRecordLogSourceHash(store);
+
+      if (replayedHash !== log.sourceStoreHash) {
+        throw new Error('Vault record-log replay hash mismatch.');
+      }
+
+      if (activeHash !== log.sourceStoreHash) {
+        setVaultRecordLogStatus(labels.stale);
+        return;
+      }
+
+      setVaultRecordLogStatus(labels.verified(log.entries.length));
+    } catch (error) {
+      console.warn('Failed to verify Distill vault record-log shadow save.', error);
+      setVaultRecordLogStatus(error instanceof Error ? `${labels.invalid} ${error.message}` : labels.invalid);
+    }
+  }
+
   async function persistEncryptedStore(nextStore: DistillStore, serial?: number) {
     const session = getVaultSession();
 
@@ -924,6 +1029,7 @@ function App() {
     }
 
     await saveEncryptedVault(encrypted);
+    await persistVaultRecordLogShadow(nextStore, session, serial);
   }
 
   async function unlockVault(passphrase: string) {
@@ -970,6 +1076,7 @@ function App() {
       const encrypted = await encryptDistillVaultWithSession(exportStoreAsJson(nextStore), session);
 
       await saveEncryptedVault(encrypted);
+      await persistVaultRecordLogShadow(nextStore, session);
       await clearLegacyPlainStore();
 
       setStore(nextStore);
@@ -1016,6 +1123,7 @@ function App() {
       // Cancel any pending autosave that may still be using the old passphrase.
       vaultSaveSerial.current += 1;
       await saveEncryptedVault(encrypted);
+      await persistVaultRecordLogShadow(store, nextSession);
       openVaultSession(nextPassphrase, nextSession);
       setVaultSecurityStatus(labels.passphraseChanged);
     } catch (error) {
@@ -1052,6 +1160,7 @@ function App() {
       setSyncFolderAutoExportLastAt('');
       setSyncFolderAutoExportLastFile('');
       setVaultSecurityStatus('');
+      setVaultRecordLogStatus('');
     }
   }
 
@@ -2792,6 +2901,7 @@ function App() {
             syncDevices={syncDevices}
             revokedSyncDevices={revokedSyncDevices}
             vaultSecurityStatus={vaultSecurityStatus}
+            vaultRecordLogStatus={vaultRecordLogStatus}
             autoLockMinutes={autoLockMinutes}
             updateInstallerPath={updateInstallerPath}
             updateStatus={updateStatus}
@@ -2854,6 +2964,7 @@ function App() {
             onChangeVaultPassphrase={(currentPassphrase, nextPassphrase, confirmation) =>
               void changeVaultPassphrase(currentPassphrase, nextPassphrase, confirmation)
             }
+            onVerifyVaultRecordLog={() => void verifyVaultRecordLogShadow()}
             onAutoLockMinutesChange={handleAutoLockMinutesChange}
             onUpdateInstallerPathChange={setUpdateInstallerPath}
             onStartUpdate={startUpdate}

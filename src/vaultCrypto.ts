@@ -3,7 +3,7 @@ const DEFAULT_PBKDF2_ITERATIONS = 310_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const MIN_PASSPHRASE_LENGTH = 12;
-type EnvelopeType = 'distill.encrypted-vault' | 'distill.encrypted-sync-record';
+type EnvelopeType = 'distill.encrypted-vault' | 'distill.encrypted-sync-record' | 'distill.encrypted-vault-record';
 
 type VaultCipher = {
   name: 'AES-GCM';
@@ -195,6 +195,10 @@ export async function encryptDistillSyncRecord(plainJson: string, passphrase: st
   return encryptJsonEnvelope(plainJson, passphrase, 'distill.encrypted-sync-record', options);
 }
 
+export async function encryptDistillVaultRecord(plainJson: string, passphrase: string, options: EncryptOptions = {}) {
+  return encryptJsonEnvelope(plainJson, passphrase, 'distill.encrypted-vault-record', options);
+}
+
 function parseEncryptedEnvelope(value: string, envelopeType: EnvelopeType): DistillVaultEnvelope {
   const parsed = JSON.parse(value) as Partial<DistillVaultEnvelope>;
 
@@ -333,6 +337,10 @@ export async function encryptDistillVaultWithSession(plainJson: string, session:
   return encryptJsonEnvelopeWithKey(plainJson, session.key, session.kdf, 'distill.encrypted-vault');
 }
 
+export async function encryptDistillVaultRecordWithSession(plainJson: string, session: DistillVaultSession) {
+  return encryptJsonEnvelopeWithKey(plainJson, session.key, session.kdf, 'distill.encrypted-vault-record');
+}
+
 export async function encryptDistillSyncRecordWithSession(plainJson: string, session: DistillSyncSession) {
   return encryptJsonEnvelopeWithKey(plainJson, session.key, session.kdf, 'distill.encrypted-sync-record');
 }
@@ -343,6 +351,17 @@ export async function decryptDistillVault(encryptedJson: string, passphrase: str
 
 export async function decryptDistillSyncRecord(encryptedJson: string, passphrase: string) {
   return decryptJsonEnvelope(encryptedJson, passphrase, 'distill.encrypted-sync-record');
+}
+
+export async function decryptDistillVaultRecord(encryptedJson: string, passphrase: string) {
+  return decryptJsonEnvelope(encryptedJson, passphrase, 'distill.encrypted-vault-record');
+}
+
+export async function decryptDistillVaultRecordWithSession(encryptedJson: string, session: DistillVaultSession) {
+  const envelope = parseEncryptedEnvelope(encryptedJson, 'distill.encrypted-vault-record');
+  assertEnvelopeKdfMatchesSession(envelope, session.kdf);
+
+  return decryptEnvelopeWithKey(envelope, session.key);
 }
 
 export async function decryptDistillSyncRecordWithSession(encryptedJson: string, session: DistillSyncSession) {

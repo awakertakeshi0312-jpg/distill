@@ -35,9 +35,11 @@ import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { detectPwaPlatform, getPwaInstallGuidance } from '../pwaInstall';
 import {
   createDistillVaultSession,
-  decryptDistillSyncRecord,
+  decryptDistillVaultRecord,
+  decryptDistillVaultRecordWithSession,
   decryptDistillVault,
-  encryptDistillSyncRecord,
+  encryptDistillVaultRecord,
+  encryptDistillVaultRecordWithSession,
   encryptDistillVault,
   encryptDistillVaultWithSession,
   unlockDistillVaultSession,
@@ -625,6 +627,19 @@ describe('encrypted vault backups', () => {
     await expect(crypto.subtle.exportKey('raw', session.key)).rejects.toThrow();
     await expect(decryptDistillVault(encrypted, 'correct horse battery staple')).resolves.toContain('b-1');
   });
+
+  it('encrypts record-log entries with the active non-exportable vault session', async () => {
+    const session = await createDistillVaultSession('correct horse battery staple', { iterations: 1_000 });
+    const encrypted = await encryptDistillVaultRecordWithSession(
+      JSON.stringify({ content: 'Shadow record plaintext' }),
+      session,
+    );
+
+    expect(session.key.extractable).toBe(false);
+    expect(encrypted).toContain('distill.encrypted-vault-record');
+    expect(encrypted).not.toContain('Shadow record plaintext');
+    await expect(decryptDistillVaultRecordWithSession(encrypted, session)).resolves.toContain('Shadow record plaintext');
+  });
 });
 
 describe('encrypted vault record log', () => {
@@ -632,7 +647,7 @@ describe('encrypted vault record log', () => {
     const passphrase = 'correct horse battery staple';
     const log = await buildEncryptedVaultRecordLog(
       store,
-      (plainJson) => encryptDistillSyncRecord(plainJson, passphrase, { iterations: 1_000 }),
+      (plainJson) => encryptDistillVaultRecord(plainJson, passphrase, { iterations: 1_000 }),
       { createdAt: '2026-05-06T12:00:00.000Z' },
     );
     const serialized = serializeEncryptedVaultRecordLog(log);
@@ -644,7 +659,7 @@ describe('encrypted vault record log', () => {
     expect(log.entries[0].encrypted.type).toBe('distill.encrypted-vault-record');
 
     const replayed = await decryptVaultRecordLog(parseEncryptedVaultRecordLog(serialized), (encryptedJson) =>
-      decryptDistillSyncRecord(encryptedJson, passphrase),
+      decryptDistillVaultRecord(encryptedJson, passphrase),
     );
 
     expect(replayed.projects).toEqual(store.projects);
@@ -677,10 +692,10 @@ describe('encrypted vault record log', () => {
     ]);
 
     const log = await buildEncryptedVaultRecordLog(prepared, (plainJson) =>
-      encryptDistillSyncRecord(plainJson, passphrase, { iterations: 1_000 }),
+      encryptDistillVaultRecord(plainJson, passphrase, { iterations: 1_000 }),
     );
     const replayed = await decryptVaultRecordLog(log, (encryptedJson) =>
-      decryptDistillSyncRecord(encryptedJson, passphrase),
+      decryptDistillVaultRecord(encryptedJson, passphrase),
     );
 
     expect(replayed.blocks.map((item) => item.id)).toEqual(['b-1', 'b-2']);

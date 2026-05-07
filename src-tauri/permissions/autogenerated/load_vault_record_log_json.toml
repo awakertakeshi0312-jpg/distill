@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-load-vault-record-log-json"
+description = "Enables the load_vault_record_log_json command without any pre-configured scope."
+commands.allow = ["load_vault_record_log_json"]
+
+[[permission]]
+identifier = "deny-load-vault-record-log-json"
+description = "Denies the load_vault_record_log_json command without any pre-configured scope."
+commands.deny = ["load_vault_record_log_json"]

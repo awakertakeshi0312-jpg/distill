@@ -10,22 +10,27 @@ Distill treats `src/repository.ts` as the mutation boundary and `src/storage.ts`
 4. `App.tsx` keeps the decrypted `DistillStore` in memory while unlocked.
 5. `repository.ts` creates immutable store updates.
 6. `App.tsx` encrypts and saves the complete store after changes.
-7. Search and graph run against the unlocked in-memory store.
-8. `export.ts` and `import.ts` handle portable JSON, Markdown, and encrypted vault files.
+7. `App.tsx` writes a shadow encrypted record log beside the complete-vault save.
+8. Search and graph run against the unlocked in-memory store.
+9. `export.ts` and `import.ts` handle portable JSON, Markdown, and encrypted vault files.
 
-`vaultRecordLog.ts` now provides the next persistence shape as a tested foundation: the current store can be split into encrypted per-record payloads and replayed back into a normalized store. This is not the active normal save path yet; whole-store vault persistence remains the production path until migration, compaction, and conflict handling are fully wired.
+`vaultRecordLog.ts` now provides the next persistence shape as a tested shadow path: the current store is split into encrypted per-record payloads, saved beside the stable whole-vault envelope, and can be replay-verified from the Inspector. This is still not the primary normal save path; whole-store vault persistence remains the production source of truth until migration, compaction, and conflict handling are fully wired.
 
 ## Current Adapter
 
 Desktop mode stores an encrypted vault envelope in SQLite `app_store` under key `distill.vault.v1`.
+Desktop mode stores the encrypted record-log shadow save in SQLite `app_store` under key `distill.vaultRecordLog.v1`.
 
 Browser/PWA preview stores the encrypted vault envelope in `indexedDB:distill-browser-vault/vaults/distill.vault.v1`.
+Browser/PWA preview stores the encrypted record-log shadow save in `indexedDB:distill-browser-vault/vaults/distill.vaultRecordLog.v1`.
 
 Tauri commands exposed to the frontend capability:
 
 - `load_store_json`: legacy plaintext migration read only
 - `load_vault_json`: read encrypted vault envelope
 - `save_vault_json`: write encrypted vault envelope
+- `load_vault_record_log_json`: read encrypted vault record-log shadow save
+- `save_vault_record_log_json`: write encrypted vault record-log shadow save
 - `clear_plain_store`: clear known legacy plaintext storage
 - `load_storage_info_json`: show storage and backup paths
 - `start_update_installer`: validated manual update launcher
