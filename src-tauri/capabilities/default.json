@@ -16,6 +16,7 @@
     "allow-load-store-json",
     "allow-load-vault-json",
     "allow-save-vault-json",
+    "allow-reset-encrypted-vault",
     "allow-load-vault-record-log-json",
     "allow-save-vault-record-log-json",
     "allow-clear-plain-store",

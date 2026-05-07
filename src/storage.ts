@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { check, type DownloadEvent, type Update } from '@tauri-apps/plugin-updater';
 import {
   browserVaultPath,
+  deleteBrowserEncryptedValue,
   getBrowserVaultStorageInfo,
   loadBrowserEncryptedValue,
   saveBrowserEncryptedValue,
@@ -84,6 +85,26 @@ export async function saveEncryptedVault(value: string): Promise<void> {
   }
 
   await saveBrowserEncryptedValue(VAULT_KEY, value);
+}
+
+export async function resetEncryptedVault(): Promise<string> {
+  if (isTauriRuntime()) {
+    return await invoke<string>('reset_encrypted_vault');
+  }
+
+  const encryptedVault = await loadBrowserEncryptedValue(VAULT_KEY);
+  const resetKey = `${VAULT_KEY}.reset.${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  let resetPath = getBrowserVaultStorageInfo(VAULT_KEY).backupPath;
+
+  if (encryptedVault) {
+    const backend = await saveBrowserEncryptedValue(resetKey, encryptedVault);
+    resetPath = browserVaultPath(resetKey, backend);
+  }
+
+  await deleteBrowserEncryptedValue(VAULT_KEY);
+  await deleteBrowserEncryptedValue(VAULT_RECORD_LOG_KEY);
+
+  return resetPath;
 }
 
 export async function loadEncryptedVaultRecordLog(): Promise<string | null> {

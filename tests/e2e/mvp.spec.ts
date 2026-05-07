@@ -369,3 +369,31 @@ test('Existing vault unlock does not block short legacy passphrases at the form 
   await expect(passphrase).toBeVisible();
   await expect(passphrase).not.toHaveAttribute('minlength');
 });
+
+test('Locked vault can be reset into a new passphrase setup flow', async ({ page }) => {
+  const nextPassphrase = 'fresh reset vault passphrase';
+  await openUnlockedVault(page);
+  await page.getByRole('button', { name: 'English' }).click();
+  await page.getByRole('button', { name: 'Lock vault' }).click();
+
+  await page.getByText('Forgot the passphrase?').click();
+  await page.getByLabel('Confirm vault reset').fill('RESET');
+  await page.getByRole('button', { name: 'Back up and reset vault' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Create your encrypted vault' })).toBeVisible();
+  await expect(page.getByText('Previous encrypted vault was backed up to')).toBeVisible();
+
+  await page.getByLabel('Vault passphrase', { exact: true }).fill(nextPassphrase);
+  await page.getByLabel('Confirm vault passphrase', { exact: true }).fill(nextPassphrase);
+  await page.getByRole('button', { name: 'Create vault' }).click();
+  await expect(page.locator('.shell')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Lock vault' }).click();
+  await page.getByLabel('Vault passphrase', { exact: true }).fill(VAULT_PASSPHRASE);
+  await page.getByRole('button', { name: 'Unlock vault' }).click();
+  await expect(page.getByText('Could not unlock the vault. Check the passphrase.')).toBeVisible();
+
+  await page.getByLabel('Vault passphrase', { exact: true }).fill(nextPassphrase);
+  await page.getByRole('button', { name: 'Unlock vault' }).click();
+  await expect(page.locator('.shell')).toBeVisible();
+});

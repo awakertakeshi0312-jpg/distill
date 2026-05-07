@@ -346,6 +346,72 @@ fn write_encrypted_vault_backup(app: &AppHandle, value: &str) -> Result<(), Stri
   std::fs::write(path, value).map_err(|error| error.to_string())
 }
 
+fn vault_reset_backup_folder(app: &AppHandle) -> Result<PathBuf, String> {
+  let data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+  let timestamp = SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .map_err(|error| error.to_string())?
+    .as_secs();
+
+  Ok(data_dir.join("backups").join("vault-resets").join(format!("vault-reset-{timestamp}")))
+}
+
+fn write_reset_backup_file(folder: &Path, file_name: &str, value: &str) -> Result<(), String> {
+  std::fs::create_dir_all(folder).map_err(|error| error.to_string())?;
+  std::fs::write(folder.join(file_name), value).map_err(|error| error.to_string())
+}
+
+fn reset_encrypted_vault_data(
+  connection: &Connection,
+  reset_folder: &Path,
+  active_vault_backup_path: &Path,
+) -> Result<(), String> {
+  let vault_value = connection
+    .query_row(
+      "SELECT value FROM app_store WHERE key = ?1",
+      params![VAULT_KEY],
+      |row| row.get::<_, String>(0),
+    )
+    .optional()
+    .map_err(|error| error.to_string())?;
+
+  let record_log_value = connection
+    .query_row(
+      "SELECT value FROM app_store WHERE key = ?1",
+      params![VAULT_RECORD_LOG_KEY],
+      |row| row.get::<_, String>(0),
+    )
+    .optional()
+    .map_err(|error| error.to_string())?;
+
+  if let Some(value) = vault_value {
+    write_reset_backup_file(reset_folder, "distill-vault-from-db.json", &value)?;
+  }
+
+  if let Some(value) = record_log_value {
+    write_reset_backup_file(reset_folder, "distill-vault-record-log-from-db.json", &value)?;
+  }
+
+  if active_vault_backup_path.exists() {
+    std::fs::create_dir_all(reset_folder).map_err(|error| error.to_string())?;
+    std::fs::copy(
+      active_vault_backup_path,
+      reset_folder.join("distill-encrypted-vault-latest.json"),
+    )
+    .map_err(|error| error.to_string())?;
+    std::fs::remove_file(active_vault_backup_path).map_err(|error| error.to_string())?;
+  }
+
+  connection
+    .execute(
+      "DELETE FROM app_store WHERE key IN (?1, ?2)",
+      params![VAULT_KEY, VAULT_RECORD_LOG_KEY],
+    )
+    .map_err(|error| error.to_string())?;
+
+  Ok(())
+}
+
 fn validate_encrypted_vault_json(value: &str) -> Result<(), String> {
   let parsed = serde_json::from_str::<serde_json::Value>(value).map_err(|error| error.to_string())?;
 
@@ -1212,6 +1278,15 @@ fn save_vault_json(app: AppHandle, value: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn reset_encrypted_vault(app: AppHandle) -> Result<String, String> {
+  let connection = open_database(&app)?;
+  let reset_folder = vault_reset_backup_folder(&app)?;
+  reset_encrypted_vault_data(&connection, &reset_folder, &encrypted_vault_backup_path(&app)?)?;
+
+  Ok(reset_folder.display().to_string())
+}
+
+#[tauri::command]
 fn load_vault_record_log_json(app: AppHandle) -> Result<Option<String>, String> {
   let connection = open_database(&app)?;
 
@@ -1966,6 +2041,64 @@ mod tests {
   }
 
   #[test]
+  fn reset_encrypted_vault_data_backs_up_and_removes_active_vault() {
+    let connection = test_connection();
+    connection
+      .execute(
+        "INSERT INTO app_store (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+        params![VAULT_KEY, "{\"type\":\"distill.encrypted-vault\",\"source\":\"db\"}"],
+      )
+      .expect("insert vault");
+    connection
+      .execute(
+        "INSERT INTO app_store (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+        params![VAULT_RECORD_LOG_KEY, "{\"type\":\"distill.encrypted-vault-record-log\"}"],
+      )
+      .expect("insert vault record log");
+
+    let folder = std::env::temp_dir().join(format!(
+      "distill-vault-reset-test-{}",
+      SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos()
+    ));
+    let backup_path = folder.join("active").join("distill-encrypted-vault-latest.json");
+    std::fs::create_dir_all(backup_path.parent().expect("backup parent")).expect("create backup parent");
+    std::fs::write(&backup_path, "{\"type\":\"distill.encrypted-vault\",\"source\":\"file\"}")
+      .expect("write active backup");
+    let reset_folder = folder.join("reset");
+
+    reset_encrypted_vault_data(&connection, &reset_folder, &backup_path).expect("reset vault");
+
+    let vault_json = connection
+      .query_row(
+        "SELECT value FROM app_store WHERE key = ?1",
+        params![VAULT_KEY],
+        |row| row.get::<_, String>(0),
+      )
+      .optional()
+      .expect("query vault");
+    let record_log_json = connection
+      .query_row(
+        "SELECT value FROM app_store WHERE key = ?1",
+        params![VAULT_RECORD_LOG_KEY],
+        |row| row.get::<_, String>(0),
+      )
+      .optional()
+      .expect("query record log");
+
+    assert!(vault_json.is_none());
+    assert!(record_log_json.is_none());
+    assert!(reset_folder.join("distill-vault-from-db.json").exists());
+    assert!(reset_folder.join("distill-vault-record-log-from-db.json").exists());
+    assert!(reset_folder.join("distill-encrypted-vault-latest.json").exists());
+    assert!(!backup_path.exists());
+
+    std::fs::remove_dir_all(folder).expect("remove temp folder");
+  }
+
+  #[test]
   fn validates_encrypted_vault_record_log_json_shape() {
     let log = json!({
       "type": "distill.encrypted-vault-record-log",
@@ -2127,6 +2260,7 @@ pub fn run() {
       load_store_json,
       load_vault_json,
       save_vault_json,
+      reset_encrypted_vault,
       load_vault_record_log_json,
       save_vault_record_log_json,
       save_sync_recovery_vault_json,
@@ -2144,4 +2278,3 @@ pub fn run() {
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
-

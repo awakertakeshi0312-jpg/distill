@@ -78,6 +78,7 @@ import {
   quarantineEncryptedSyncPacketFile,
   readEncryptedSyncPacketFile,
   readSyncRecoveryVault,
+  resetEncryptedVault,
   saveEncryptedVault,
   saveEncryptedVaultRecordLog,
   saveSyncRecoveryVault,
@@ -901,6 +902,9 @@ function App() {
           currentPassphraseInvalid: 'Current vault passphrase is incorrect.',
           passphraseChanged: 'Vault passphrase changed.',
           autoLocked: 'Vault locked after inactivity.',
+          resetSuccess: (backupPath: string) =>
+            `Previous encrypted vault was backed up to ${backupPath}. Create a new vault passphrase to continue.`,
+          resetFailed: 'Could not reset the encrypted vault.',
         }
       : {
           mismatch: 'Vault\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u304c\u4e00\u81f4\u3057\u307e\u305b\u3093\u3002',
@@ -919,6 +923,10 @@ function App() {
           passphraseChanged: 'Vault\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u3092\u5909\u66f4\u3057\u307e\u3057\u305f\u3002',
           autoLocked:
             '\u4e00\u5b9a\u6642\u9593\u64cd\u4f5c\u304c\u306a\u304b\u3063\u305f\u305f\u3081Vault\u3092\u30ed\u30c3\u30af\u3057\u307e\u3057\u305f\u3002',
+          resetSuccess: (backupPath: string) =>
+            `\u65e7\u6697\u53f7\u5316Vault\u3092 ${backupPath} \u306b\u9000\u907f\u3057\u307e\u3057\u305f\u3002\u7d9a\u884c\u3059\u308b\u306b\u306f\u65b0\u3057\u3044Vault\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u3092\u4f5c\u6210\u3057\u3066\u304f\u3060\u3055\u3044\u3002`,
+          resetFailed:
+            '\u6697\u53f7\u5316Vault\u306e\u521d\u671f\u5316\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002',
         };
   }
 
@@ -1089,6 +1097,29 @@ function App() {
     } catch (error) {
       console.warn('Failed to create encrypted Distill vault.', error);
       setVaultError(error instanceof Error ? error.message : labels.unlockInvalid);
+    }
+  }
+
+  async function resetVaultForNewPassphrase() {
+    const labels = runtimeVaultLabels();
+    setVaultError('');
+    setVaultNotice('');
+
+    try {
+      const backupPath = await resetEncryptedVault();
+
+      clearVaultSession();
+      setStore(initialStore);
+      setResults([]);
+      setSqliteGraph(null);
+      setSelectedBlockId(undefined);
+      setHasLoadedStore(false);
+      setLegacyPlainStore(null);
+      setVaultStatus('setup');
+      setVaultNotice(labels.resetSuccess(backupPath));
+    } catch (error) {
+      console.warn('Failed to reset encrypted Distill vault.', error);
+      setVaultError(error instanceof Error ? error.message : labels.resetFailed);
     }
   }
 
@@ -2784,6 +2815,7 @@ function App() {
         onLocaleChange={setLocale}
         onUnlock={(passphrase) => void unlockVault(passphrase)}
         onCreate={(passphrase, confirmation) => void createOrMigrateVault(passphrase, confirmation)}
+        onResetEncryptedVault={() => void resetVaultForNewPassphrase()}
       />
     );
   }

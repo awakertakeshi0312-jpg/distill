@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-reset-encrypted-vault"
+description = "Enables the reset_encrypted_vault command without any pre-configured scope."
+commands.allow = ["reset_encrypted_vault"]
+
+[[permission]]
+identifier = "deny-reset-encrypted-vault"
+description = "Denies the reset_encrypted_vault command without any pre-configured scope."
+commands.deny = ["reset_encrypted_vault"]

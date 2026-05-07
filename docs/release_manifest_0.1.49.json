@@ -1,0 +1,11 @@
+{
+    "version":  "0.1.49",
+    "createdAt":  "2026-05-07T10:40:43.2503182Z",
+    "artifact":  "release/Distill_0.1.49_x64-setup.exe",
+    "signature":  "release/Distill_0.1.49_x64-setup.exe.sig",
+    "latestJson":  "release/latest.json",
+    "sha256":  "A7A80466E0CF4B7CDFF0142F7C6215C36061F9F183360A8B245BE71FF6EF5D5D",
+    "bytes":  3973319,
+    "releaseUrl":  "https://github.com/awakertakeshi0312-jpg/distill/releases/tag/v0.1.49",
+    "updateUrl":  "https://github.com/awakertakeshi0312-jpg/distill/releases/latest/download/Distill_0.1.49_x64-setup.exe"
+}

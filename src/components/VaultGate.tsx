@@ -13,6 +13,7 @@ type VaultGateProps = {
   onLocaleChange: (locale: Locale) => void;
   onUnlock: (passphrase: string) => void;
   onCreate: (passphrase: string, confirmation: string) => void;
+  onResetEncryptedVault: () => void;
 };
 
 export function VaultGate({
@@ -24,11 +25,15 @@ export function VaultGate({
   onLocaleChange,
   onUnlock,
   onCreate,
+  onResetEncryptedVault,
 }: VaultGateProps) {
   const [passphrase, setPassphrase] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const [resetConfirmation, setResetConfirmation] = useState('');
   const isSetup = mode === 'setup';
   const isChecking = mode === 'checking';
+  const canResetEncryptedVault = mode === 'locked';
+  const resetPhrase = 'RESET';
   const labels =
     locale === 'en'
       ? {
@@ -47,6 +52,12 @@ export function VaultGate({
           create: hasLegacyPlainStore ? 'Encrypt and migrate' : 'Create vault',
           warning: 'Use at least 12 characters. Distill cannot recover a forgotten passphrase.',
           storage: 'At rest: AES-GCM encrypted vault. In use: decrypted in memory only.',
+          resetTitle: 'Forgot the passphrase?',
+          resetBody:
+            'Resetting cannot decrypt the current vault. Distill backs it up, removes it from active use, and lets you create a new empty vault.',
+          resetInstruction: `Type ${resetPhrase} to enable reset.`,
+          resetPlaceholder: resetPhrase,
+          resetButton: 'Back up and reset vault',
         }
       : {
           eyebrow: '暗号化ローカルVault',
@@ -64,6 +75,12 @@ export function VaultGate({
           create: hasLegacyPlainStore ? '暗号化して移行' : 'Vaultを作成',
           warning: '12文字以上を推奨します。忘れたパスフレーズは復元できません。',
           storage: '保存時: AES-GCM暗号化Vault。利用中: メモリ上だけ復号。',
+          resetTitle: 'パスフレーズを忘れた場合',
+          resetBody:
+            '初期化しても現在のVaultは復号できません。Distillは旧Vaultを退避し、アクティブ状態から外して、新しい空のVaultを作れる状態にします。',
+          resetInstruction: `${resetPhrase} と入力すると初期化ボタンを押せます。`,
+          resetPlaceholder: resetPhrase,
+          resetButton: '退避してVaultを初期化',
         };
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -128,6 +145,31 @@ export function VaultGate({
             <button type="submit">{isSetup ? labels.create : labels.unlock}</button>
           </form>
         )}
+
+        {canResetEncryptedVault ? (
+          <details className="vaultResetPanel">
+            <summary>{labels.resetTitle}</summary>
+            <p>{labels.resetBody}</p>
+            <label>
+              {labels.resetInstruction}
+              <input
+                aria-label="Confirm vault reset"
+                autoComplete="off"
+                placeholder={labels.resetPlaceholder}
+                value={resetConfirmation}
+                onChange={(event) => setResetConfirmation(event.target.value)}
+              />
+            </label>
+            <button
+              className="vaultResetButton"
+              disabled={resetConfirmation !== resetPhrase}
+              type="button"
+              onClick={onResetEncryptedVault}
+            >
+              {labels.resetButton}
+            </button>
+          </details>
+        ) : null}
 
         {error ? <p className="vaultError">{error}</p> : null}
         {notice ? <p className="vaultNotice">{notice}</p> : null}

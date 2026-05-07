@@ -94,6 +94,23 @@ async function writeIndexedDbValue(key: string, value: string): Promise<void> {
   });
 }
 
+async function deleteIndexedDbValue(key: string): Promise<void> {
+  const database = await openBrowserVaultDatabase();
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(BROWSER_VAULT_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(BROWSER_VAULT_STORE_NAME);
+    const request = store.delete(key);
+
+    request.onerror = () => reject(request.error ?? new Error('Could not delete IndexedDB vault value.'));
+    transaction.onerror = () => reject(transaction.error ?? new Error('IndexedDB vault delete transaction failed.'));
+    transaction.oncomplete = () => {
+      database.close();
+      resolve();
+    };
+  });
+}
+
 export async function loadBrowserEncryptedValue(
   key: string,
   storage: Storage = getBrowserLocalStorage(),
@@ -142,5 +159,23 @@ export async function saveBrowserEncryptedValue(
     console.warn('Falling back to localStorage after IndexedDB vault save failed.', error);
     storage.setItem(key, value);
     return 'localStorage';
+  }
+}
+
+export async function deleteBrowserEncryptedValue(
+  key: string,
+  storage: Storage = getBrowserLocalStorage(),
+): Promise<void> {
+  if (!isBrowserIndexedDbSupported()) {
+    storage.removeItem(key);
+    return;
+  }
+
+  try {
+    await deleteIndexedDbValue(key);
+    storage.removeItem(key);
+  } catch (error) {
+    console.warn('Falling back to localStorage after IndexedDB vault delete failed.', error);
+    storage.removeItem(key);
   }
 }
