@@ -909,6 +909,64 @@ describe('sync packets', () => {
     expect(merged.blocks.find((item) => item.id === 'remote-only')?.content).toBe('Remote only text');
   });
 
+  it('syncs project records and previews project changes', () => {
+    const localStore: DistillStore = {
+      projects: [
+        {
+          id: 'shared-project',
+          name: 'Local project',
+          signal: 'Local signal',
+          status: 'Design',
+          updatedAt: '2026-05-06T02:00:00.000Z',
+        },
+      ],
+      blocks: [],
+    };
+    const remoteStore: DistillStore = {
+      projects: [
+        {
+          id: 'shared-project',
+          name: 'Remote project',
+          signal: 'Remote signal',
+          status: 'Active',
+          updatedAt: '2026-05-06T03:00:00.000Z',
+        },
+        {
+          id: 'remote-project',
+          name: 'Remote only project',
+          signal: 'Imported from phone',
+          status: 'Next',
+          updatedAt: '2026-05-06T03:30:00.000Z',
+        },
+      ],
+      blocks: [],
+    };
+
+    const packet = buildSyncPacket(remoteStore, {
+      sourceDeviceId: 'mobile-dev',
+      sourceDeviceName: 'Phone',
+      now: '2026-05-06T04:00:00.000Z',
+    });
+    const preview = buildSyncPreview(localStore, packet);
+    const merged = applySyncPacket(localStore, packet);
+
+    expect(packet.records.map((record) => record.kind)).toEqual(['project', 'project']);
+    expect(preview.diff).toMatchObject({
+      incomingProjects: 2,
+      addedProjects: 1,
+      updatedProjects: 1,
+      skippedProjects: 0,
+      remoteWins: 1,
+      destructiveChanges: 1,
+    });
+    expect(merged.projects.find((project) => project.id === 'shared-project')).toMatchObject({
+      name: 'Remote project',
+      signal: 'Remote signal',
+      status: 'Active',
+    });
+    expect(merged.projects.find((project) => project.id === 'remote-project')?.name).toBe('Remote only project');
+  });
+
   it('applies incoming revoked devices and removes them from the active device registry', () => {
     const localStore: DistillStore = {
       projects: [],
@@ -1386,6 +1444,8 @@ describe('sync packets', () => {
     const packet = buildSyncPacket(store, { sourceDeviceId: 'windows-dev', now: '2026-05-06T03:00:00.000Z' });
 
     expect(parseSyncPacket(serializeSyncPacket(packet)).records.map((record) => record.id)).toEqual([
+      'p-active',
+      'p-next',
       'b-1',
       'b-2',
       'b-3',
@@ -1422,10 +1482,11 @@ describe('sync packets', () => {
       'correct horse battery staple',
     );
 
-    expect(decrypted.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
-    const firstRecordValue = decrypted.records[0].value;
-    if (!('content' in firstRecordValue)) {
-      throw new Error('Expected first encrypted sync record to be a thought block');
+    expect(decrypted.records.map((record) => record.id)).toEqual(['p-active', 'p-next', 'b-1', 'b-2', 'b-3']);
+    const firstBlockRecord = decrypted.records.find((record) => record.kind === 'thought-block');
+    const firstRecordValue = firstBlockRecord?.value;
+    if (!firstRecordValue || !('content' in firstRecordValue)) {
+      throw new Error('Expected encrypted sync packet to include a thought block');
     }
     expect(firstRecordValue.content).toBe('Discuss semantic trust with @Aki [[Person: Mina]] #search [[Semantic Retrieval]]');
   });
@@ -1442,7 +1503,7 @@ describe('sync packets', () => {
     const decrypted = await decryptEncryptedSyncPacket(legacyPacket, 'correct horse battery staple');
 
     expect('syncKdf' in legacyPacket).toBe(false);
-    expect(decrypted.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
+    expect(decrypted.records.map((record) => record.id)).toEqual(['p-active', 'p-next', 'b-1', 'b-2', 'b-3']);
   });
 
   it('creates and rotates dedicated sync key material inside sync metadata', () => {
@@ -1499,8 +1560,20 @@ describe('sync packets', () => {
       },
     });
 
-    expect(decryptedWithLocalKey.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
-    expect(decryptedWithWrappedKey.records.map((record) => record.id)).toEqual(['b-1', 'b-2', 'b-3']);
+    expect(decryptedWithLocalKey.records.map((record) => record.id)).toEqual([
+      'p-active',
+      'p-next',
+      'b-1',
+      'b-2',
+      'b-3',
+    ]);
+    expect(decryptedWithWrappedKey.records.map((record) => record.id)).toEqual([
+      'p-active',
+      'p-next',
+      'b-1',
+      'b-2',
+      'b-3',
+    ]);
     expect(discoveredSyncKey?.id).toBe(syncKey.id);
   });
 
@@ -1524,7 +1597,7 @@ describe('sync packets', () => {
     expect(result).toMatchObject({
       syncKeyId: syncKey.id,
       discoveredSyncKeyId: syncKey.id,
-      records: 3,
+      records: 5,
       packetCreatedAt: '2026-05-06T03:00:00.000Z',
       sourceDeviceId: 'windows-dev',
     });
@@ -1555,8 +1628,8 @@ describe('sync packets', () => {
       recoveredSyncKeyId: syncKey.id,
       sourceDeviceId: 'windows-dev',
       recoveredDeviceId: 'phone-dev',
-      bootstrapRecords: 3,
-      returnRecords: 3,
+      bootstrapRecords: 5,
+      returnRecords: 5,
       bootstrapPacketCreatedAt: '2026-05-06T03:00:00.000Z',
       returnPacketCreatedAt: '2026-05-06T04:00:00.000Z',
     });
@@ -1586,7 +1659,7 @@ describe('sync packets', () => {
 
     expect(result).toMatchObject({
       sourceDeviceId: 'phone-dev',
-      records: 4,
+      records: 6,
       beforeBlocks: 3,
       afterApplyBlocks: 4,
       afterRollbackBlocks: 3,

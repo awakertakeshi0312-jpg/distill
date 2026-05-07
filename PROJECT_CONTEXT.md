@@ -2,7 +2,7 @@
 
 ## Current Status (2026-05-07)
 
-- Current version: 0.1.48.
+- Current version: 0.1.56.
 - Current phase: Desktop blank-screen recovery hardening and Trust Layer sync hardening.
 - Current completion estimate: 99% overall; this hotfix advanced +1pt in this pass.
 - Implemented in this pass: Distill now disables browser Service Worker registration in the Tauri desktop runtime, clears stale Windows WebView cache in the NSIS installer preinstall hook, and removes the 12-character browser form constraint from existing-vault unlock so legacy/short passphrases can reach the actual decrypt check.

@@ -17,6 +17,7 @@ export type Project = {
   name: string;
   signal: string;
   status: 'Active' | 'Design' | 'Next';
+  updatedAt?: string;
 };
 
 export type DeletionTombstone = {

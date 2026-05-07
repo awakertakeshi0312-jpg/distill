@@ -78,6 +78,7 @@ Distill now has a pure TypeScript sync packet foundation in `src/sync.ts`.
 Implemented:
 
 - `distill.sync.packet` schema version `1`.
+- project-level sync records for `Project` metadata.
 - block-level sync records for `ThoughtBlock`.
 - checkpoint filtering with `since`.
 - deterministic stable hashes for duplicate detection and tie-breaking.
@@ -122,7 +123,6 @@ Implemented:
 
 Not implemented yet:
 
-- project record sync.
 - mobile-native pairing polish. QR rendering, camera scan, paste import, and text fingerprint verification are implemented.
 - automatic inbound apply, background network sync, or cloud sync.
 
@@ -188,7 +188,7 @@ This keeps the risky part small: the app can prove merge behavior before any pri
 }
 ```
 
-The outer wrapper contains only the fields required for sync routing, ordering, deterministic tie-breaking, and checkpoint validation. The decrypted record contains either the full `ThoughtBlock` payload or a deletion tombstone. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging. Packets produced by Distill 0.1.36 and later include `syncKdf`; Distill derives one non-exportable WebCrypto sync session key from that packet metadata and uses it for all records in the packet. Packets produced by Distill 0.1.37 and later can also include `syncKeyId` plus `wrappedSyncKey`; Distill prefers matching local sync key material stored inside the encrypted vault, or unwraps the sync key with the vault passphrase during first import/recovery. Distill 0.1.38 adds Inspector controls to create or rotate that dedicated sync key; Distill 0.1.39 adds a dry-run recovery drill that decrypts a test packet through both the local sync key and passphrase-wrapped recovery path. Distill 0.1.40 adds an A/B multi-device drill that bootstraps a recovery device and decrypts its return packet on the source device. Distill 0.1.41 adds a sync preview rollback drill that proves the current pre-sync snapshot can restore after a dry-run apply. Distill 0.1.42 adds a device-loss recovery runbook that turns the recovery requirements into an in-app readiness checklist; rotation affects future packets only. Older encrypted packets without `syncKdf` still decrypt through the per-record envelope KDF fallback.
+The outer wrapper contains only the fields required for sync routing, ordering, deterministic tie-breaking, and checkpoint validation. The decrypted record contains either the full `Project` payload, the full `ThoughtBlock` payload, or a deletion tombstone. During decryption, Distill verifies that the outer metadata matches the decrypted record before merging. Packets produced by Distill 0.1.36 and later include `syncKdf`; Distill derives one non-exportable WebCrypto sync session key from that packet metadata and uses it for all records in the packet. Packets produced by Distill 0.1.37 and later can also include `syncKeyId` plus `wrappedSyncKey`; Distill prefers matching local sync key material stored inside the encrypted vault, or unwraps the sync key with the vault passphrase during first import/recovery. Distill 0.1.38 adds Inspector controls to create or rotate that dedicated sync key; Distill 0.1.39 adds a dry-run recovery drill that decrypts a test packet through both the local sync key and passphrase-wrapped recovery path. Distill 0.1.40 adds an A/B multi-device drill that bootstraps a recovery device and decrypts its return packet on the source device. Distill 0.1.41 adds a sync preview rollback drill that proves the current pre-sync snapshot can restore after a dry-run apply. Distill 0.1.42 adds a device-loss recovery runbook that turns the recovery requirements into an in-app readiness checklist; Distill 0.1.56 adds project metadata records to encrypted sync packets. Rotation affects future packets only. Older encrypted packets without `syncKdf` still decrypt through the per-record envelope KDF fallback.
 
 `packetHash` is computed from the plain sync packet with `packetHash` omitted. `previousPacketHash` must match the known source device `lastPacketHash` when Distill already knows that device. This gives manual sync a local hash-chain guard before automatic folder or hosted sync exists.
 
@@ -203,7 +203,7 @@ The current UI supports local manual sync only:
 5. Unlock the other device with the same vault passphrase.
 6. Import the encrypted sync packet.
 7. Distill decrypts records in memory and shows a sync preview before changing the vault.
-8. The preview summarizes incoming records, devices, block additions, block updates, skipped blocks, block deletions, remote wins, local wins, same-time tie-breaks, and local changes/deletes.
+8. The preview summarizes incoming records, devices, project additions, project updates, skipped projects, block additions, block updates, skipped blocks, block deletions, remote wins, local wins, same-time tie-breaks, and local changes/deletes.
 9. Before applying the preview, Distill saves the current encrypted vault as a pre-sync recovery snapshot. If that save fails, sync is not applied.
 10. The user can refresh the recovery snapshot list later, open a saved encrypted snapshot, decrypt it with a vault passphrase, and route it through the same Restore preview before replacing the current vault.
 11. If the recovery snapshot succeeds, Distill verifies wrapper metadata, merges known devices, applies tombstones, and applies the deterministic merge.
@@ -216,7 +216,7 @@ The current UI supports local manual sync only:
 18. The user can ask Distill to open a recommended preview only when exactly one safe packet is available and no risky/blocked/invalid packet is present.
 19. Unknown source devices are classified as risk review. Applying a first-seen signed source-device packet requires typing the source-device verification code shown on the other device, scanning its QR payload, or pasting that payload; legacy unsigned packets still require explicit trust confirmation.
 20. The user can turn on monitor-only review queue refresh. This periodically scans and classifies folder packets. If safe inbound preview is enabled, Distill may open exactly one unambiguous known-device ready packet as a preview, but it never applies a packet automatically.
-21. The user can turn on outbound auto-export. Distill writes an encrypted packet to the sync folder only when local block/tombstone/revocation content changes, and records a content fingerprint to avoid exporting the same payload repeatedly.
+21. The user can turn on outbound auto-export. Distill writes an encrypted packet to the sync folder only when local project/block/tombstone/revocation content changes, and records a content fingerprint to avoid exporting the same payload repeatedly.
 22. The user can quarantine a selected sync-folder packet into `.distill-quarantine`; quarantined files no longer appear in normal sync scans.
 23. The sync panel shows a device-loss recovery runbook that scores setup readiness across sync key, source-device verification, partner device, sync folder, recovery snapshots, recovery drills, and rollback drill availability.
 24. Before applying a preview, the user can run a rollback drill. Distill snapshots the active vault in memory, dry-runs packet apply, builds a restore preview back to the pre-sync snapshot, and confirms the active vault did not change.
@@ -308,7 +308,7 @@ Encrypted file sync MVP:
 1. Export encrypted `.distill-vault.json`.
 2. Import encrypted `.distill-vault.json` on another device.
 3. Add record-level encrypted append-only log. Current status: encrypted record packets exist and can be manually exported/imported.
-4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges block records, tombstones, device metadata, and checkpoint state.
+4. Add a manual "merge encrypted vault" command. Current status: encrypted sync packet import previews and then merges project records, block records, tombstones, device metadata, and checkpoint state.
 5. Automate file read/write through a user-selected folder later. Current status: user-triggered folder write/scan exists, safety scan classifies packet candidates before import, monitor-only review queue refresh can keep the review list current, outbound auto-export can write local changes, recommended preview or safe inbound preview can open one unambiguous known-device safe candidate without applying it, signed checkpoint verification blocks trusted-device signature failures, sync apply first saves an encrypted recovery snapshot, and saved recovery snapshots can be reopened through Restore preview.
 
 ## Security Gate

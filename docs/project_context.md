@@ -10,7 +10,7 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.48
+- Current version: 0.1.56
 - Desktop target: Windows x64
 - Current state: local MVP plus encrypted local vault, desktop blank-screen recovery hardening, encrypted vault record-log shadow persistence, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, non-exportable WebCrypto vault session key persistence, packet-level non-exportable WebCrypto sync session key support, dedicated encrypted-vault sync key material with visible create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped bootstrap support, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
@@ -65,7 +65,7 @@ Implemented app features:
 - Signed Tauri updater check/install flow
 - Manual update launcher fallback for newer Distill setup packages
 - Stable local device identity for sync packet source tracking
-- Manual encrypted sync packet export/import using record-level encrypted records
+- Manual encrypted sync packet export/import using record-level encrypted project, block, and tombstone records
 - Packet-level sync KDF metadata so all records in a new encrypted packet share one non-exportable WebCrypto sync session key, with legacy per-record packet fallback
 - Dedicated sync key material stored in encrypted sync metadata, Inspector create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped into new packets for first import/recovery
 - Desktop sync-folder path for writing, scanning, safety-classifying, recommended preview, safe semi-automatic inbound preview, and manual previewing encrypted sync packet files
@@ -206,7 +206,7 @@ Key frontend files:
 - `src/App.tsx`: app orchestration, vault lifecycle, autosave, imports/exports, updater flows
 - `src/components/VaultGate.tsx`: vault setup/unlock UI
 - `src/vaultCrypto.ts`: PBKDF2/AES-GCM vault encryption, non-exportable unlocked vault session keys, dedicated sync key bootstrap, and non-exportable sync packet session keys
-- `src/sync.ts`: sync packet build/parse/merge, tombstones, device registry, record-level encrypted sync packets, packet-level sync KDF metadata, dedicated sync key material, wrapped sync-key bootstrap, and legacy fallback
+- `src/sync.ts`: sync packet build/parse/merge, project records, tombstones, device registry, record-level encrypted sync packets, packet-level sync KDF metadata, dedicated sync key material, wrapped sync-key bootstrap, and legacy fallback
 - `src/syncRecoveryDrill.ts`: dry-run verification that local sync-key decrypt, passphrase-wrapped recovery decrypt, and A/B multi-device return-packet decrypt work without leaking plaintext sync-key material
 - `src/syncPreview.ts`: sync packet diff calculation before applying encrypted sync imports
 - `src/device.ts`: stable local device identity

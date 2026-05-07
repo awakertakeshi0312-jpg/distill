@@ -33,7 +33,8 @@ function isProject(value: unknown): value is Project {
     typeof project.id === 'string' &&
     typeof project.name === 'string' &&
     typeof project.signal === 'string' &&
-    projectStatuses.has(project.status)
+    projectStatuses.has(project.status) &&
+    (typeof project.updatedAt === 'undefined' || typeof project.updatedAt === 'string')
   );
 }
 
@@ -102,6 +103,7 @@ export function createMarkdownImport(markdown: string): DistillStore {
     name: title,
     signal: 'Imported from Markdown',
     status: 'Active',
+    updatedAt: timestamp,
   };
 
   const blocks = lines

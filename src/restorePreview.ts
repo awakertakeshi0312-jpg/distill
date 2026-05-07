@@ -41,6 +41,7 @@ function projectSignature(project: Project) {
     name: project.name,
     signal: project.signal,
     status: project.status,
+    updatedAt: project.updatedAt ?? null,
   });
 }
 

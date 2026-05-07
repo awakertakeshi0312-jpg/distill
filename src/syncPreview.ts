@@ -1,19 +1,24 @@
-import { normalizeSyncMetadata, type DeletionTombstone, type DistillStore } from './model';
+import { normalizeSyncMetadata, type DeletionTombstone, type DistillStore, type Project } from './model';
 import type { SyncPacketSignatureReview } from './deviceSigning';
 import {
   isKnownSyncDevice,
   isSyncPacketReplay,
   stableHash,
   type DistillSyncPacket,
+  type ProjectSyncRecord,
   type ThoughtBlockDeletionSyncRecord,
   type ThoughtBlockSyncRecord,
 } from './sync';
 
 export type SyncPreviewDiff = {
   incomingBlocks: number;
+  incomingProjects: number;
   incomingDeletions: number;
   incomingDevices: number;
   incomingRevokedDevices: number;
+  addedProjects: number;
+  updatedProjects: number;
+  skippedProjects: number;
   addedBlocks: number;
   updatedBlocks: number;
   skippedBlocks: number;
@@ -52,6 +57,32 @@ function acceptsIncomingBlock(
   return incoming.hash > stableHash(localBlock);
 }
 
+function projectUpdatedAt(project: Project) {
+  return project.updatedAt ?? '1970-01-01T00:00:00.000Z';
+}
+
+function projectHash(project: Project) {
+  return stableHash({ ...project, updatedAt: projectUpdatedAt(project) });
+}
+
+function acceptsIncomingProject(localProject: Project | undefined, incoming: ProjectSyncRecord) {
+  if (!localProject) {
+    return true;
+  }
+
+  const localUpdatedAt = projectUpdatedAt(localProject);
+
+  if (incoming.updatedAt > localUpdatedAt) {
+    return true;
+  }
+
+  if (incoming.updatedAt < localUpdatedAt) {
+    return false;
+  }
+
+  return incoming.hash > projectHash(localProject);
+}
+
 function acceptsIncomingTombstone(
   localTombstone: DeletionTombstone | undefined,
   incoming: ThoughtBlockDeletionSyncRecord,
@@ -86,10 +117,14 @@ function blockBeatsTombstone(block: ThoughtBlockSyncRecord, tombstone: DeletionT
 export function buildSyncPreview(store: DistillStore, packet: DistillSyncPacket): SyncPreview {
   const replay = isSyncPacketReplay(store, packet);
   const diff: SyncPreviewDiff = {
+    incomingProjects: packet.records.filter((record) => record.kind === 'project').length,
     incomingBlocks: packet.records.filter((record) => record.kind === 'thought-block').length,
     incomingDeletions: packet.records.filter((record) => record.kind === 'thought-block-deletion').length,
     incomingDevices: packet.devices?.length ?? 0,
     incomingRevokedDevices: packet.revokedDevices?.length ?? 0,
+    addedProjects: 0,
+    updatedProjects: 0,
+    skippedProjects: 0,
     addedBlocks: 0,
     updatedBlocks: 0,
     skippedBlocks: 0,
@@ -104,16 +139,47 @@ export function buildSyncPreview(store: DistillStore, packet: DistillSyncPacket)
   };
 
   if (replay) {
+    diff.skippedProjects = diff.incomingProjects;
     diff.skippedBlocks = diff.incomingBlocks;
     diff.skippedDeletions = diff.incomingDeletions;
     return { packet, diff };
   }
 
+  const projectsById = new Map(store.projects.map((project) => [project.id, project]));
   const blocksById = new Map(store.blocks.map((block) => [block.id, block]));
   const sync = normalizeSyncMetadata(store.sync);
   const tombstonesById = new Map(sync.tombstones.map((tombstone) => [tombstone.id, tombstone]));
 
   for (const record of packet.records) {
+    if (record.kind === 'project') {
+      const localProject = projectsById.get(record.id);
+
+      if (!acceptsIncomingProject(localProject, record)) {
+        diff.skippedProjects += 1;
+        diff.localWins += 1;
+        if (localProject && record.updatedAt === projectUpdatedAt(localProject)) {
+          diff.timestampTies += 1;
+        }
+        continue;
+      }
+
+      if (localProject) {
+        diff.updatedProjects += 1;
+        if (record.hash !== projectHash(localProject)) {
+          diff.remoteWins += 1;
+          diff.destructiveChanges += 1;
+        }
+        if (record.updatedAt === projectUpdatedAt(localProject)) {
+          diff.timestampTies += 1;
+        }
+      } else {
+        diff.addedProjects += 1;
+      }
+
+      projectsById.set(record.id, record.value);
+      continue;
+    }
+
     if (record.kind === 'thought-block-deletion') {
       if (!acceptsIncomingTombstone(tombstonesById.get(record.id), record)) {
         diff.skippedDeletions += 1;

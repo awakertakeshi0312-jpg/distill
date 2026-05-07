@@ -1646,10 +1646,25 @@ export function InspectorPanel({
                   {syncPreviewLabels.revoked}: {syncPreview.diff.incomingRevokedDevices}
                 </span>
                 <span>
+                  {restorePreviewLabels.projects}: {syncPreview.diff.incomingProjects}
+                </span>
+                <span>
                   {syncPreviewLabels.blocks}: {syncPreview.diff.incomingBlocks}
                 </span>
                 <span>
                   {syncPreviewLabels.deletions}: {syncPreview.diff.incomingDeletions}
+                </span>
+              </div>
+              <div className="restorePreviewGrid" aria-label={restorePreviewLabels.projects}>
+                <b>{restorePreviewLabels.projects}</b>
+                <span>
+                  {syncPreviewLabels.added}: {syncPreview.diff.addedProjects}
+                </span>
+                <span>
+                  {syncPreviewLabels.updated}: {syncPreview.diff.updatedProjects}
+                </span>
+                <span>
+                  {syncPreviewLabels.skipped}: {syncPreview.diff.skippedProjects}
                 </span>
               </div>
               <div className="restorePreviewGrid" aria-label={syncPreviewLabels.blocks}>

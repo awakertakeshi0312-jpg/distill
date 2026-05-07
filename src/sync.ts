@@ -2,6 +2,7 @@ import {
   normalizeSyncMetadata,
   type DeletionTombstone,
   type DistillStore,
+  type Project,
   type RevokedSyncDevice,
   type SyncDevice,
   type SyncKeyMaterial,
@@ -21,7 +22,15 @@ import {
 export const SYNC_PACKET_SCHEMA_VERSION = 1;
 export const SYNC_SIGNATURE_ALGORITHM = 'ECDSA-P256-SHA256';
 
-export type SyncRecordKind = 'thought-block' | 'thought-block-deletion';
+export type SyncRecordKind = 'project' | 'thought-block' | 'thought-block-deletion';
+
+export type ProjectSyncRecord = {
+  kind: 'project';
+  id: string;
+  updatedAt: string;
+  hash: string;
+  value: Project;
+};
 
 export type ThoughtBlockSyncRecord = {
   kind: 'thought-block';
@@ -39,7 +48,7 @@ export type ThoughtBlockDeletionSyncRecord = {
   value: DeletionTombstone;
 };
 
-export type SyncRecord = ThoughtBlockSyncRecord | ThoughtBlockDeletionSyncRecord;
+export type SyncRecord = ProjectSyncRecord | ThoughtBlockSyncRecord | ThoughtBlockDeletionSyncRecord;
 
 export type DistillSyncPacket = {
   type: 'distill.sync.packet';
@@ -175,6 +184,7 @@ export function createSyncAutoExportFingerprint(
       id: sourceDevice.id,
       name: sourceDevice.name.trim() || sourceDevice.id,
     },
+    projects: store.projects.map(cloneProject).sort((a, b) => a.id.localeCompare(b.id)),
     blocks: store.blocks.map(cloneBlock).sort((a, b) => a.id.localeCompare(b.id)),
     tombstones: sync.tombstones.map(cloneTombstone).sort((a, b) => a.id.localeCompare(b.id)),
     revokedDevices: sync.revokedDevices.map(cloneRevokedDevice).sort((a, b) => a.id.localeCompare(b.id)),
@@ -204,6 +214,12 @@ function cloneBlock(block: ThoughtBlock): ThoughtBlock {
     ...block,
     tags: [...block.tags],
     links: [...block.links],
+  };
+}
+
+function cloneProject(project: Project): Project {
+  return {
+    ...project,
   };
 }
 
@@ -237,6 +253,25 @@ function createBlockRecord(block: ThoughtBlock): ThoughtBlockSyncRecord {
   };
 }
 
+function getProjectUpdatedAt(project: Project) {
+  return project.updatedAt ?? '1970-01-01T00:00:00.000Z';
+}
+
+function createProjectRecord(project: Project): ProjectSyncRecord {
+  const value = {
+    ...cloneProject(project),
+    updatedAt: getProjectUpdatedAt(project),
+  };
+
+  return {
+    kind: 'project',
+    id: project.id,
+    updatedAt: value.updatedAt,
+    hash: stableHash(value),
+    value,
+  };
+}
+
 function createDeletionRecord(tombstone: DeletionTombstone): ThoughtBlockDeletionSyncRecord {
   const value = cloneTombstone(tombstone);
 
@@ -255,6 +290,16 @@ function compareRecordOrder(a: SyncRecord, b: SyncRecord) {
 
 function compareBlockOrder(a: ThoughtBlock, b: ThoughtBlock) {
   return b.capturedAt.localeCompare(a.capturedAt) || b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id);
+}
+
+function compareProjectOrder(a: Project, b: Project) {
+  const statusOrder: Record<Project['status'], number> = {
+    Active: 0,
+    Design: 1,
+    Next: 2,
+  };
+
+  return statusOrder[a.status] - statusOrder[b.status] || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 }
 
 function createSourceDevice(options: BuildSyncPacketOptions, timestamp: string): SyncDevice | null {
@@ -453,6 +498,7 @@ export function buildSyncPacket(store: DistillStore, options: BuildSyncPacketOpt
   const knownSourceDevice = sync.devices.find((device) => device.id === options.sourceDeviceId);
   const sourceDevice = createSourceDevice(options, createdAt);
   const records = [
+    ...store.projects.filter((project) => !since || getProjectUpdatedAt(project) > since).map(createProjectRecord),
     ...store.blocks.filter((block) => !since || block.updatedAt > since).map(createBlockRecord),
     ...sync.tombstones.filter((tombstone) => !since || tombstone.deletedAt > since).map(createDeletionRecord),
   ].sort(compareRecordOrder);
@@ -571,6 +617,22 @@ function isDeletionTombstone(value: unknown): value is DeletionTombstone {
   );
 }
 
+function isProjectValue(value: unknown): value is Project {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const project = value as Project;
+
+  return (
+    typeof project.id === 'string' &&
+    typeof project.name === 'string' &&
+    typeof project.signal === 'string' &&
+    ['Active', 'Design', 'Next'].includes(project.status) &&
+    (typeof project.updatedAt === 'undefined' || typeof project.updatedAt === 'string')
+  );
+}
+
 function isThoughtBlockValue(value: unknown): value is ThoughtBlock {
   if (!value || typeof value !== 'object') {
     return false;
@@ -601,6 +663,15 @@ function isSyncRecord(value: unknown): value is SyncRecord {
 
   if (typeof record.id !== 'string' || typeof record.updatedAt !== 'string' || typeof record.hash !== 'string') {
     return false;
+  }
+
+  if (record.kind === 'project') {
+    return (
+      isProjectValue(record.value) &&
+      record.id === record.value.id &&
+      record.updatedAt === getProjectUpdatedAt(record.value) &&
+      record.hash === stableHash(record.value)
+    );
   }
 
   if (record.kind === 'thought-block') {
@@ -658,7 +729,7 @@ function isEncryptedSyncRecord(value: unknown): value is EncryptedSyncRecord {
   const record = value as EncryptedSyncRecord;
 
   return (
-    (record.kind === 'thought-block' || record.kind === 'thought-block-deletion') &&
+    (record.kind === 'project' || record.kind === 'thought-block' || record.kind === 'thought-block-deletion') &&
     typeof record.id === 'string' &&
     typeof record.updatedAt === 'string' &&
     typeof record.hash === 'string' &&
@@ -860,6 +931,24 @@ function shouldAcceptIncomingBlock(localBlock: ThoughtBlock | undefined, incomin
   return incoming.hash > stableHash(localBlock);
 }
 
+function shouldAcceptIncomingProject(localProject: Project | undefined, incoming: ProjectSyncRecord) {
+  if (!localProject) {
+    return true;
+  }
+
+  const localUpdatedAt = getProjectUpdatedAt(localProject);
+
+  if (incoming.updatedAt > localUpdatedAt) {
+    return true;
+  }
+
+  if (incoming.updatedAt < localUpdatedAt) {
+    return false;
+  }
+
+  return incoming.hash > stableHash({ ...localProject, updatedAt: localUpdatedAt });
+}
+
 function shouldAcceptIncomingTombstone(
   localTombstone: DeletionTombstone | undefined,
   incoming: ThoughtBlockDeletionSyncRecord,
@@ -933,6 +1022,7 @@ export function assertSyncPacketCheckpoint(store: DistillStore, packet: DistillS
 }
 
 export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket): DistillStore {
+  const projectsById = new Map(store.projects.map((project) => [project.id, cloneProject(project)]));
   const blocksById = new Map(store.blocks.map((block) => [block.id, cloneBlock(block)]));
   const sync = normalizeSyncMetadata(store.sync);
 
@@ -957,6 +1047,14 @@ export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket):
   );
 
   for (const record of packet.records) {
+    if (record.kind === 'project') {
+      if (shouldAcceptIncomingProject(projectsById.get(record.id), record)) {
+        projectsById.set(record.id, cloneProject(record.value));
+      }
+
+      continue;
+    }
+
     if (record.kind === 'thought-block-deletion') {
       if (!shouldAcceptIncomingTombstone(tombstonesById.get(record.id), record)) {
         continue;
@@ -987,6 +1085,7 @@ export function applySyncPacket(store: DistillStore, packet: DistillSyncPacket):
 
   return {
     ...store,
+    projects: Array.from(projectsById.values()).sort(compareProjectOrder),
     blocks: Array.from(blocksById.values()).sort(compareBlockOrder),
     sync: normalizeSyncMetadata({
       tombstones: Array.from(tombstonesById.values()),

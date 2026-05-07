@@ -26,6 +26,8 @@ export function addCapture(content: string): StoreUpdater {
 }
 
 export function createProject(input: CreateProjectInput): StoreUpdater {
+  const timestamp = new Date().toISOString();
+
   return (current) => ({
     ...current,
     projects: [
@@ -35,6 +37,7 @@ export function createProject(input: CreateProjectInput): StoreUpdater {
         name: input.name.trim(),
         signal: input.signal.trim() || 'New knowledge area',
         status: input.status,
+        updatedAt: timestamp,
       },
     ],
   });
