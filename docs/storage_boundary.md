@@ -13,6 +13,8 @@ Distill treats `src/repository.ts` as the mutation boundary and `src/storage.ts`
 7. Search and graph run against the unlocked in-memory store.
 8. `export.ts` and `import.ts` handle portable JSON, Markdown, and encrypted vault files.
 
+`vaultRecordLog.ts` now provides the next persistence shape as a tested foundation: the current store can be split into encrypted per-record payloads and replayed back into a normalized store. This is not the active normal save path yet; whole-store vault persistence remains the production path until migration, compaction, and conflict handling are fully wired.
+
 ## Current Adapter
 
 Desktop mode stores an encrypted vault envelope in SQLite `app_store` under key `distill.vault.v1`.
@@ -90,6 +92,7 @@ The next storage boundary should move from whole-store vault encryption to recor
 - encrypted block records
 - encrypted project records
 - append-only encrypted mutation log
+- encrypted sync metadata records for tombstones, known devices, revoked devices, and sync-key material
 - minimal plaintext sync metadata
 - rebuildable local search/vector indexes after unlock
 

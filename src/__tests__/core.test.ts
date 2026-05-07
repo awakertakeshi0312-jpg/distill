@@ -35,11 +35,20 @@ import { buildPersonalKmHandoffItems } from '../personalKmHandoff';
 import { detectPwaPlatform, getPwaInstallGuidance } from '../pwaInstall';
 import {
   createDistillVaultSession,
+  decryptDistillSyncRecord,
   decryptDistillVault,
+  encryptDistillSyncRecord,
   encryptDistillVault,
   encryptDistillVaultWithSession,
   unlockDistillVaultSession,
 } from '../vaultCrypto';
+import {
+  buildEncryptedVaultRecordLog,
+  buildVaultRecordLogEntries,
+  decryptVaultRecordLog,
+  parseEncryptedVaultRecordLog,
+  serializeEncryptedVaultRecordLog,
+} from '../vaultRecordLog';
 import { isVaultAutoLockExpired, normalizeVaultAutoLockMinutes } from '../vaultSession';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
 import {
@@ -615,6 +624,69 @@ describe('encrypted vault backups', () => {
     });
     await expect(crypto.subtle.exportKey('raw', session.key)).rejects.toThrow();
     await expect(decryptDistillVault(encrypted, 'correct horse battery staple')).resolves.toContain('b-1');
+  });
+});
+
+describe('encrypted vault record log', () => {
+  it('encrypts vault records without plaintext payload leakage and replays them into a store', async () => {
+    const passphrase = 'correct horse battery staple';
+    const log = await buildEncryptedVaultRecordLog(
+      store,
+      (plainJson) => encryptDistillSyncRecord(plainJson, passphrase, { iterations: 1_000 }),
+      { createdAt: '2026-05-06T12:00:00.000Z' },
+    );
+    const serialized = serializeEncryptedVaultRecordLog(log);
+
+    expect(log.entries).toHaveLength(store.projects.length + store.blocks.length);
+    expect(serialized).toContain('distill.encrypted-vault-record-log');
+    expect(serialized).not.toContain('Semantic Retrieval should explain resurfaced thoughts');
+    expect(serialized).not.toContain('Active Project');
+    expect(log.entries[0].encrypted.type).toBe('distill.encrypted-vault-record');
+
+    const replayed = await decryptVaultRecordLog(parseEncryptedVaultRecordLog(serialized), (encryptedJson) =>
+      decryptDistillSyncRecord(encryptedJson, passphrase),
+    );
+
+    expect(replayed.projects).toEqual(store.projects);
+    expect(replayed.blocks).toEqual(store.blocks);
+    expect(replayed.sync).toMatchObject({
+      tombstones: [],
+      devices: [],
+      revokedDevices: [],
+    });
+  });
+
+  it('includes sync metadata needed for future record-level vault persistence', async () => {
+    const withDevice = registerSyncDevice(
+      ensureSyncKeyMaterial(store, '2026-05-06T11:00:00.000Z'),
+      { id: 'phone-dev', name: 'Phone' },
+      '2026-05-06T11:05:00.000Z',
+    );
+    const deleted = permanentlyDeleteBlock('b-3', 'windows-dev')(withDevice);
+    const prepared = revokeSyncDevice(deleted, 'phone-dev', '2026-05-06T11:10:00.000Z');
+    const passphrase = 'correct horse battery staple';
+
+    expect(buildVaultRecordLogEntries(prepared).map((entry) => entry.kind)).toEqual([
+      'project',
+      'project',
+      'thought-block',
+      'thought-block',
+      'thought-block-deletion',
+      'revoked-sync-device',
+      'sync-key',
+    ]);
+
+    const log = await buildEncryptedVaultRecordLog(prepared, (plainJson) =>
+      encryptDistillSyncRecord(plainJson, passphrase, { iterations: 1_000 }),
+    );
+    const replayed = await decryptVaultRecordLog(log, (encryptedJson) =>
+      decryptDistillSyncRecord(encryptedJson, passphrase),
+    );
+
+    expect(replayed.blocks.map((item) => item.id)).toEqual(['b-1', 'b-2']);
+    expect(replayed.sync?.tombstones[0]).toMatchObject({ id: 'b-3', deletedByDeviceId: 'windows-dev' });
+    expect(replayed.sync?.revokedDevices[0]).toMatchObject({ id: 'phone-dev', name: 'Phone' });
+    expect(getSyncKeyMaterial(replayed)?.id).toBe(getSyncKeyMaterial(prepared)?.id);
   });
 });
 

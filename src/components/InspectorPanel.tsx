@@ -360,6 +360,9 @@ export function InspectorPanel({
           hint: 'Create or restore a passphrase-protected vault backup. Active local storage is encrypted after vault unlock.',
           backup: 'Backup encrypted vault',
           restore: 'Restore encrypted vault',
+          recordLogTitle: 'Record-level vault log',
+          recordLogHint:
+            'Foundation ready: vault data can be split into encrypted records and replayed. Active saves still use the stable whole-vault path.',
           recoveryTitle: 'Sync recovery snapshots',
           recoveryHint: 'These encrypted snapshots are saved before sync apply. Preview one before replacing the current vault.',
           recoveryRefresh: 'Refresh snapshots',
@@ -371,6 +374,9 @@ export function InspectorPanel({
           hint: 'Vault\u89e3\u9664\u5f8c\u306e\u901a\u5e38\u4fdd\u5b58\u306f\u6697\u53f7\u5316\u3055\u308c\u3066\u3044\u307e\u3059\u3002\u30d1\u30b9\u30d5\u30ec\u30fc\u30ba\u4ed8\u304dVault\u30d0\u30c3\u30af\u30a2\u30c3\u30d7\u306e\u4f5c\u6210\u30fb\u5fa9\u5143\u3082\u3067\u304d\u307e\u3059\u3002',
           backup: '\u6697\u53f7\u5316Vault\u3092\u30d0\u30c3\u30af\u30a2\u30c3\u30d7',
           restore: '\u6697\u53f7\u5316Vault\u3092\u5fa9\u5143',
+          recordLogTitle: '\u30ec\u30b3\u30fc\u30c9\u5358\u4f4dVault\u30ed\u30b0',
+          recordLogHint:
+            '\u57fa\u76e4\u306f\u6e96\u5099\u6e08\u307f\u3067\u3059\u3002Vault\u30c7\u30fc\u30bf\u3092\u6697\u53f7\u5316\u30ec\u30b3\u30fc\u30c9\u306b\u5206\u3051\u3066\u5fa9\u5143\u3067\u304d\u307e\u3059\u3002\u901a\u5e38\u4fdd\u5b58\u306f\u5b89\u5b9a\u7248\u306e\u4e38\u3054\u3068Vault\u4fdd\u5b58\u3092\u7d99\u7d9a\u3057\u307e\u3059\u3002',
           recoveryTitle: '\u540c\u671f\u30ea\u30ab\u30d0\u30ea\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8',
           recoveryHint: '\u540c\u671f\u9069\u7528\u524d\u306b\u4fdd\u5b58\u3055\u308c\u305f\u6697\u53f7\u5316\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u3067\u3059\u3002\u73fe\u5728\u306eVault\u3092\u7f6e\u304d\u63db\u3048\u308b\u524d\u306b\u5fc5\u305a\u30d7\u30ec\u30d3\u30e5\u30fc\u3057\u307e\u3059\u3002',
           recoveryRefresh: '\u30b9\u30ca\u30c3\u30d7\u30b7\u30e7\u30c3\u30c8\u66f4\u65b0',
@@ -1144,6 +1150,12 @@ export function InspectorPanel({
               }}
             />
           </label>
+          <div className="updateDiagnostics" aria-label={vaultLabels.recordLogTitle}>
+            <span className="diagnosticRow">
+              <b>{vaultLabels.recordLogTitle}</b>
+              <span>{vaultLabels.recordLogHint}</span>
+            </span>
+          </div>
           <span className="storagePath">{vaultLabels.recoveryTitle}</span>
           <span>{vaultLabels.recoveryHint}</span>
           <button className="restoreButton" type="button" onClick={onRefreshSyncRecoveryVaults}>
