@@ -132,6 +132,12 @@ test('MVP browser smoke: capture, search, graph, project, archive', async ({ pag
   await expect(page.locator('#inbox .thoughtBlock').filter({ hasText: 'Review [[Semantic Retrieval]] with @Aki #search' })).toBeVisible();
   await expect(page.getByText('search').first()).toBeVisible();
 
+  await page.getByLabel('Daily journal').fill('Today I connected capture with a journal lane.');
+  await page.getByRole('button', { name: 'Save diary' }).click();
+  await expect(page.locator('#today')).toContainText('Today I connected capture with a journal lane.');
+  await expect(page.locator('#today')).toContainText('journal');
+  await page.locator('a[href="#inbox"]').click();
+
   await page.locator('a[href="#search"]').click();
   await page.locator('#search input').fill('Aki');
   await expect(page.locator('.resultRow').filter({ hasText: 'Review [[Semantic Retrieval]]' })).toBeVisible();
@@ -152,7 +158,12 @@ test('MVP browser smoke: capture, search, graph, project, archive', async ({ pag
   await expect(page.locator('#projects')).toContainText('Launch Plan');
 
   await page.locator('a[href="#inbox"]').click();
-  await page.locator('#inbox .thoughtBlock').first().locator('.inlineEditButton').last().click();
+  await page
+    .locator('#inbox .thoughtBlock')
+    .filter({ hasText: 'Review [[Semantic Retrieval]]' })
+    .locator('.inlineEditButton')
+    .last()
+    .click();
   await page.locator('a[href="#archive"]').click();
   await expect(page.locator('#archive')).toContainText('Review [[Semantic Retrieval]]');
 });

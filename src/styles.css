@@ -679,6 +679,46 @@ button:disabled {
   margin-bottom: 18px;
 }
 
+.captureEntryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+}
+
+.captureEntry {
+  display: grid;
+  grid-template-rows: auto minmax(118px, 1fr) auto;
+  min-width: 0;
+}
+
+.captureEntry + .captureEntry {
+  border-left: 1px solid var(--line);
+}
+
+.captureEntryDiary {
+  background:
+    linear-gradient(135deg, rgba(222, 234, 224, 0.42), rgba(251, 252, 247, 0.78)),
+    repeating-linear-gradient(0deg, rgba(47, 104, 77, 0.04) 0, rgba(47, 104, 77, 0.04) 1px, transparent 1px, transparent 28px);
+}
+
+.captureEntryHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.captureEntryHeader span {
+  font-weight: 900;
+}
+
+.captureEntryHeader small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
 .onboardingPanel {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(220px, 0.8fr) auto;
@@ -740,6 +780,10 @@ button:disabled {
   color: var(--ink);
   font-size: 1.05rem;
   line-height: 1.55;
+}
+
+.captureEntryDiary textarea {
+  min-height: 168px;
 }
 
 .captureActions {
@@ -2181,6 +2225,24 @@ button.resultRow:hover {
   .captureHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .captureEntryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .captureEntry + .captureEntry {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .captureEntryHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .captureEntryHeader small {
+    text-align: left;
   }
 
   .helpNote,

@@ -10,9 +10,9 @@ This document is the handoff context for Distill so another person or future age
 - Location: `C:\Users\awake\dev\active\distill`
 - Repository: `https://github.com/awakertakeshi0312-jpg/distill`
 - Product type: local-first desktop/PWA thinking app
-- Current version: 0.1.57
+- Current version: 0.1.58
 - Desktop target: Windows x64
-- Current state: local MVP plus encrypted local vault, desktop blank-screen recovery hardening, encrypted vault record-log shadow persistence, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, non-exportable WebCrypto vault session key persistence, packet-level non-exportable WebCrypto sync session key support, dedicated encrypted-vault sync key material with visible create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, A/B sync-folder operation drill, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped bootstrap support, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
+- Current state: local MVP plus encrypted local vault, side-by-side thought and daily journal capture, desktop blank-screen recovery hardening, encrypted vault record-log shadow persistence, mobile/PWA readiness diagnostics, IndexedDB-backed encrypted browser vault persistence, volatile in-memory vault session passphrase handling, non-exportable WebCrypto vault session key persistence, packet-level non-exportable WebCrypto sync session key support, dedicated encrypted-vault sync key material with visible create/rotate lifecycle controls, single-vault and A/B multi-device recovery drills, A/B sync-folder operation drill, sync preview rollback drill, device-loss recovery runbook, and passphrase-wrapped bootstrap support, signed updater flow, restore preview, manual encrypted sync packet flow with apply preview, decision-review counts, risk acknowledgement gate, encrypted pre-sync recovery snapshots with in-app preview/restore, desktop sync-folder packet exchange prototype with safety scan, monitor-only review queue, outbound auto-export for local changes, recommended preview, and packet quarantine, device registry, signed device checkpoints, source-device verification codes with QR display, camera scanner, paste import for first trust, known-device forget/removal, safe semi-automatic inbound preview, unknown-device trust confirmation, device trust revocation, deletion tombstones, stale-packet rejection, chained checkpoint validation, and Personal KM summary-only handoff
 
 ## Product Direction
 
@@ -39,6 +39,7 @@ Influences:
 Implemented app features:
 
 - Inbox capture with `#tags`, `[[links]]`, and `@people` extraction
+- Daily journal capture lane next to the thought capture lane; saved journal entries become normal searchable blocks with `#journal` and `[[Daily Journal]]`
 - Today view and daily-note grouping
 - Search with exact matching plus local semantic-overlap hints
 - Search evidence through matched fields and matched terms

@@ -206,6 +206,7 @@ function App() {
   const vaultSaveSerial = useRef(0);
   const lastVaultActivityAt = useRef(Date.now());
   const [captureText, setCaptureText] = useState(copy[getInitialLocale()].initialCapture as string);
+  const [diaryText, setDiaryText] = useState('');
   const [query, setQuery] = useState(copy[getInitialLocale()].initialQuery as string);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [sqliteGraph, setSqliteGraph] = useState<GraphSnapshot | null>(null);
@@ -888,6 +889,30 @@ function App() {
     setSelectedBlockId(block?.id);
     setCaptureText('');
     setActivePage('inbox');
+    if (block) {
+      void emitCaptureSaved(block, nextStore);
+    }
+  }
+
+  function captureDiaryEntry() {
+    if (!diaryText.trim()) {
+      return;
+    }
+
+    const date = new Intl.DateTimeFormat(locale === 'ja' ? 'ja-JP' : 'en', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    }).format(new Date());
+    const content = `Journal - ${date}\n\n${diaryText.trim()}\n\n#journal [[Daily Journal]]`;
+    const nextStore = addCapture(content)(store);
+    const block = nextStore.blocks[0];
+
+    setStore(nextStore);
+    setSelectedBlockId(block?.id);
+    setDiaryText('');
+    setActivePage('today');
     if (block) {
       void emitCaptureSaved(block, nextStore);
     }
@@ -2987,8 +3012,11 @@ function App() {
           <CapturePanel
             ui={ui}
             captureText={captureText}
+            diaryText={diaryText}
             onCaptureTextChange={setCaptureText}
+            onDiaryTextChange={setDiaryText}
             onCapture={captureBlock}
+            onCaptureDiary={captureDiaryEntry}
           />
         ) : null}
 
