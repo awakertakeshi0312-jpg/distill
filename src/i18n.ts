@@ -252,8 +252,7 @@ export const copy = {
         steps: ['Open the hosted HTTPS web build on the phone', 'Unlock with the same vault passphrase after importing or syncing data', 'Use Add to Home Screen when the browser offers it'],
       },
     },
-    initialCapture:
-      'Meaning search should feel like remembering with help, not querying a database.',
+    initialCapture: '',
     initialQuery: 'how do I trust a semantic result?',
   },
   ja: {
@@ -495,8 +494,7 @@ export const copy = {
         steps: ['プロジェクト割り当て前に対象ブロックを選ぶ', '危険な変更前はJSONバックアップを取る', '更新欄には新しいDistillセットアップEXEだけを指定する'],
       },
     },
-    initialCapture:
-      '意味検索は、データベースを叩く感覚ではなく、思い出すのを手伝ってもらう感覚であるべき。',
+    initialCapture: '',
     initialQuery: '意味検索の結果をどう信頼する？',
   },
 };

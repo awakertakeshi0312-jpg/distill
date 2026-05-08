@@ -114,6 +114,8 @@ test('Japanese UI is available by default', async ({ page }) => {
   await expect(page.getByText(today)).toBeVisible();
   await expect(page.locator('.shell')).toBeVisible();
   await expect(page.locator('.localeToggle button.active')).toHaveCount(1);
+  await expect(page.getByLabel('思考を記録')).toHaveValue('');
+  await expect(page.getByPlaceholder('思いつき、問い、決定、断片をそのまま書く...')).toBeVisible();
 
   await page.locator('a[href="#graph"]').click();
   await expect(page.locator('#graph')).toBeVisible();

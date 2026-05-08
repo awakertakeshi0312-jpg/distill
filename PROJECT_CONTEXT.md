@@ -2,10 +2,10 @@
 
 ## Current Status (2026-05-08)
 
-- Current version: 0.1.58.
+- Current version: 0.1.59.
 - Current phase: Desktop blank-screen recovery hardening and Trust Layer sync hardening.
 - Current completion estimate: local MVP 99%; full productization 73%.
-- Implemented in this pass: Distill now shows thought capture and daily journal capture side by side. Diary entries save as normal searchable blocks with `#journal` and `[[Daily Journal]]`, then open the Today view.
+- Implemented in this pass: The thought capture lane now starts empty instead of prefilled with an example sentence, while keeping the instructional placeholder visible.
 - Sync-folder packet statuses: ready, risk review, stale, blocked, checkpoint risk, invalid. Monitoring and outbound auto-export never auto-apply incoming packets; sync apply is now gated by signature verification for trusted devices, source-device verification code confirmation when needed, local risk acknowledgement for destructive decisions, and a local encrypted recovery snapshot.
 - Still not implemented: automatic inbound sync/apply, native iOS/Android app packaging, hosted E2EE sync, real vector search, Windows code-signing certificate, polished native mobile pairing flow, promoting the shadow record log to the primary normal persistence path, and production mobile sync transport.
 - Primary docs: `docs/project_context.md`, `docs/roadmap.md`, `docs/sync_design.md`, `docs/storage_boundary.md`, `docs/desktop_troubleshooting.md`, `docs/release_notes_0.1.48.md`.
