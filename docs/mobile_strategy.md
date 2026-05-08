@@ -28,6 +28,10 @@ After GitHub Pages is enabled and the workflow deploys:
 https://awakertakeshi0312-jpg.github.io/distill/
 ```
 
+Verified on 2026-05-08: the public Pages URL returns `200`, serves the current built assets, loads `manifest.webmanifest`, loads `sw.js`, and reaches the first-run vault screen from a phone-sized browser smoke test.
+
+The app now surfaces this URL directly in the Mobile access panel so a phone can open Distill without guessing the address.
+
 ### Current Constraints
 
 - Data is stored locally in that phone browser.
@@ -132,12 +136,12 @@ Candidate directions:
 
 ## Manual Steps To Enable Web Preview
 
-1. Open the repository on GitHub.
-2. Go to `Settings` -> `Pages`.
-3. Under `Build and deployment`, choose `GitHub Actions`.
-4. Push `main` or run the `Deploy Web Preview` workflow manually.
-5. Open the Pages URL on a smartphone.
-6. Use the browser menu to add it to the home screen.
+GitHub Pages is already configured for this repository. For a new deployment:
+
+1. Push `main` or run the `Deploy Web Preview` workflow manually.
+2. Open `https://awakertakeshi0312-jpg.github.io/distill/` on a smartphone.
+3. Use the browser menu to add it to the home screen.
+4. Create or unlock the local encrypted vault on that phone.
 
 ## Success Criteria
 

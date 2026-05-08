@@ -21,7 +21,7 @@ import {
   reviewSyncPacketSignature,
   signSyncPacket,
 } from './deviceSigning';
-import { APP_VERSION, LATEST_RELEASE_URL, UPDATE_FEED_URL } from './appInfo';
+import { APP_VERSION, LATEST_RELEASE_URL, PUBLIC_WEB_URL, UPDATE_FEED_URL } from './appInfo';
 import {
   createSyncKeyMaterial,
   ensureSyncKeyMaterial,
@@ -3182,6 +3182,7 @@ function App() {
               pwaInstallGuidance={pwaInstallGuidance}
               pwaInstallStatus={pwaInstallStatus}
               appVersion={APP_VERSION}
+              publicWebUrl={PUBLIC_WEB_URL}
               latestReleaseUrl={LATEST_RELEASE_URL}
               isDesktopRuntime={isDesktopRuntime()}
               onInstallPwa={() => void installPwa()}

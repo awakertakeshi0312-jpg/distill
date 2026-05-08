@@ -305,6 +305,7 @@ test('Mobile PWA readiness panel is available on a phone-sized viewport', async 
   await page.locator('a[href="#mobile"]').click();
   await expect(page.locator('.mobilePanel').getByRole('heading', { name: 'Mobile access' })).toBeVisible();
   const pwaPanel = page.locator('.mobilePanel');
+  await expect(pwaPanel.locator('a[href="https://awakertakeshi0312-jpg.github.io/distill/"]')).toBeVisible();
   await expect(pwaPanel.getByText('Offline shell')).toBeVisible();
   await expect(pwaPanel.getByText('Network')).toBeVisible();
 });

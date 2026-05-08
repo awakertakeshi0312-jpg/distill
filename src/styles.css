@@ -1139,6 +1139,7 @@ button:disabled {
 }
 
 .mobileAnswer,
+.mobilePublicUrlBox,
 .mobileCard,
 .mobileStatusBox,
 .mobileSteps {
@@ -1151,6 +1152,42 @@ button:disabled {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 12px;
   padding: 16px;
+}
+
+.mobilePublicUrlBox {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+}
+
+.mobilePublicUrlBox div {
+  display: grid;
+  gap: 4px;
+}
+
+.mobilePublicUrlBox span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.mobilePublicUrlLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(520px, 100%);
+  padding: 10px 12px;
+  border: 1px solid rgba(47, 102, 78, 0.22);
+  background: var(--paper-strong);
+  color: var(--green);
+  text-decoration: none;
+}
+
+.mobilePublicUrlLink code {
+  color: var(--ink);
+  font-size: 0.78rem;
+  word-break: break-all;
 }
 
 .mobileAnswer svg,
@@ -2132,6 +2169,7 @@ button.resultRow:hover {
 
   .settingsPanel .inspectorControls,
   .mobileCardGrid,
+  .mobilePublicUrlBox,
   .mobileStatusGrid {
     grid-template-columns: 1fr;
   }

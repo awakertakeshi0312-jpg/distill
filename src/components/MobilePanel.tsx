@@ -9,6 +9,7 @@ type MobilePanelProps = {
   pwaInstallGuidance: PwaInstallGuidance;
   pwaInstallStatus: string;
   appVersion: string;
+  publicWebUrl: string;
   latestReleaseUrl: string;
   isDesktopRuntime: boolean;
   onInstallPwa: () => void;
@@ -190,6 +191,7 @@ export function MobilePanel({
   pwaInstallGuidance,
   pwaInstallStatus,
   appVersion,
+  publicWebUrl,
   latestReleaseUrl,
   isDesktopRuntime,
   onInstallPwa,
@@ -197,6 +199,12 @@ export function MobilePanel({
 }: MobilePanelProps) {
   const copy = getMobileCopy(locale);
   const state = copy.states[pwaInstallGuidance.kind];
+  const publicUrlTitle = locale === 'ja' ? '\u516c\u958b\u30e2\u30d0\u30a4\u30ebURL' : 'Public mobile URL';
+  const publicUrlBody =
+    locale === 'ja'
+      ? '\u30b9\u30de\u30db\u306e\u30d6\u30e9\u30a6\u30b6\u304b\u3089\u3053\u306eHTTPS URL\u3092\u958b\u304d\u307e\u3059\u3002Windows\u30a2\u30d7\u30ea\u3092\u8d77\u52d5\u3057\u3066\u3044\u306a\u304f\u3066\u3082\u5229\u7528\u3067\u304d\u307e\u3059\u3002'
+      : 'Open this HTTPS URL from a phone browser. It works even when the Windows desktop app is not running.';
+  const publicUrlOpen = locale === 'ja' ? 'Distill Web\u3092\u958b\u304f' : 'Open Distill web';
 
   return (
     <section className="panel mobilePanel" id="mobile" aria-label={copy.title}>
@@ -214,6 +222,18 @@ export function MobilePanel({
           <strong>{copy.answerTitle}</strong>
           <span>{copy.answerBody}</span>
         </div>
+      </div>
+
+      <div className="mobilePublicUrlBox">
+        <div>
+          <strong>{publicUrlTitle}</strong>
+          <span>{publicUrlBody}</span>
+        </div>
+        <a className="mobilePublicUrlLink" href={publicWebUrl} target="_blank" rel="noreferrer">
+          <ExternalLink size={14} />
+          <span>{publicUrlOpen}</span>
+          <code>{publicWebUrl}</code>
+        </a>
       </div>
 
       <div className="mobileCardGrid">
