@@ -21,7 +21,7 @@ import {
   reviewSyncPacketSignature,
   signSyncPacket,
 } from './deviceSigning';
-import { APP_VERSION, LATEST_RELEASE_URL, PUBLIC_WEB_URL, UPDATE_FEED_URL } from './appInfo';
+import { AI_SECRETARY_URL, APP_VERSION, LATEST_RELEASE_URL, PUBLIC_WEB_URL, UPDATE_FEED_URL } from './appInfo';
 import {
   createSyncKeyMaterial,
   ensureSyncKeyMaterial,
@@ -118,6 +118,11 @@ import { emitCaptureSaved, emitExportArtifact, emitReviewDecision } from './aiOr
 import { sendPersonalKmHandoff } from './personalKmHandoff';
 import { buildRestorePreview, type RestorePreview } from './restorePreview';
 import { buildSyncPreview, type SyncPreview } from './syncPreview';
+import {
+  clearCrossAppHandoffFromUrl,
+  readCrossAppHandoffFromLocation,
+  type CrossAppHandoff,
+} from './crossAppHandoff';
 import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from './syncRecoveryDrill';
 import { runSyncFolderOperationDrill } from './syncOperationDrill';
 import { runSyncRollbackDrill } from './syncRollbackDrill';
@@ -207,6 +212,10 @@ function App() {
   const lastVaultActivityAt = useRef(Date.now());
   const [captureText, setCaptureText] = useState(copy[getInitialLocale()].initialCapture as string);
   const [diaryText, setDiaryText] = useState('');
+  const [incomingHandoff, setIncomingHandoff] = useState<CrossAppHandoff | null>(() =>
+    typeof window === 'undefined' ? null : readCrossAppHandoffFromLocation(),
+  );
+  const [handoffStatus, setHandoffStatus] = useState('');
   const [query, setQuery] = useState(copy[getInitialLocale()].initialQuery as string);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [sqliteGraph, setSqliteGraph] = useState<GraphSnapshot | null>(null);
@@ -913,6 +922,48 @@ function App() {
     setSelectedBlockId(block?.id);
     setDiaryText('');
     setActivePage('today');
+    if (block) {
+      void emitCaptureSaved(block, nextStore);
+    }
+  }
+
+  function clearIncomingHandoff() {
+    setIncomingHandoff(null);
+    setHandoffStatus(locale === 'en' ? 'AI Secretary handoff dismissed.' : 'AI秘書からの整理依頼を閉じました。');
+    clearCrossAppHandoffFromUrl('inbox');
+  }
+
+  function stageIncomingHandoff() {
+    if (!incomingHandoff) {
+      return;
+    }
+
+    setCaptureText(incomingHandoff.markdown);
+    setHandoffStatus(locale === 'en' ? 'AI Secretary handoff moved into the capture box.' : 'AI秘書からの整理依頼を入力欄に入れました。');
+    setIncomingHandoff(null);
+    clearCrossAppHandoffFromUrl('inbox');
+    setActivePage('inbox');
+  }
+
+  function importIncomingHandoff() {
+    if (!incomingHandoff) {
+      return;
+    }
+
+    const content = `${incomingHandoff.markdown.trim()}\n\n#ai-secretary #handoff [[AI Secretary]] [[Distill Handoff]]`;
+    const nextStore = addCapture(content)(store);
+    const block = nextStore.blocks[0];
+
+    setStore(nextStore);
+    setSelectedBlockId(block?.id);
+    setIncomingHandoff(null);
+    clearCrossAppHandoffFromUrl('inbox');
+    setActivePage('inbox');
+    setHandoffStatus(
+      locale === 'en'
+        ? 'Imported the AI Secretary handoff into the encrypted vault.'
+        : 'AI秘書からの整理依頼を暗号化Vaultへ取り込みました。',
+    );
     if (block) {
       void emitCaptureSaved(block, nextStore);
     }
@@ -2974,6 +3025,7 @@ function App() {
         blockCount={store.blocks.length}
         hasLoadedStore={hasLoadedStore}
         appVersion={APP_VERSION}
+        aiSecretaryUrl={AI_SECRETARY_URL}
         activePage={activePage}
         onPageChange={(page) => scrollToSection(page)}
         onLockVault={() => void lockVault()}
@@ -3013,10 +3065,15 @@ function App() {
             ui={ui}
             captureText={captureText}
             diaryText={diaryText}
+            incomingHandoff={incomingHandoff}
+            handoffStatus={handoffStatus}
             onCaptureTextChange={setCaptureText}
             onDiaryTextChange={setDiaryText}
             onCapture={captureBlock}
             onCaptureDiary={captureDiaryEntry}
+            onImportHandoff={importIncomingHandoff}
+            onStageHandoff={stageIncomingHandoff}
+            onDismissHandoff={clearIncomingHandoff}
           />
         ) : null}
 

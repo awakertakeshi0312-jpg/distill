@@ -5,6 +5,17 @@ const BROWSER_VAULT_DB_NAME = 'distill-browser-vault';
 const BROWSER_VAULT_STORE_NAME = 'vaults';
 const BROWSER_VAULT_KEY = 'distill.vault.v1';
 
+function encodeUrlHandoff(value: unknown) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = '';
+
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/u, '');
+}
+
 async function clearBrowserVault(page: import('@playwright/test').Page) {
   await page.evaluate(
     ({ dbName }) =>
@@ -126,6 +137,7 @@ test('MVP browser smoke: capture, search, graph, project, archive', async ({ pag
   await page.getByRole('button', { name: 'English' }).click();
 
   await expect(page.getByRole('heading', { name: 'Inbox triage' })).toBeVisible();
+  await expect(page.locator('a[href="https://ai-secretary.takeshi-notes.com/"]').first()).toBeVisible();
 
   const capture = page.getByLabel('Capture a thought');
   await capture.fill('Review [[Semantic Retrieval]] with @Aki #search');
@@ -308,6 +320,35 @@ test('Mobile PWA readiness panel is available on a phone-sized viewport', async 
   await expect(pwaPanel.locator('a[href="https://awakertakeshi0312-jpg.github.io/distill/"]')).toBeVisible();
   await expect(pwaPanel.getByText('Offline shell')).toBeVisible();
   await expect(pwaPanel.getByText('Network')).toBeVisible();
+});
+
+test('AI Secretary URL handoff can be reviewed and imported into the vault', async ({ page }) => {
+  const encoded = encodeUrlHandoff({
+    type: 'distill.url-handoff',
+    version: 1,
+    source: 'ai-secretary',
+    kind: 'today',
+    id: 'handoff-e2e',
+    title: 'AI Secretary review packet',
+    markdown: '# Distill整理依頼\n\nAI Secretaryから渡された今日の整理依頼です。',
+    createdAt: '2026-05-08T00:00:00.000Z',
+    returnUrl: 'https://ai-secretary.takeshi-notes.com/',
+  });
+
+  await page.goto(`/?handoff=${encoded}#inbox`);
+
+  const passphrase = page.locator('input[aria-label="Vault passphrase"]');
+  await expect(passphrase).toBeVisible();
+  await passphrase.fill(VAULT_PASSPHRASE);
+  await page.locator('input[aria-label="Confirm vault passphrase"]').fill(VAULT_PASSPHRASE);
+  await page.locator('.vaultForm button[type="submit"]').click();
+  await page.getByRole('button', { name: 'English' }).click();
+
+  await expect(page.getByText('AI Secretary review packet')).toBeVisible();
+  await page.getByRole('button', { name: 'Import to vault' }).click();
+  await expect(page.locator('#inbox')).toContainText('AI Secretaryから渡された今日の整理依頼です。');
+  await expect(page.locator('#inbox')).toContainText('ai-secretary');
+  await expect.poll(async () => page.evaluate(() => window.location.search)).toBe('');
 });
 
 test('People index and graph neighbors respond to captured context', async ({ page }) => {

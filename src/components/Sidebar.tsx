@@ -2,6 +2,8 @@ import {
   Archive,
   BookOpen,
   CalendarDays,
+  Bot,
+  ExternalLink,
   Inbox,
   LockKeyhole,
   Network,
@@ -19,6 +21,7 @@ type SidebarProps = {
   blockCount: number;
   hasLoadedStore: boolean;
   appVersion: string;
+  aiSecretaryUrl: string;
   activePage: AppPage;
   onPageChange: (page: AppPage) => void;
   onLockVault: () => void;
@@ -35,6 +38,7 @@ export function Sidebar({
   blockCount,
   hasLoadedStore,
   appVersion,
+  aiSecretaryUrl,
   activePage,
   onPageChange,
   onLockVault,
@@ -79,6 +83,11 @@ export function Sidebar({
             </a>
           );
         })}
+        <a className="navItem companionNavItem" href={aiSecretaryUrl} target="_blank" rel="noreferrer">
+          <Bot size={18} />
+          {ui.navAiSecretary as string}
+          <ExternalLink className="navExternalIcon" size={13} />
+        </a>
       </nav>
 
       <div className="trustPanel">

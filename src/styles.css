@@ -445,6 +445,17 @@ button:disabled {
   background: #f7f8f0;
 }
 
+.companionNavItem {
+  color: var(--green);
+  border-color: rgba(47, 102, 78, 0.16);
+  background: rgba(47, 102, 78, 0.06);
+}
+
+.navExternalIcon {
+  margin-left: auto;
+  opacity: 0.72;
+}
+
 .trustPanel {
   display: grid;
   gap: 7px;
@@ -543,6 +554,76 @@ button:disabled {
 .captureHeader p {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.handoffBanner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  margin: 14px 16px;
+  padding: 14px;
+  border: 1px solid rgba(47, 102, 78, 0.24);
+  background:
+    linear-gradient(135deg, rgba(47, 102, 78, 0.1), rgba(255, 255, 250, 0.82)),
+    var(--paper-strong);
+}
+
+.handoffBanner p,
+.handoffBanner strong,
+.handoffBanner span {
+  display: block;
+  margin: 0;
+}
+
+.handoffBanner p {
+  color: var(--green);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.handoffBanner span,
+.handoffBanner code,
+.handoffStatus {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.handoffBanner code {
+  display: block;
+  max-height: 68px;
+  margin-top: 8px;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.handoffActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.handoffActions button {
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid rgba(47, 102, 78, 0.22);
+  background: var(--paper-strong);
+  color: var(--green);
+}
+
+.handoffActions button:first-child {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.handoffStatus {
+  margin: 0 16px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 250, 0.64);
 }
 
 .helpNote {
@@ -2267,6 +2348,18 @@ button.resultRow:hover {
 
   .captureEntryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .handoffBanner {
+    grid-template-columns: 1fr;
+  }
+
+  .handoffActions {
+    justify-content: stretch;
+  }
+
+  .handoffActions button {
+    flex: 1;
   }
 
   .captureEntry + .captureEntry {

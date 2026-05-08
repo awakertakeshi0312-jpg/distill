@@ -1,4 +1,5 @@
-﻿import { Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles } from 'lucide-react';
+import type { CrossAppHandoff } from '../crossAppHandoff';
 import type { UiCopy } from '../i18n';
 import { HelpNote } from './HelpNote';
 
@@ -6,20 +7,30 @@ type CapturePanelProps = {
   ui: UiCopy;
   captureText: string;
   diaryText: string;
+  incomingHandoff?: CrossAppHandoff | null;
+  handoffStatus?: string;
   onCaptureTextChange: (text: string) => void;
   onDiaryTextChange: (text: string) => void;
   onCapture: () => void;
   onCaptureDiary: () => void;
+  onImportHandoff?: () => void;
+  onStageHandoff?: () => void;
+  onDismissHandoff?: () => void;
 };
 
 export function CapturePanel({
   ui,
   captureText,
   diaryText,
+  incomingHandoff,
+  handoffStatus,
   onCaptureTextChange,
   onDiaryTextChange,
   onCapture,
   onCaptureDiary,
+  onImportHandoff,
+  onStageHandoff,
+  onDismissHandoff,
 }: CapturePanelProps) {
   return (
     <section className="capture" aria-label={ui.quickCapture as string}>
@@ -30,6 +41,28 @@ export function CapturePanel({
         </div>
         <HelpNote ui={ui} content={ui.sectionHelp.capture} />
       </div>
+      {incomingHandoff ? (
+        <div className="handoffBanner">
+          <div>
+            <p>{ui.handoffEyebrow as string}</p>
+            <strong>{incomingHandoff.title}</strong>
+            <span>{ui.handoffBody as string}</span>
+            <code>{incomingHandoff.markdown.slice(0, 240)}</code>
+          </div>
+          <div className="handoffActions">
+            <button type="button" onClick={onImportHandoff}>
+              {ui.handoffImport as string}
+            </button>
+            <button type="button" onClick={onStageHandoff}>
+              {ui.handoffStage as string}
+            </button>
+            <button type="button" onClick={onDismissHandoff}>
+              {ui.handoffDismiss as string}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {handoffStatus ? <div className="handoffStatus">{handoffStatus}</div> : null}
       <div className="captureEntryGrid">
         <div className="captureEntry">
           <div className="captureEntryHeader">
