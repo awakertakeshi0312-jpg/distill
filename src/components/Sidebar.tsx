@@ -12,12 +12,13 @@ import {
   Smartphone,
   type LucideIcon,
 } from 'lucide-react';
-import type { UiCopy } from '../i18n';
+import type { Locale, UiCopy } from '../i18n';
 
-export type AppPage = 'inbox' | 'today' | 'search' | 'projects' | 'graph' | 'archive' | 'settings' | 'mobile';
+export type AppPage = 'inbox' | 'today' | 'search' | 'projects' | 'graph' | 'archive' | 'settings' | 'mobile' | 'ai-secretary';
 
 type SidebarProps = {
   ui: UiCopy;
+  locale: Locale;
   blockCount: number;
   hasLoadedStore: boolean;
   appVersion: string;
@@ -31,10 +32,12 @@ type NavItem = {
   id: AppPage;
   icon: LucideIcon;
   label: string;
+  companion?: boolean;
 };
 
 export function Sidebar({
   ui,
+  locale,
   blockCount,
   hasLoadedStore,
   appVersion,
@@ -52,6 +55,7 @@ export function Sidebar({
     { id: 'archive', icon: Archive, label: ui.navArchive as string },
     { id: 'settings', icon: Settings, label: ui.navSettings as string },
     { id: 'mobile', icon: Smartphone, label: ui.navMobile as string },
+    { id: 'ai-secretary', icon: Bot, label: locale === 'ja' ? 'AI秘書' : 'AI Secretary', companion: true },
   ];
 
   return (
@@ -70,7 +74,7 @@ export function Sidebar({
 
           return (
             <a
-              className={`navItem ${activePage === item.id ? 'active' : ''}`}
+              className={`navItem ${item.companion ? 'companionNavItem' : ''} ${activePage === item.id ? 'active' : ''}`}
               href={`#${item.id}`}
               key={item.id}
               onClick={(event) => {

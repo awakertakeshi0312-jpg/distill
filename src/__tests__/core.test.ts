@@ -54,6 +54,7 @@ import {
 } from '../vaultRecordLog';
 import { isVaultAutoLockExpired, normalizeVaultAutoLockMinutes } from '../vaultSession';
 import { DEVICE_IDENTITY_KEY, getOrCreateDeviceIdentity, readDeviceIdentity, renameDeviceIdentity } from '../device';
+import { buildAiSecretaryImportUrl } from '../aiSecretaryExport';
 import {
   buildDeviceVerificationPayload,
   createDeviceSigningKeyPair,
@@ -144,6 +145,12 @@ const store: DistillStore = {
     }),
   ],
 };
+
+function decodeBase64UrlJson(value: string) {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(padded), (char) => char.charCodeAt(0))));
+}
 
 describe('PWA install guidance', () => {
   it('detects mobile platforms from user agents', () => {
@@ -501,6 +508,16 @@ describe('portable imports', () => {
 
     expect(parsed.blocks.map((item) => item.id)).toEqual(['b-1', 'b-2', 'b-3']);
     expect(parsed.projects.map((item) => item.id)).toEqual(['p-active', 'p-next']);
+  });
+
+  it('builds an AI Secretary import URL with the Distill store payload', () => {
+    const url = new URL(buildAiSecretaryImportUrl('https://ai-secretary.takeshi-notes.com/?tab=today', store));
+    const hashParams = new URLSearchParams(url.hash.slice(1));
+    const payload = decodeBase64UrlJson(hashParams.get('distillImportB64') ?? '');
+
+    expect(url.searchParams.get('tab')).toBe('drafts');
+    expect(payload.blocks.map((item: ThoughtBlock) => item.id)).toContain('b-1');
+    expect(payload.projects.map((item: { id: string }) => item.id)).toContain('p-active');
   });
 
   it('accepts null project IDs from legacy SQLite JSON backups', () => {
