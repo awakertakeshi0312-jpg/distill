@@ -23,6 +23,20 @@ export type AiSecretarySyncMessage =
       version: 1;
       requestId: string;
       sentAt: string;
+    }
+  | {
+      type: 'ai-secretary.sync.unlock';
+      version: 1;
+      requestId: string;
+      sentAt: string;
+      passphrase: string;
+      sendSnapshotAfterUnlock: boolean;
+    }
+  | {
+      type: 'ai-secretary.sync.vault-export.request';
+      version: 1;
+      requestId: string;
+      sentAt: string;
     };
 
 export type DistillSyncAck = {
@@ -62,6 +76,16 @@ export type DistillSyncSnapshot = {
     latestUpdatedAt: string | null;
   };
   decisions: DistillSyncDecision[];
+};
+
+export type DistillSyncVaultExport = {
+  type: 'distill.sync.vault-export';
+  version: 1;
+  requestId: string;
+  source: 'distill';
+  sentAt: string;
+  encryptedVault: string | null;
+  summary: DistillSyncSnapshot['summary'];
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -113,6 +137,28 @@ export function parseAiSecretarySyncMessage(data: unknown): AiSecretarySyncMessa
   if (data.type === 'ai-secretary.sync.snapshot.request') {
     return {
       type: 'ai-secretary.sync.snapshot.request',
+      version: 1,
+      requestId,
+      sentAt,
+    };
+  }
+
+  if (data.type === 'ai-secretary.sync.unlock') {
+    const passphrase = text(data.passphrase, 2_000);
+    if (!passphrase) return null;
+    return {
+      type: 'ai-secretary.sync.unlock',
+      version: 1,
+      requestId,
+      sentAt,
+      passphrase,
+      sendSnapshotAfterUnlock: data.sendSnapshotAfterUnlock !== false,
+    };
+  }
+
+  if (data.type === 'ai-secretary.sync.vault-export.request') {
+    return {
+      type: 'ai-secretary.sync.vault-export.request',
       version: 1,
       requestId,
       sentAt,
@@ -218,5 +264,22 @@ export function buildDistillSyncSnapshot(store: DistillStore, requestId?: string
       .sort((first, second) => (second.updatedAt || second.capturedAt).localeCompare(first.updatedAt || first.capturedAt))
       .slice(0, 24)
       .map(decisionRecord),
+  };
+}
+
+export function buildDistillSyncVaultExport(
+  store: DistillStore,
+  encryptedVault: string | null,
+  requestId: string,
+): DistillSyncVaultExport {
+  const snapshot = buildDistillSyncSnapshot(store, requestId);
+  return {
+    type: 'distill.sync.vault-export',
+    version: 1,
+    requestId,
+    source: 'distill',
+    sentAt: new Date().toISOString(),
+    encryptedVault,
+    summary: snapshot.summary,
   };
 }

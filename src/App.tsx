@@ -127,9 +127,11 @@ import {
 import {
   buildDistillSyncAck,
   buildDistillSyncSnapshot,
+  buildDistillSyncVaultExport,
   parseAiSecretarySyncMessage,
   type DistillSyncAck,
   type DistillSyncSnapshot,
+  type DistillSyncVaultExport,
 } from './crossAppSync';
 import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from './syncRecoveryDrill';
 import { runSyncFolderOperationDrill } from './syncOperationDrill';
@@ -1238,7 +1240,7 @@ function App() {
       if (!encryptedVault) {
         setVaultError(runtimeVaultLabels().missingVault);
         setVaultStatus('setup');
-        return;
+        return false;
       }
 
       const candidatePassphrases =
@@ -1255,7 +1257,7 @@ function App() {
           openVaultSession(candidatePassphrase, session);
           setHasLoadedStore(true);
           setVaultStatus('unlocked');
-          return;
+          return true;
         } catch (error) {
           lastError = error;
         }
@@ -1265,6 +1267,7 @@ function App() {
     } catch (error) {
       console.warn('Failed to unlock encrypted Distill vault.', error);
       setVaultError(runtimeVaultLabels().unlockInvalid);
+      return false;
     }
   }
 
@@ -3033,7 +3036,7 @@ function App() {
     }, 0);
   }
 
-  function postCrossAppSyncMessage(message: DistillSyncAck | DistillSyncSnapshot) {
+  function postCrossAppSyncMessage(message: DistillSyncAck | DistillSyncSnapshot | DistillSyncVaultExport) {
     const peer = syncPeerRef.current;
     if (!peer) {
       return;
@@ -3130,6 +3133,51 @@ function App() {
         }
 
         postCrossAppSyncMessage(buildDistillSyncSnapshot(store, message.requestId));
+        return;
+      }
+
+      if (message.type === 'ai-secretary.sync.unlock') {
+        if (vaultStatus === 'unlocked') {
+          postCrossAppSyncMessage(
+            buildDistillSyncAck({
+              requestId: message.requestId,
+              status: 'ready',
+              detail: 'Distill vault is already unlocked.',
+            }),
+          );
+          if (message.sendSnapshotAfterUnlock) {
+            postCrossAppSyncMessage(buildDistillSyncSnapshot(store, message.requestId));
+          }
+          return;
+        }
+
+        void unlockVault(message.passphrase).then((unlocked) => {
+          postCrossAppSyncMessage(
+            buildDistillSyncAck({
+              requestId: message.requestId,
+              status: unlocked ? 'ready' : 'blocked',
+              detail: unlocked ? 'Distill vault unlocked from AI Secretary shell.' : 'Could not unlock the Distill vault.',
+            }),
+          );
+        });
+        return;
+      }
+
+      if (message.type === 'ai-secretary.sync.vault-export.request') {
+        if (vaultStatus !== 'unlocked') {
+          postCrossAppSyncMessage(
+            buildDistillSyncAck({
+              requestId: message.requestId,
+              status: 'blocked',
+              detail: 'Distill vault is locked.',
+            }),
+          );
+          return;
+        }
+
+        void loadEncryptedVault().then((encryptedVault) => {
+          postCrossAppSyncMessage(buildDistillSyncVaultExport(store, encryptedVault, message.requestId));
+        });
         return;
       }
 

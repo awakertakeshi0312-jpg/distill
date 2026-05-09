@@ -16,6 +16,8 @@ Distill and AI Secretary should feel like one personal operating system while ke
 - Distill detects the incoming handoff after vault unlock, shows a review banner, and imports it into the encrypted vault only after the user confirms.
 - Distill also accepts the same handoff shape through a local `postMessage` sync protocol. When the vault is unlocked and AI Secretary sends `autoImport: true`, Distill imports the handoff with a duplicate marker and returns an ack.
 - Distill returns a summary snapshot and processed AI Secretary-related decisions through `distill.sync.snapshot`.
+- AI Secretary can send a session-only `ai-secretary.sync.unlock` request. Distill uses that passphrase only to open the current vault session; it does not store the passphrase.
+- AI Secretary can request `distill.sync.vault-export`. Distill returns only the encrypted vault export; plain in-memory store data is never sent through the shell sync protocol.
 
 ## URLs
 
@@ -31,4 +33,4 @@ Distill and AI Secretary should feel like one personal operating system while ke
 
 ## Boundary
 
-Do not merge encrypted Distill vault data into AI Secretary. UI integration should use explicit handoff packets, links, and bounded summary snapshots until E2EE sync is implemented. The unified shell never unlocks the vault for the user and does not send raw vault exports to AI Secretary.
+Do not silently merge encrypted Distill vault data into AI Secretary. UI integration should use explicit handoff packets, links, bounded summary snapshots, and encrypted-only vault export requests until E2EE sync is implemented. The unified shell can unlock the embedded Distill session only from a passphrase entered for that browser session.
