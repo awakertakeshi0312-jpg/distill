@@ -124,6 +124,13 @@ import {
   readCrossAppHandoffFromLocation,
   type CrossAppHandoff,
 } from './crossAppHandoff';
+import {
+  buildDistillSyncAck,
+  buildDistillSyncSnapshot,
+  parseAiSecretarySyncMessage,
+  type DistillSyncAck,
+  type DistillSyncSnapshot,
+} from './crossAppSync';
 import { runMultiDeviceSyncRecoveryDrill, runSyncRecoveryDrill } from './syncRecoveryDrill';
 import { runSyncFolderOperationDrill } from './syncOperationDrill';
 import { runSyncRollbackDrill } from './syncRollbackDrill';
@@ -162,6 +169,31 @@ const APP_PAGES: AppPage[] = ['inbox', 'today', 'search', 'projects', 'graph', '
 
 function isAppPage(value: string): value is AppPage {
   return APP_PAGES.includes(value as AppPage);
+}
+
+function originFromUrl(value: string) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '';
+  }
+}
+
+function isLocalAiSecretaryOrigin(origin: string) {
+  return /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/u.test(origin);
+}
+
+function isAllowedAiSecretarySyncOrigin(origin: string) {
+  const allowed = new Set([
+    originFromUrl(AI_SECRETARY_URL),
+    originFromUrl(PUBLIC_AI_SECRETARY_URL),
+  ].filter(Boolean));
+
+  return allowed.has(origin) || isLocalAiSecretaryOrigin(origin);
+}
+
+function aiSecretaryHandoffMarker(handoffId: string) {
+  return `<!-- ai-secretary-handoff:${handoffId} -->`;
 }
 
 function getInitialPage(): AppPage {
@@ -206,6 +238,7 @@ function App() {
   const [legacyPlainStore, setLegacyPlainStore] = useState<DistillStore | null>(null);
   const vaultPassphraseRef = useRef('');
   const vaultSessionRef = useRef<DistillVaultSession | null>(null);
+  const syncPeerRef = useRef<{ source: WindowProxy; origin: string } | null>(null);
   const [vaultSessionVersion, setVaultSessionVersion] = useState(0);
   const [vaultError, setVaultError] = useState('');
   const [vaultNotice, setVaultNotice] = useState('');
@@ -957,12 +990,23 @@ function App() {
     setActivePage('inbox');
   }
 
-  function importIncomingHandoff() {
-    if (!incomingHandoff) {
-      return;
+  function importCrossAppHandoff(handoff: CrossAppHandoff, mode: 'manual' | 'auto' = 'manual') {
+    const marker = aiSecretaryHandoffMarker(handoff.id);
+    const duplicate = store.blocks.some((block) => block.content.includes(marker));
+    if (duplicate) {
+      setIncomingHandoff(null);
+      setActivePage('inbox');
+      setHandoffStatus(
+        mode === 'auto'
+          ? 'Auto sync skipped a duplicate AI Secretary handoff.'
+          : locale === 'en'
+            ? 'This AI Secretary handoff is already in the encrypted vault.'
+            : 'This AI Secretary handoff is already in the encrypted vault.',
+      );
+      return { status: 'duplicate' as const, store };
     }
 
-    const content = `${incomingHandoff.markdown.trim()}\n\n#ai-secretary #handoff [[AI Secretary]] [[Distill Handoff]]`;
+    const content = `${handoff.markdown.trim()}\n\n#ai-secretary #handoff [[AI Secretary]] [[Distill Handoff]]\n${marker}`;
     const nextStore = addCapture(content)(store);
     const block = nextStore.blocks[0];
 
@@ -972,13 +1016,24 @@ function App() {
     clearCrossAppHandoffFromUrl('inbox');
     setActivePage('inbox');
     setHandoffStatus(
-      locale === 'en'
-        ? 'Imported the AI Secretary handoff into the encrypted vault.'
-        : 'AI秘書からの整理依頼を暗号化Vaultへ取り込みました。',
+      mode === 'auto'
+        ? 'Auto sync imported an AI Secretary handoff into the encrypted vault.'
+        : locale === 'en'
+          ? 'Imported the AI Secretary handoff into the encrypted vault.'
+          : 'AI秘書からの整理依頼を暗号化Vaultへ取り込みました。',
     );
     if (block) {
       void emitCaptureSaved(block, nextStore);
     }
+    return { status: 'imported' as const, store: nextStore };
+  }
+
+  function importIncomingHandoff() {
+    if (!incomingHandoff) {
+      return;
+    }
+
+    importCrossAppHandoff(incomingHandoff, 'manual');
   }
 
   function exportMarkdown() {
@@ -2978,6 +3033,15 @@ function App() {
     }, 0);
   }
 
+  function postCrossAppSyncMessage(message: DistillSyncAck | DistillSyncSnapshot) {
+    const peer = syncPeerRef.current;
+    if (!peer) {
+      return;
+    }
+
+    peer.source.postMessage(message, peer.origin);
+  }
+
   function runCommand(command: CommandItem) {
     command.run();
     setIsCommandOpen(false);
@@ -3019,6 +3083,107 @@ function App() {
     setStore(updateBlockContent(editingBlockId, editingText));
     cancelEditing();
   }
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (!isAllowedAiSecretarySyncOrigin(event.origin)) {
+        return;
+      }
+
+      const message = parseAiSecretarySyncMessage(event.data);
+      if (!message || !event.source) {
+        return;
+      }
+
+      const source = event.source as WindowProxy;
+      if (typeof source.postMessage !== 'function') {
+        return;
+      }
+
+      syncPeerRef.current = { source, origin: event.origin };
+
+      if (message.type === 'ai-secretary.sync.hello') {
+        const ready = vaultStatus === 'unlocked';
+        postCrossAppSyncMessage(
+          buildDistillSyncAck({
+            requestId: message.requestId,
+            status: ready ? 'ready' : 'blocked',
+            detail: ready ? 'Distill vault is ready for auto sync.' : 'Distill vault is locked.',
+          }),
+        );
+        if (ready) {
+          postCrossAppSyncMessage(buildDistillSyncSnapshot(store, message.requestId));
+        }
+        return;
+      }
+
+      if (message.type === 'ai-secretary.sync.snapshot.request') {
+        if (vaultStatus !== 'unlocked') {
+          postCrossAppSyncMessage(
+            buildDistillSyncAck({
+              requestId: message.requestId,
+              status: 'blocked',
+              detail: 'Distill vault is locked.',
+            }),
+          );
+          return;
+        }
+
+        postCrossAppSyncMessage(buildDistillSyncSnapshot(store, message.requestId));
+        return;
+      }
+
+      if (message.type === 'ai-secretary.sync.handoff') {
+        if (vaultStatus !== 'unlocked') {
+          setIncomingHandoff(message.handoff);
+          postCrossAppSyncMessage(
+            buildDistillSyncAck({
+              requestId: message.requestId,
+              handoffId: message.handoff.id,
+              status: 'blocked',
+              detail: 'Distill vault is locked; handoff staged until unlock.',
+            }),
+          );
+          return;
+        }
+
+        if (!message.autoImport) {
+          setIncomingHandoff(message.handoff);
+          postCrossAppSyncMessage(
+            buildDistillSyncAck({
+              requestId: message.requestId,
+              handoffId: message.handoff.id,
+              status: 'ready',
+              detail: 'Handoff staged for manual import.',
+            }),
+          );
+          return;
+        }
+
+        const result = importCrossAppHandoff(message.handoff, 'auto');
+        postCrossAppSyncMessage(
+          buildDistillSyncAck({
+            requestId: message.requestId,
+            handoffId: message.handoff.id,
+            status: result.status,
+            detail: result.status === 'imported' ? 'Imported into Distill vault.' : 'Duplicate handoff already exists.',
+          }),
+        );
+        postCrossAppSyncMessage(buildDistillSyncSnapshot(result.store, message.requestId));
+      }
+    }
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [locale, store, vaultStatus]);
+
+  useEffect(() => {
+    if (vaultStatus !== 'unlocked' || !syncPeerRef.current) {
+      return;
+    }
+
+    postCrossAppSyncMessage(buildDistillSyncSnapshot(store));
+  }, [store, vaultStatus]);
 
   if (vaultStatus !== 'unlocked') {
     return (

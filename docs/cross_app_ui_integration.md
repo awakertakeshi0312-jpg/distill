@@ -14,6 +14,8 @@ Distill and AI Secretary should feel like one personal operating system while ke
 - AI Secretary already prepares Distill handoff packages and Distill decision returns.
 - AI Secretary can open Distill with a signed-shape URL handoff payload in `?handoff=...#inbox`.
 - Distill detects the incoming handoff after vault unlock, shows a review banner, and imports it into the encrypted vault only after the user confirms.
+- Distill also accepts the same handoff shape through a local `postMessage` sync protocol. When the vault is unlocked and AI Secretary sends `autoImport: true`, Distill imports the handoff with a duplicate marker and returns an ack.
+- Distill returns a summary snapshot and processed AI Secretary-related decisions through `distill.sync.snapshot`.
 
 ## URLs
 
@@ -23,10 +25,10 @@ Distill and AI Secretary should feel like one personal operating system while ke
 ## Next UI Phases
 
 1. Shared top-level command center card in both apps.
-2. Distill decision return panel that AI Secretary can consume without manual JSON paste.
+2. Distill decision return panel that AI Secretary can consume without manual JSON paste. Implemented for the unified shell through `postMessage` snapshots.
 3. Shared design tokens for typography, spacing, status badges, and mobile navigation.
-4. Optional unified shell after data ownership and auth boundaries are stable.
+4. Optional unified shell after data ownership and auth boundaries are stable. Implemented in AI Secretary as the `shell` tab with Distill embedded.
 
 ## Boundary
 
-Do not merge encrypted Distill vault data into AI Secretary. UI integration should use explicit handoff packets, links, and user-reviewed imports until E2EE sync is implemented.
+Do not merge encrypted Distill vault data into AI Secretary. UI integration should use explicit handoff packets, links, and bounded summary snapshots until E2EE sync is implemented. The unified shell never unlocks the vault for the user and does not send raw vault exports to AI Secretary.
