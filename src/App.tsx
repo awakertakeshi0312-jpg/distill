@@ -21,7 +21,7 @@ import {
   reviewSyncPacketSignature,
   signSyncPacket,
 } from './deviceSigning';
-import { AI_SECRETARY_URL, APP_VERSION, LATEST_RELEASE_URL, PUBLIC_WEB_URL, UPDATE_FEED_URL } from './appInfo';
+import { AI_SECRETARY_URL, APP_VERSION, LATEST_RELEASE_URL, PUBLIC_AI_SECRETARY_URL, PUBLIC_WEB_URL, UPDATE_FEED_URL } from './appInfo';
 import {
   createSyncKeyMaterial,
   ensureSyncKeyMaterial,
@@ -100,6 +100,7 @@ import {
   getTodayNoteId,
 } from './selectors';
 import { ArchivePanel } from './components/ArchivePanel';
+import { AiSecretaryPanel } from './components/AiSecretaryPanel';
 import { CapturePanel } from './components/CapturePanel';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { GraphPanel } from './components/GraphPanel';
@@ -157,7 +158,7 @@ const SYNC_FOLDER_MONITOR_INTERVAL_MS = 60_000;
 const SYNC_FOLDER_AUTO_EXPORT_INTERVAL_MS = 120_000;
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 type VaultStatus = 'checking' | 'locked' | 'setup' | 'unlocked';
-const APP_PAGES: AppPage[] = ['inbox', 'today', 'search', 'projects', 'graph', 'archive', 'settings', 'mobile'];
+const APP_PAGES: AppPage[] = ['inbox', 'today', 'search', 'projects', 'graph', 'archive', 'settings', 'mobile', 'ai-secretary'];
 
 function isAppPage(value: string): value is AppPage {
   return APP_PAGES.includes(value as AppPage);
@@ -230,6 +231,8 @@ function App() {
   const [newProjectSignal, setNewProjectSignal] = useState('');
   const [newProjectStatus, setNewProjectStatus] = useState<Project['status']>('Active');
   const [projectFormError, setProjectFormError] = useState('');
+  const [aiSecretaryDraftPrompt, setAiSecretaryDraftPrompt] = useState('');
+  const [aiSecretaryDraftKey, setAiSecretaryDraftKey] = useState(0);
   const [storagePath, setStoragePath] = useState('');
   const [backupPath, setBackupPath] = useState('');
   const [restoreStatus, setRestoreStatus] = useState('');
@@ -764,6 +767,7 @@ function App() {
     archive: ui.archivedBlocks as string,
     settings: ui.settingsTitle as string,
     mobile: ui.mobileTitle as string,
+    'ai-secretary': locale === 'ja' ? 'AI秘書' : 'AI Secretary',
   };
   const pageEyebrows: Record<AppPage, string> = {
     inbox: ui.navInbox as string,
@@ -774,6 +778,7 @@ function App() {
     archive: ui.archived as string,
     settings: ui.settingsEyebrow as string,
     mobile: ui.mobileEyebrow as string,
+    'ai-secretary': locale === 'ja' ? '予定・タスク・行動提案' : 'Schedule / tasks / action prompts',
   };
 
   const commandItems: CommandItem[] = [
@@ -818,6 +823,13 @@ function App() {
       section: ui.commandSections.navigation,
       keywords: 'archive restore',
       run: () => scrollToSection('archive'),
+    },
+    {
+      id: 'go-ai-secretary',
+      label: locale === 'ja' ? 'AI秘書へ移動' : 'Go to AI Secretary',
+      section: ui.commandSections.navigation,
+      keywords: 'ai secretary schedule tasks assistant',
+      run: () => scrollToSection('ai-secretary'),
     },
     {
       id: 'search-text',
@@ -2949,6 +2961,12 @@ function App() {
     setProjectFormError('');
   }
 
+  function planWithAiSecretary(prompt: string) {
+    setAiSecretaryDraftPrompt(prompt);
+    setAiSecretaryDraftKey((current) => current + 1);
+    scrollToSection('ai-secretary');
+  }
+
   function scrollToSection(sectionId: string) {
     if (isAppPage(sectionId)) {
       setActivePage(sectionId);
@@ -3022,10 +3040,11 @@ function App() {
     <main className="shell">
       <Sidebar
         ui={ui}
+        locale={locale}
         blockCount={store.blocks.length}
         hasLoadedStore={hasLoadedStore}
         appVersion={APP_VERSION}
-        aiSecretaryUrl={AI_SECRETARY_URL}
+        aiSecretaryUrl={PUBLIC_AI_SECRETARY_URL}
         activePage={activePage}
         onPageChange={(page) => scrollToSection(page)}
         onLockVault={() => void lockVault()}
@@ -3060,7 +3079,7 @@ function App() {
           </section>
         ) : null}
 
-        {activePage !== 'settings' && activePage !== 'mobile' ? (
+        {activePage !== 'settings' && activePage !== 'mobile' && activePage !== 'ai-secretary' ? (
           <CapturePanel
             ui={ui}
             captureText={captureText}
@@ -3078,6 +3097,21 @@ function App() {
         ) : null}
 
         <div className="contentGrid">
+          {activePage === 'ai-secretary' ? (
+            <AiSecretaryPanel
+              locale={locale}
+              aiSecretaryUrl={AI_SECRETARY_URL}
+              draftPrompt={aiSecretaryDraftPrompt}
+              draftPromptKey={aiSecretaryDraftKey}
+              selectedBlock={selectedBlock}
+              store={store}
+              projects={store.projects}
+              todayBlocks={todayBlocks}
+              focusProjects={focusProjects}
+              totalBlocks={store.blocks.length}
+            />
+          ) : null}
+
           {activePage === 'today' ? (
             <TodayPanel
               ui={ui}
@@ -3293,6 +3327,7 @@ function App() {
           {activePage === 'projects' ? (
             <ProjectsPanel
               ui={ui}
+              locale={locale}
               projectCounts={projectCounts}
               newProjectName={newProjectName}
               newProjectSignal={newProjectSignal}
@@ -3303,6 +3338,7 @@ function App() {
               onNewProjectStatusChange={setNewProjectStatus}
               onClearProjectFormError={() => setProjectFormError('')}
               onSubmitNewProject={submitNewProject}
+              onPlanWithAiSecretary={planWithAiSecretary}
             />
           ) : null}
 
