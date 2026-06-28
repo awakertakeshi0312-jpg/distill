@@ -111,6 +111,7 @@ import { PeoplePanel } from './components/PeoplePanel';
 import { ProjectsPanel } from './components/ProjectsPanel';
 import { SearchPanel } from './components/SearchPanel';
 import { Sidebar, type AppPage } from './components/Sidebar';
+import { AiSecretaryRedirectBanner } from './components/AiSecretaryRedirectBanner';
 import { TodayPanel } from './components/TodayPanel';
 import { Topbar } from './components/Topbar';
 import { VaultGate } from './components/VaultGate';
@@ -3264,6 +3265,7 @@ function App() {
       />
 
       <section className="workspace">
+        <AiSecretaryRedirectBanner locale={locale} aiSecretaryUrl={PUBLIC_AI_SECRETARY_URL} />
         <Topbar
           ui={ui}
           locale={locale}
