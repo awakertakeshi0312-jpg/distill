@@ -756,6 +756,53 @@ button:disabled {
   box-shadow: var(--shadow);
 }
 
+.aiSecretaryRedirectBanner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.aiSecretaryRedirectBannerBody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.aiSecretaryRedirectBannerBody strong {
+  font-size: 13px;
+}
+
+.aiSecretaryRedirectBannerBody span {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.aiSecretaryRedirectBannerActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.aiSecretaryRedirectBannerActions a,
+.aiSecretaryRedirectBannerActions button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.6);
+}
+
 .capture {
   margin-bottom: 18px;
 }
